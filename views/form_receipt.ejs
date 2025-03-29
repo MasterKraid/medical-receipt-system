@@ -1,0 +1,358 @@
+<!-- medical_receipt_system/views/form_receipt.ejs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receipt Form - <%= currentBranchDetails ? currentBranchDetails.name : 'Unknown Branch' %></title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <style>
+        /* Styles identical to form_estimate.ejs - Use shared CSS or duplicate */
+        form:not(#login-form) { max-width: 950px; }
+        fieldset { border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
+        legend { font-weight: bold; color: #333; padding: 0 10px; }
+        .item-row { display: grid; grid-template-columns: 1fr auto 80px 50px auto; gap: 10px; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #eee; }
+        .item-row:last-child { border-bottom: none; }
+        .item-row label { display: none; } .item-row input { margin-bottom: 0; }
+        .item-row .mrp-input { max-width: 100px; text-align: right;}
+        .item-row .discount-input { max-width: 70px; text-align: right;}
+        .item-row .discount-amount-display { font-size: 0.9em; color: #555; min-width: 50px; text-align: right; padding-right: 5px;}
+        .remove-item-btn { background-color: #dc3545; color: white; border: none; border-radius: 4px; padding: 5px 8px; cursor: pointer; font-size: 0.9em; line-height: 1.2; }
+        .remove-item-btn:hover { background-color: #c82333; }
+        #add-item-btn { display: inline-block; background-color: #28a745; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; font-size: 1.2em; line-height: 28px; cursor: pointer; margin-left: 10px; vertical-align: middle; text-align: center;}
+        #items-container { margin-top: 0; border: 1px solid #eee; padding: 15px; border-radius: 5px; } /* Adjusted margin */
+        #live-preview-receipt { margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee; font-size: 1.05em; font-weight: bold; }
+        #live-preview-receipt div { text-align: right; margin-bottom: 5px; }
+        #live-preview-receipt span { display: inline-block; min-width: 100px; text-align: right; font-family: monospace; }
+        #live-preview-receipt .label { display: inline-block; min-width: 250px; text-align: right; font-weight: normal; color: #333; padding-right: 10px; }
+        #live-preview-receipt .subtotal .label, #live-preview-receipt .overall-discount-display .label { font-size: 0.95em; font-weight: normal;}
+        #live-preview-receipt .overall-discount-display span { color: #dc3545; }
+        #live-preview-receipt .total span { color: #007bff; font-size: 1.1em; }
+        #live-preview-receipt .due span { color: #dc3545; font-size: 1.1em; } /* Make due red and slightly larger */
+         .item-header { display: grid; grid-template-columns: 1fr auto 80px 50px auto; gap: 10px; font-weight: bold; color: #555; font-size: 0.9em; margin-bottom: 5px; padding: 0 5px; }
+         .item-header > div:nth-child(2), .item-header > div:nth-child(3), .item-header > div:nth-child(4) { text-align: right; }
+    </style>
+</head>
+<body>
+    <form id="receipt-form" action="/receipt-submit" method="POST">
+        <h1>Money Receipt Form</h1>
+        <% if (currentBranchDetails && sessionUser) { %>
+            <p>
+                Branch: <strong><%= currentBranchDetails.name %></strong> |
+                User: <%= sessionUser.username %> |
+                <a href="/logout">Logout</a> |
+                <a href="/estimate-form">Go to Estimate Form</a>
+            </p>
+        <% } %>
+        <hr>
+
+        <!-- Customer Details -->
+        <fieldset>
+             <legend>Customer Details</legend>
+             <div class="form-grid">
+                  <div class="full-width">
+                       <label for="customer_name">Customer Name:</label>
+                       <input type="text" id="customer_name" name="customer_name" required>
+                  </div>
+                  <div>
+                       <label for="age">Age:</label>
+                       <input type="number" id="age" name="age" min="0" max="130">
+                       <small>(Enter Age or DOB)</small>
+                  </div>
+                  <div>
+                       <label for="customer_dob">Date of Birth:</label>
+                       <input type="text" id="customer_dob" name="customer_dob" placeholder="DD/MM/YYYY" class="flatpickr-date">
+                  </div>
+                  <div>
+                       <label>Gender:</label>
+                       <div class="radio-group">
+                           <input type="radio" id="male" name="gender" value="Male" checked> <label for="male">Male</label> <!-- Default checked -->
+                           <input type="radio" id="female" name="gender" value="Female"> <label for="female">Female</label>
+                           <input type="radio" id="other" name="gender" value="Other"> <label for="other">Other</label>
+                       </div>
+                  </div>
+                  <div>
+                       <label for="mobile_no">Mobile No:</label>
+                       <input type="tel" id="mobile_no" name="mobile_no" pattern="[0-9\s+-]*" title="Enter a valid phone number">
+                  </div>
+                  <div class="full-width">
+                       <label for="referred_by">Referred By Dr.:</label>
+                       <input type="text" id="referred_by" name="referred_by">
+                  </div>
+             </div>
+        </fieldset>
+        <hr>
+
+        <!-- Items Section -->
+         <fieldset>
+             <legend>Tests / Packages <button type="button" id="add-item-btn" title="Add Item">+</button></legend>
+             <div class="item-header">
+                 <div>Package Name</div>
+                 <div>MRP (₹)</div>
+                 <div>Disc (%)</div>
+                 <div>Disc Amt (₹)</div>
+                 <div>Action</div>
+             </div>
+            <div id="items-container">
+                <!-- Item Row Template -->
+                <div class="item-row">
+                    <input type="text" name="package_names[]" placeholder="Select or Type Package" list="package-list" required class="package-name-input item-calc-trigger">
+                    <input type="number" name="mrps[]" placeholder="MRP" step="0.01" min="0" required class="mrp-input item-calc-trigger">
+                    <input type="number" name="item_discounts[]" placeholder="Disc %" step="0.1" min="0" max="100" value="0" class="discount-input item-calc-trigger">
+                    <span class="discount-amount-display">0.00</span>
+                    <button type="button" class="remove-item-btn" onclick="removeItem(this)">X</button>
+                </div>
+                 <!-- More item rows will be added here by JS -->
+            </div>
+             <datalist id="package-list">
+                 <!-- Options will be populated by JS -->
+             </datalist>
+        </fieldset>
+        <hr>
+
+        <!-- Payment & Other Details -->
+        <fieldset>
+             <legend>Payment & Other Details</legend>
+             <div class="form-grid">
+                  <div>
+                       <label for="discount_percentage">Overall Discount (%):</label>
+                       <input type="number" id="discount_percentage" name="discount_percentage" step="0.1" min="0" max="100" value="0" class="item-calc-trigger">
+                  </div>
+                  <div>
+                       <label for="amount_received">Received Amount:</label>
+                       <input type="number" id="amount_received" name="amount_received" step="0.01" min="0" required class="item-calc-trigger">
+                  </div>
+                  <div>
+                       <label for="due_amount_manual">Due Amount Override (Optional):</label>
+                       <input type="number" id="due_amount_manual" name="due_amount_manual" step="0.01" min="0" placeholder="Auto-calculated if blank" class="item-calc-trigger">
+                       <small>Leave blank for auto-calculation.</small>
+                  </div>
+                  <div>
+                       <label for="num_tests">No of Tests:</label>
+                       <input type="number" id="num_tests" name="num_tests" min="0" placeholder="Auto-count if blank">
+                       <small>Leave blank to count items automatically.</small>
+                  </div>
+                   <div>
+                       <label for="conducted_at">Tests Conducted At:</label>
+                       <input type="text" id="conducted_at" name="conducted_at" placeholder="e.g., Branch Name / Lab">
+                   </div>
+                  <div class="full-width">
+                       <label for="payment_method">Payment Method:</label>
+                       <select id="payment_method" name="payment_method">
+                           <option value="Cash" selected>Cash</option>
+                           <option value="Card">Card</option>
+                           <option value="UPI">UPI</option>
+                           <option value="Mixed">Mixed</option>
+                           <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="full-width">
+                        <label for="notes">Notes:</label>
+                        <textarea id="notes" name="notes" rows="3"></textarea>
+                    </div>
+             </div>
+
+             <!-- Live Preview Section -->
+             <div id="live-preview-receipt">
+                 <div><span class="label">Total MRP:</span> ₹<span id="calculated-mrp">0.00</span></div>
+                 <div class="subtotal"><span class="label">Subtotal (After Item Disc):</span> ₹<span id="calculated-subtotal">0.00</span></div>
+                 <div class="overall-discount-display"><span class="label">Overall Disc Amount:</span> ₹<span id="calculated-overall-discount-amount">0.00</span></div>
+                 <div class="total"><span class="label">Net Payable:</span> ₹<span id="calculated-total-receipt">0.00</span></div>
+                 <div class="due"><span class="label">Amount Due:</span> ₹<span id="calculated-due">0.00</span></div>
+             </div>
+        </fieldset>
+
+       <button type="submit" class="full-width">Generate & Save Receipt</button>
+    </form>
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+        // --- Shared Package Data & Initialization ---
+        let packageData = [];
+        flatpickr(".flatpickr-date", {
+            dateFormat: "d/m/Y",
+            allowInput: true
+        });
+
+        // --- DOMContentLoaded ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('/api/packages');
+                if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
+                packageData = await response.json();
+                populateDatalist();
+            } catch (error) {
+                console.error("Failed to fetch packages:", error);
+            }
+
+            addEventListenersToAllRowsReceipt();
+            // Add listeners for overall fields that affect calculation
+            document.getElementById('discount_percentage').addEventListener('input', updateTotalReceipt);
+            document.getElementById('amount_received').addEventListener('input', updateTotalReceipt);
+            document.getElementById('due_amount_manual').addEventListener('input', updateTotalReceipt); // Update preview if manual due changes
+
+            updateTotalReceipt(); // Initial calculation
+
+            document.getElementById('add-item-btn').addEventListener('click', addItem);
+
+             // Age/DOB validation/interaction (same as estimate form)
+             const ageInput = document.getElementById('age');
+             const dobInput = document.getElementById('customer_dob');
+             ageInput.addEventListener('input', () => { validateAgeDob(); });
+             dobInput.addEventListener('change', () => { validateAgeDob(); });
+        });
+
+        // --- Core Functions (Mostly Identical to Estimate Form JS) ---
+
+        function populateDatalist() { /* Identical to estimate form */
+             const datalist = document.getElementById('package-list');
+             datalist.innerHTML = '';
+             packageData.forEach(pkg => {
+                 const option = document.createElement('option');
+                 option.value = pkg.name;
+                 option.dataset.mrp = pkg.mrp;
+                 datalist.appendChild(option);
+             });
+        }
+
+         function validateAgeDob() { /* Identical to estimate form */
+            const ageInput = document.getElementById('age');
+            const dobInput = document.getElementById('customer_dob');
+             const ageValue = ageInput.value.trim();
+             const dobValue = dobInput.value.trim();
+             if (ageValue === '' && dobValue === '') { console.warn("Validation: Age or DOB is required."); }
+         }
+
+        function addItem() { /* Identical to estimate form */
+            const itemsContainer = document.getElementById('items-container');
+            const newItemRow = document.createElement('div');
+            newItemRow.classList.add('item-row');
+            newItemRow.innerHTML = `
+                <input type="text" name="package_names[]" placeholder="Select or Type Package" list="package-list" required class="package-name-input item-calc-trigger">
+                <input type="number" name="mrps[]" placeholder="MRP" step="0.01" min="0" required class="mrp-input item-calc-trigger">
+                <input type="number" name="item_discounts[]" placeholder="Disc %" step="0.1" min="0" max="100" value="0" class="discount-input item-calc-trigger">
+                <span class="discount-amount-display">0.00</span>
+                <button type="button" class="remove-item-btn" onclick="removeItem(this)">X</button>
+            `;
+            itemsContainer.appendChild(newItemRow);
+            addEventListenersToRowReceipt(newItemRow); // Use receipt-specific listener function
+            updateTotalReceipt();
+        }
+
+        function removeItem(button) { /* Identical to estimate form */
+            const itemRow = button.closest('.item-row');
+            const itemsContainer = document.getElementById('items-container');
+            if (itemsContainer.querySelectorAll('.item-row').length > 1) {
+                itemRow.remove();
+                updateTotalReceipt();
+            } else {
+                alert("At least one item is required.");
+            }
+        }
+
+        /**
+         * Adds event listeners to all input elements within all item rows for the receipt form.
+         */
+        function addEventListenersToAllRowsReceipt() {
+            document.querySelectorAll('.item-row').forEach(row => {
+                addEventListenersToRowReceipt(row);
+            });
+        }
+
+        /**
+         * Adds event listeners to the inputs within a specific receipt item row.
+         * @param {HTMLElement} row - The item row element.
+         */
+        function addEventListenersToRowReceipt(row) {
+            const packageNameInput = row.querySelector('.package-name-input');
+            const mrpInput = row.querySelector('.mrp-input');
+            const discountInput = row.querySelector('.discount-input');
+
+            // --- Event Listeners (Identical to estimate form row listeners) ---
+             packageNameInput.addEventListener('input', (event) => {
+                 const selectedName = event.target.value;
+                 const matchingOption = document.querySelector(`#package-list option[value="${selectedName}"]`);
+                 if (matchingOption && matchingOption.dataset.mrp) {
+                     mrpInput.value = parseFloat(matchingOption.dataset.mrp).toFixed(2);
+                     mrpInput.readOnly = true;
+                 } else {
+                     mrpInput.readOnly = false;
+                 }
+                 updateTotalReceipt(); // Use receipt update function
+             });
+              packageNameInput.addEventListener('blur', () => {
+                  const currentName = packageNameInput.value;
+                   const matchingOption = document.querySelector(`#package-list option[value="${currentName}"]`);
+                   if (!matchingOption) { mrpInput.readOnly = false; }
+              });
+             mrpInput.addEventListener('input', updateTotalReceipt);
+             discountInput.addEventListener('input', updateTotalReceipt);
+        }
+
+        /**
+         * Calculates and updates all totals for the RECEIPT live preview section.
+         * Includes calculation for the Due Amount.
+         */
+        function updateTotalReceipt() {
+            let totalMrp = 0;
+            let subtotalAfterItemDiscounts = 0;
+
+            // --- Calculate Item Totals (Identical to estimate form) ---
+            document.querySelectorAll('.item-row').forEach(row => {
+                const mrpInput = row.querySelector('.mrp-input');
+                const itemDiscountInput = row.querySelector('.discount-input');
+                const itemDiscountDisplay = row.querySelector('.discount-amount-display');
+
+                const mrp = parseFloat(mrpInput.value) || 0;
+                const itemDiscPerc = parseFloat(itemDiscountInput.value) || 0;
+                 const validItemDiscPerc = Math.max(0, Math.min(100, itemDiscPerc));
+                 if (itemDiscPerc !== validItemDiscPerc) { itemDiscountInput.value = validItemDiscPerc; }
+
+                const itemPriceAfterDiscount = mrp * (1 - (validItemDiscPerc / 100));
+                totalMrp += mrp;
+                subtotalAfterItemDiscounts += itemPriceAfterDiscount;
+                const itemDiscAmount = mrp * (validItemDiscPerc / 100);
+                itemDiscountDisplay.textContent = itemDiscAmount.toFixed(2);
+            });
+
+            // --- Calculate Overall Totals (Identical to estimate form) ---
+            const overallDiscountInput = document.getElementById('discount_percentage');
+            const overallDiscountPercent = parseFloat(overallDiscountInput.value) || 0;
+             const validOverallDiscPerc = Math.max(0, Math.min(100, overallDiscountPercent));
+             if (overallDiscountPercent !== validOverallDiscPerc) { overallDiscountInput.value = validOverallDiscPerc; }
+
+            const overallDiscountAmount = subtotalAfterItemDiscounts * (validOverallDiscPerc / 100);
+            const finalTotal = subtotalAfterItemDiscounts - overallDiscountAmount;
+
+            // --- Calculate Due Amount (Receipt Specific) ---
+            const receivedAmountInput = document.getElementById('amount_received');
+            const receivedAmount = parseFloat(receivedAmountInput.value) || 0;
+             if (receivedAmount < 0) { // Ensure received amount isn't negative in preview
+                 receivedAmountInput.value = 0;
+                 receivedAmount = 0;
+             }
+
+             const dueAmountManualInput = document.getElementById('due_amount_manual');
+             const dueAmountManualValue = dueAmountManualInput.value.trim();
+             let dueAmount = 0;
+
+             // Check if manual due amount is provided and valid
+             if (dueAmountManualValue !== "" && !isNaN(parseFloat(dueAmountManualValue)) && parseFloat(dueAmountManualValue) >= 0) {
+                 dueAmount = parseFloat(dueAmountManualValue);
+             } else {
+                 // Calculate due amount automatically
+                 dueAmount = Math.max(0, finalTotal - receivedAmount); // Ensure due is not negative
+             }
+
+
+            // --- Update Live Preview ---
+            document.getElementById('calculated-mrp').textContent = totalMrp.toFixed(2);
+            document.getElementById('calculated-subtotal').textContent = subtotalAfterItemDiscounts.toFixed(2);
+            document.getElementById('calculated-overall-discount-amount').textContent = overallDiscountAmount.toFixed(2);
+            document.getElementById('calculated-total-receipt').textContent = finalTotal.toFixed(2);
+            document.getElementById('calculated-due').textContent = dueAmount.toFixed(2);
+        }
+    </script>
+</body>
+</html>

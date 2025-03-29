@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="/styles.css"> <!-- Use general styles -->
+    <style>
+        .dashboard-container {
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 30px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .dashboard-header {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .dashboard-header h1 {
+            margin: 0;
+            text-align: left; /* Align header left */
+            font-size: 1.8em;
+            color: #333;
+        }
+        .user-info {
+            font-size: 0.9em;
+            color: #555;
+            text-align: right;
+        }
+         .user-info strong {
+             color: #000;
+         }
+        .dashboard-nav h2 {
+             font-size: 1.4em;
+             color: #444;
+             margin-bottom: 15px;
+             border-bottom: 1px solid #eee;
+             padding-bottom: 8px;
+        }
+        .dashboard-nav ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: grid; /* Use grid for better alignment */
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Responsive columns */
+            gap: 15px; /* Spacing between items */
+        }
+        .dashboard-nav li a {
+            display: block;
+            padding: 12px 15px; /* Adjusted padding */
+            background-color: #007bff; /* Primary button color */
+            color: #fff; /* White text */
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            text-align: center;
+            font-weight: 500;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .dashboard-nav li a:hover {
+            background-color: #0056b3; /* Darker blue on hover */
+            color: #fff;
+            transform: translateY(-2px); /* Slight lift effect */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+         /* Style for future/disabled links */
+         .dashboard-nav li a.disabled {
+             background-color: #e9ecef;
+             color: #adb5bd;
+             cursor: not-allowed;
+             box-shadow: none;
+         }
+         .dashboard-nav li a.disabled:hover {
+             background-color: #e9ecef;
+             transform: none;
+         }
+
+        .logout-section {
+             text-align: right;
+             margin-top: 30px;
+             padding-top: 15px;
+             border-top: 1px solid #eee;
+        }
+        .logout-link {
+             color: #dc3545;
+             text-decoration: none;
+             font-weight: 500;
+         }
+        .logout-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-header">
+            <h1>Admin Dashboard</h1>
+            <% if (sessionUser) { %>
+                <div class="user-info">
+                    Logged in as: <strong><%= sessionUser.username %></strong>
+                    <% if (currentBranchDetails) { %>
+                        <br>Branch: <%= currentBranchDetails.name %>
+                    <% } %>
+                </div>
+            <% } %>
+        </div>
+
+        <nav class="dashboard-nav">
+             <h2>Quick Actions</h2>
+            <ul>
+                <li><a href="/receipt-form">Create New Receipt</a></li>
+                <li><a href="/estimate-form">Create New Estimate</a></li>
+                <!-- Add links to other sections as they are built -->
+                <!-- Add 'disabled' class until implemented -->
+                <li><a href="#view-receipts" class="disabled">View Receipts</a></li>
+                <li><a href="#view-estimates" class="disabled">View Estimates</a></li>
+                <li><a href="#manage-branches" class="disabled">Manage Branches</a></li>
+                <li><a href="#manage-users" class="disabled">Manage Users</a></li>
+                <li><a href="#manage-packages" class="disabled">Manage Packages</a></li>
+            </ul>
+        </nav>
+
+         <div class="logout-section">
+            <a href="/logout" class="logout-link">Logout</a>
+        </div>
+    </div>
+</body>
+</html>

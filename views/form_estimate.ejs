@@ -1,0 +1,361 @@
+<!-- medical_receipt_system/views/form_estimate.ejs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estimate Form - <%= currentBranchDetails ? currentBranchDetails.name : 'Unknown Branch' %></title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <style>
+        /* Styles remain the same */
+        form:not(#login-form) { max-width: 950px; }
+        .item-row { display: grid; grid-template-columns: 1fr auto 80px 50px auto; gap: 10px; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #eee; }
+        .item-row:last-child { border-bottom: none; } /* Remove border from last item */
+        .item-row label { display: none; } .item-row input { margin-bottom: 0; }
+        .item-row .mrp-input { max-width: 100px; text-align: right; }
+        .item-row .discount-input { max-width: 70px; text-align: right; }
+        .item-row .discount-amount-display { font-size: 0.9em; color: #555; min-width: 50px; text-align: right; padding-right: 5px;}
+        .remove-item-btn { background-color: #dc3545; color: white; border: none; border-radius: 4px; padding: 5px 8px; cursor: pointer; font-size: 0.9em; line-height: 1.2; }
+        .remove-item-btn:hover { background-color: #c82333; }
+        #add-item-btn { display: inline-block; background-color: #28a745; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; font-size: 1.2em; line-height: 28px; cursor: pointer; margin-left: 10px; vertical-align: middle; text-align: center; }
+        #items-container { margin-top: 15px; border: 1px solid #eee; padding: 15px; border-radius: 5px; }
+        /* Updated Live Preview Styles */
+        #live-preview { margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; text-align: right; font-size: 1.05em; font-weight: bold; }
+        #live-preview div { margin-bottom: 5px;}
+        #live-preview span { color: #0056b3; display: inline-block; min-width: 100px; text-align: right; font-family: monospace; /* Better alignment for numbers */ }
+        #live-preview .label { display: inline-block; min-width: 250px; text-align: right; font-weight: normal; color: #333; padding-right: 10px; }
+        #live-preview .subtotal .label, #live-preview .overall-discount-display .label { font-size: 0.95em; font-weight: normal;}
+        #live-preview .overall-discount-display span { color: #dc3545; } /* Discount amount in red */
+        #live-preview .total span { color: #007bff; font-size: 1.1em; } /* Final total blue */
+        .item-header { display: grid; grid-template-columns: 1fr auto 80px 50px auto; gap: 10px; font-weight: bold; color: #555; font-size: 0.9em; margin-bottom: 5px; padding: 0 5px; }
+        .item-header > div:nth-child(2), .item-header > div:nth-child(3), .item-header > div:nth-child(4) { text-align: right; }
+    </style>
+</head>
+<body>
+    <form id="estimate-form" action="/estimate-submit" method="POST">
+        <h1>Estimate Form</h1>
+        <% if (currentBranchDetails && sessionUser) { %>
+            <p> Branch: <strong><%= currentBranchDetails.name %></strong> | User: <%= sessionUser.username %> | <a href="/logout">Logout</a> | <a href="/receipt-form">Go to Receipt Form</a> </p>
+        <% } %>
+         <hr>
+         <!-- Customer Details -->
+         <fieldset>
+              <legend>Customer Details</legend>
+              <div class="form-grid">
+                   <div> <label for="estimate_date">Estimate Date:</label> <input type="text" id="estimate_date" name="estimate_date" placeholder="DD/MM/YYYY" required class="flatpickr-date"> </div> <div></div> <!-- Spacer -->
+                   <div class="full-width"> <label for="customer_name">Customer Name:</label> <input type="text" id="customer_name" name="customer_name" required> </div>
+                   <div> <label for="age">Age:</label> <input type="number" id="age" name="age" min="0" max="130"> <small>(Enter Age or DOB)</small> </div>
+                   <div> <label for="customer_dob">Date of Birth:</label> <input type="text" id="customer_dob" name="customer_dob" placeholder="DD/MM/YYYY" class="flatpickr-date"> </div>
+                   <div> <label>Gender:</label> <div class="radio-group"> <input type="radio" id="male" name="gender" value="Male"> <label for="male">Male</label> <input type="radio" id="female" name="gender" value="Female"> <label for="female">Female</label> <input type="radio" id="other" name="gender" value="Other"> <label for="other">Other</label> </div> </div>
+                   <div> <label for="mobile_no">Mobile No:</label> <input type="tel" id="mobile_no" name="mobile_no" pattern="[0-9\s+-]*" title="Enter a valid phone number"> </div>
+                   <div class="full-width"> <label for="referred_by">Referred By Dr.:</label> <input type="text" id="referred_by" name="referred_by"> </div>
+              </div>
+         </fieldset>
+         <hr>
+         <!-- Items Section -->
+          <fieldset>
+             <legend>Tests / Packages <button type="button" id="add-item-btn" title="Add Item">+</button></legend>
+              <div class="item-header">
+                  <div>Package Name</div>
+                  <div>MRP (₹)</div>
+                  <div>Disc (%)</div>
+                  <div>Disc Amt (₹)</div>
+                  <div>Action</div>
+              </div>
+             <div id="items-container">
+                 <!-- Item Row Template -->
+                 <div class="item-row">
+                     <input type="text" name="package_names[]" placeholder="Select or Type Package" list="package-list" required class="package-name-input item-calc-trigger">
+                     <input type="number" name="mrps[]" placeholder="MRP" step="0.01" min="0" required class="mrp-input item-calc-trigger">
+                     <input type="number" name="item_discounts[]" placeholder="Disc %" step="0.1" min="0" max="100" value="0" class="discount-input item-calc-trigger">
+                     <span class="discount-amount-display">0.00</span>
+                     <button type="button" class="remove-item-btn" onclick="removeItem(this)">X</button>
+                 </div>
+                 <!-- More item rows will be added here by JS -->
+             </div>
+             <datalist id="package-list">
+                 <!-- Options will be populated by JS -->
+             </datalist>
+         </fieldset>
+         <hr>
+         <!-- Totals and Notes -->
+         <fieldset>
+              <legend>Totals & Notes</legend>
+              <div class="form-grid">
+                   <div>
+                        <label for="discount_percentage">Overall Discount (%):</label>
+                        <input type="number" id="discount_percentage" name="discount_percentage" step="0.1" min="0" max="100" value="0" class="item-calc-trigger">
+                   </div>
+                   <!-- Live Preview Area -->
+                   <div id="live-preview">
+                        <div><span class="label">Total MRP:</span> ₹<span id="calculated-mrp">0.00</span></div>
+                        <div class="subtotal"><span class="label">Subtotal (After Item Disc):</span> ₹<span id="calculated-subtotal">0.00</span></div>
+                        <div class="overall-discount-display"><span class="label">Overall Disc Amount:</span> ₹<span id="calculated-overall-discount-amount">0.00</span></div>
+                        <div class="total"><span class="label">Estimated Payable:</span> ₹<span id="calculated-total">0.00</span></div>
+                   </div>
+              </div>
+              <div class="full-width" style="margin-top: 15px;">
+                   <label for="notes">Notes:</label>
+                   <textarea id="notes" name="notes" rows="3"></textarea>
+              </div>
+         </fieldset>
+         <button type="submit" class="full-width">Generate Estimate</button>
+    </form>
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+        let packageData = []; // Holds package data fetched from API {id, name, mrp}
+
+        // Initialize Flatpickr date pickers
+        // Use "d/m/Y" format for display and user input
+        flatpickr(".flatpickr-date", {
+            dateFormat: "d/m/Y",
+            allowInput: true // Allows manual typing in DD/MM/YYYY format
+        });
+
+        // Set default date for Estimate Date only if it's empty
+        const estimateDateInput = document.getElementById('estimate_date');
+        if (!estimateDateInput.value) {
+             flatpickr(estimateDateInput).setDate(new Date(), false); // Set to today, don't trigger change event
+        }
+
+
+        // --- DOMContentLoaded Event Listener ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Fetch package data for the datalist
+            try {
+                const response = await fetch('/api/packages');
+                if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
+                packageData = await response.json();
+                populateDatalist();
+            } catch (error) {
+                console.error("Failed to fetch packages:", error);
+                // Optionally display an error to the user
+            }
+
+            // Attach event listeners to the initial item row and overall discount
+            addEventListenersToAllRows();
+            document.getElementById('discount_percentage').addEventListener('input', updateTotalEstimate);
+
+            // Initial calculation based on default values
+            updateTotalEstimate();
+
+            // Add event listener for the "Add Item" button
+            document.getElementById('add-item-btn').addEventListener('click', addItem);
+
+             // Add listener to DOB input to potentially clear Age if DOB is entered, and vice-versa
+             const ageInput = document.getElementById('age');
+             const dobInput = document.getElementById('customer_dob');
+             ageInput.addEventListener('input', () => {
+                 if (ageInput.value.trim() !== '') {
+                      // Optional: Clear DOB if age is entered? Or just let both exist?
+                      // flatpickr(dobInput).clear(); // Uncomment to clear DOB
+                 }
+                 validateAgeDob();
+             });
+              dobInput.addEventListener('change', () => { // Use change for flatpickr
+                 if (dobInput.value.trim() !== '') {
+                     // Optional: Clear Age if DOB is entered?
+                     // ageInput.value = ''; // Uncomment to clear age
+                 }
+                  validateAgeDob();
+              });
+        });
+
+        // --- Functions ---
+
+        /**
+         * Populates the datalist element with package names and MRPs.
+         */
+        function populateDatalist() {
+            const datalist = document.getElementById('package-list');
+            datalist.innerHTML = ''; // Clear existing options
+            packageData.forEach(pkg => {
+                const option = document.createElement('option');
+                option.value = pkg.name;
+                // Store MRP in a data attribute for easy retrieval
+                option.dataset.mrp = pkg.mrp;
+                datalist.appendChild(option);
+            });
+        }
+
+         /**
+         * Validates that either Age or DOB has been entered.
+         * Adds/removes hypothetical 'is-invalid' class for visual feedback (requires CSS).
+         */
+         function validateAgeDob() {
+            const ageInput = document.getElementById('age');
+            const dobInput = document.getElementById('customer_dob');
+             const ageValue = ageInput.value.trim();
+             const dobValue = dobInput.value.trim();
+
+             if (ageValue === '' && dobValue === '') {
+                 // Example: Add invalid class styling (needs CSS)
+                 // ageInput.classList.add('is-invalid');
+                 // dobInput.classList.add('is-invalid');
+                 console.warn("Validation: Age or DOB is required."); // Or show message on page
+             } else {
+                 // ageInput.classList.remove('is-invalid');
+                 // dobInput.classList.remove('is-invalid');
+             }
+         }
+
+
+        /**
+         * Adds a new, empty item row to the items container.
+         */
+        function addItem() {
+            const itemsContainer = document.getElementById('items-container');
+            const newItemRow = document.createElement('div');
+            newItemRow.classList.add('item-row');
+            newItemRow.innerHTML = `
+                <input type="text" name="package_names[]" placeholder="Select or Type Package" list="package-list" required class="package-name-input item-calc-trigger">
+                <input type="number" name="mrps[]" placeholder="MRP" step="0.01" min="0" required class="mrp-input item-calc-trigger">
+                <input type="number" name="item_discounts[]" placeholder="Disc %" step="0.1" min="0" max="100" value="0" class="discount-input item-calc-trigger">
+                <span class="discount-amount-display">0.00</span>
+                <button type="button" class="remove-item-btn" onclick="removeItem(this)">X</button>
+            `;
+            itemsContainer.appendChild(newItemRow);
+
+            // Add event listeners to the new row's inputs
+            addEventListenersToRow(newItemRow);
+
+            // Recalculate totals
+            updateTotalEstimate();
+        }
+
+        /**
+         * Removes an item row, ensuring at least one row remains.
+         * @param {HTMLButtonElement} button - The remove button that was clicked.
+         */
+        function removeItem(button) {
+            const itemRow = button.closest('.item-row');
+            const itemsContainer = document.getElementById('items-container');
+
+            // Prevent removing the last item row
+            if (itemsContainer.querySelectorAll('.item-row').length > 1) {
+                itemRow.remove();
+                // Recalculate totals after removing the row
+                updateTotalEstimate();
+            } else {
+                alert("At least one item is required.");
+                 // Optionally clear the inputs of the last row instead of showing alert
+                 // itemRow.querySelector('.package-name-input').value = '';
+                 // itemRow.querySelector('.mrp-input').value = '';
+                 // itemRow.querySelector('.discount-input').value = '0';
+                 // updateTotalEstimate();
+            }
+        }
+
+        /**
+         * Adds event listeners to all input elements within all item rows
+         * that trigger recalculation.
+         */
+        function addEventListenersToAllRows() {
+            document.querySelectorAll('.item-row').forEach(row => {
+                addEventListenersToRow(row);
+            });
+        }
+
+        /**
+         * Adds event listeners to the inputs within a specific item row.
+         * Handles auto-filling MRP when a package is selected from the datalist.
+         * @param {HTMLElement} row - The item row element.
+         */
+        function addEventListenersToRow(row) {
+            const packageNameInput = row.querySelector('.package-name-input');
+            const mrpInput = row.querySelector('.mrp-input');
+            const discountInput = row.querySelector('.discount-input');
+
+            // Event listener for package name input (live search)
+            packageNameInput.addEventListener('input', (event) => {
+                const selectedName = event.target.value;
+                const matchingOption = document.querySelector(`#package-list option[value="${selectedName}"]`);
+
+                if (matchingOption && matchingOption.dataset.mrp) {
+                    mrpInput.value = parseFloat(matchingOption.dataset.mrp).toFixed(2);
+                    mrpInput.readOnly = true; // Prevent manual editing if selected from list
+                } else {
+                    mrpInput.readOnly = false; // Allow manual MRP entry if not found in list
+                }
+                // Recalculate whenever input changes (even if not fully selected yet)
+                updateTotalEstimate();
+            });
+
+             // Add blur event to handle case where user types a name not in list, then tabs away
+             packageNameInput.addEventListener('blur', () => {
+                 const currentName = packageNameInput.value;
+                  const matchingOption = document.querySelector(`#package-list option[value="${currentName}"]`);
+                  if (!matchingOption) {
+                      mrpInput.readOnly = false; // Ensure MRP is editable if name doesn't match list
+                  }
+                  // No need to trigger update here, input/change already does
+             });
+
+
+            // Add listeners to MRP and Discount inputs to trigger recalculation
+            mrpInput.addEventListener('input', updateTotalEstimate);
+            discountInput.addEventListener('input', updateTotalEstimate);
+        }
+
+        /**
+         * Calculates and updates all totals displayed in the live preview section.
+         * Reads values directly from the form inputs.
+         */
+        function updateTotalEstimate() {
+            let totalMrp = 0;
+            let subtotalAfterItemDiscounts = 0;
+
+            // Iterate through each item row to calculate totals
+            document.querySelectorAll('.item-row').forEach(row => {
+                const mrpInput = row.querySelector('.mrp-input');
+                const itemDiscountInput = row.querySelector('.discount-input');
+                const itemDiscountDisplay = row.querySelector('.discount-amount-display'); // Span to show item discount amount
+
+                const mrp = parseFloat(mrpInput.value) || 0;
+                const itemDiscPerc = parseFloat(itemDiscountInput.value) || 0;
+
+                 // Validate item discount percentage
+                 const validItemDiscPerc = Math.max(0, Math.min(100, itemDiscPerc)); // Clamp between 0 and 100
+                 if (itemDiscPerc !== validItemDiscPerc) {
+                     itemDiscountInput.value = validItemDiscPerc; // Correct the input value if invalid
+                 }
+
+                // Calculate price for this item after its specific discount
+                const itemPriceAfterDiscount = mrp * (1 - (validItemDiscPerc / 100));
+
+                // Update running totals
+                totalMrp += mrp;
+                subtotalAfterItemDiscounts += itemPriceAfterDiscount;
+
+                // Calculate and display the discount amount for this specific item
+                const itemDiscAmount = mrp * (validItemDiscPerc / 100);
+                itemDiscountDisplay.textContent = itemDiscAmount.toFixed(2);
+            });
+
+            // Get the overall discount percentage
+            const overallDiscountInput = document.getElementById('discount_percentage');
+            const overallDiscountPercent = parseFloat(overallDiscountInput.value) || 0;
+
+             // Validate overall discount percentage
+             const validOverallDiscPerc = Math.max(0, Math.min(100, overallDiscountPercent)); // Clamp
+             if (overallDiscountPercent !== validOverallDiscPerc) {
+                 overallDiscountInput.value = validOverallDiscPerc; // Correct the input value
+             }
+
+            // Calculate the overall discount amount based on the subtotal
+            const overallDiscountAmount = subtotalAfterItemDiscounts * (validOverallDiscPerc / 100);
+
+            // Calculate the final payable amount
+            const finalTotal = subtotalAfterItemDiscounts - overallDiscountAmount;
+
+            // Update the live preview elements in the HTML
+            document.getElementById('calculated-mrp').textContent = totalMrp.toFixed(2);
+            document.getElementById('calculated-subtotal').textContent = subtotalAfterItemDiscounts.toFixed(2);
+            document.getElementById('calculated-overall-discount-amount').textContent = overallDiscountAmount.toFixed(2);
+            document.getElementById('calculated-total').textContent = finalTotal.toFixed(2);
+        }
+    </script>
+</body>
+</html>

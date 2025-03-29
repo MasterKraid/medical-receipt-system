@@ -1,130 +1,106 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const session = require('express-session');
-const path = require('path');
+// medical_receipt_system/server/app.js
+const express = require("express");
+const bodyParser = require("body-parser");
+const session = require("express-session");
+const path = require("path");
+const ejs = require("ejs");
+const db = require("./db"); // Import the database connection
 
-const authController = require('./authController');
-const receiptController = require('./receiptController');
+// Import Controllers and Middleware (ONCE at the top)
+const authController = require("./authController");
+const receiptController = require("./receiptController");
+const estimateController = require("./estimateController");
+const packageController = require("./packageController");
+const { isAuthenticated, isAdmin } = require("./authMiddleware");
 
 const app = express();
+const PORT = 3000;
 
-
+// --- Middleware Setup ---
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "..", "views"));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
-app.use(session({ secret: 'secret-key', resave: false, saveUninitialized: true }));
+app.use(
+  session({
+    secret: "a-much-better-secret-key-please-change", // ** CHANGE THIS!! **
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false, // Set to true if using HTTPS
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    },
+  }),
+);
+app.use(express.static(path.join(__dirname, "..", "public")));
 
+// --- Custom Middleware ---
 
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// Middleware to load user and branch details into locals if logged in
+app.use((req, res, next) => {
+  res.locals.sessionUser = req.session.user || null;
+  res.locals.currentBranchDetails = null;
 
-
-app.get('/form.html', (req, res) => {
-    const branch = req.session.branch || "Unknown Branch";
-
-    res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Receipt Form</title>
-        <link rel="stylesheet" href="/styles.css">
-        <script src="/script.js" defer></script>
-    </head>
-    <body>
-        <form id="receipt-form" action="/generate-receipt" method="POST">
-            <h1>Receipt Form</h1>
-            
-            <label for="customer-name">Customer Name:</label>
-            <input type="text" id="customer-name" name="customerName" required>
-
-            <label for="fee-category">Fee Category:</label>
-            <select id="fee-category" name="feeCategory">
-                <option value="consultation">Consultation</option>
-                <option value="medicines">Medicines</option>
-                <option value="other">Other</option>
-            </select>
-
-            <label for="fee-amount">Fee Amount:</label>
-            <input type="number" id="fee-amount" name="feeAmount" required>
-
-            <label for="branch-location">Branch:</label>
-            \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\x00
-            <input type="text" id="branch-location" name="branch" readonly value="${branch}">
-
-            <button type="submit">Preview & Print</button>
-        </form>
-    </body>
-    </html>
-    `);
-});
-
-
-app.post('/generate-receipt', (req, res) => {
-    const { customerName, feeCategory, feeAmount, branch } = req.body;
-
-    req.session.receiptData = {
-        customerName,
-        feeCategory,
-        feeAmount,
-        branch,
-        date: new Date().toLocaleDateString()
-    };
-
-    res.redirect('/receipt');
-});
-
-
-app.get('/receipt', (req, res) => {
-    const { customerName, feeCategory, feeAmount, branch, date } = req.session.receiptData || {};
-
-    if (!customerName) {
-        return res.status(400).send('No receipt data available');
+  if (req.session.user && req.session.user.branchId) {
+    try {
+      const branchStmt = db.prepare(
+        "SELECT id, name, address, phone FROM branches WHERE id = ?",
+      );
+      res.locals.currentBranchDetails = branchStmt.get(
+        req.session.user.branchId,
+      );
+    } catch (dbError) {
+      console.error("Middleware branch fetch error:", dbError);
     }
-
-    res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Receipt</title>
-        <link rel="stylesheet" href="/receipt.css">
-    </head>
-    <body onload="window.print(); window.onafterprint = window.close();">
-        <div class="receipt-container">
-            <header>
-                <img src="/logo.png" alt="Shop Logo" class="logo">
-                <h1>Medical Shop</h1>
-                <p>Branch: ${branch}</p>
-            </header>
-
-            <section class="customer-details">
-                <p><strong>Customer Name:</strong> ${customerName}</p>
-                <p><strong>Date:</strong> ${date}</p>
-            </section>
-
-            <section class="fee-details">
-                <h3>Fees Breakdown:</h3>
-                <ul>
-                    <li><strong>Fee Category:</strong> ${feeCategory}</li>
-                    <li><strong>Fee Amount:</strong> ₹${feeAmount}</li>
-                </ul>
-            </section>
-
-            <footer>
-                <p>Thank you for visiting! We hope to serve you again.</p>
-            </footer>
-        </div>
-    </body>
-    </html>
-    `);
+  }
+  next();
 });
 
+// --- Route Definitions ---
 
-app.post('/login', authController.login);
+// REMOVED Duplicate require('./authMiddleware') from here
 
+// Root & Login/Logout
+app.get("/", (req, res) => {
+  if (req.session.user) {
+    res.redirect(
+      req.session.user.isAdmin ? "/admin-dashboard" : "/receipt-form",
+    );
+  } else {
+    res.sendFile(path.join(__dirname, "..", "public", "index.html"));
+  }
+});
+app.post("/login", authController.login);
+app.get("/logout", authController.logout);
 
-app.post('/save-receipt', receiptController.saveReceipt);
+// Estimate Routes (Protected)
+app.get("/estimate-form", isAuthenticated, estimateController.showEstimateForm);
+app.post(
+  "/estimate-submit",
+  isAuthenticated,
+  estimateController.createEstimate,
+);
+app.get("/estimate/:id", isAuthenticated, estimateController.showEstimate);
 
-const PORT = 3000;
-app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
+// Receipt Routes (Protected)
+app.get("/receipt-form", isAuthenticated, receiptController.showReceiptForm);
+app.post("/receipt-submit", isAuthenticated, receiptController.createReceipt);
+app.get("/receipt/:id", isAuthenticated, receiptController.showReceipt);
+
+// --- API Routes ---
+app.get("/api/packages", isAuthenticated, packageController.getAllPackages);
+
+// --- Admin Routes ---
+app.get("/admin-dashboard", isAuthenticated, isAdmin, (req, res) => {
+  res.render("admin_dashboard");
+});
+
+// Add other admin routes later, like:
+// app.get('/admin/branches', isAuthenticated, isAdmin, adminController.listBranches);
+
+// --- Server Startup ---
+app.listen(PORT, () => {
+  console.log(`Server running at http://localhost:${PORT}`);
+  console.log("DB schema init from db.js.");
+});

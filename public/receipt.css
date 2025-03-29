@@ -1,66 +1,171 @@
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background: #f4f4f4;
+/* medical_receipt_system/public/receipt.css */
+/* Styles for both Receipt and Estimate Print/Preview */
+
+/* Base for printing */
+@media print {
+    html, body { height: initial !important; overflow: initial !important; -webkit-print-color-adjust: exact; }
+    body { background: white !important; margin: 0; padding: 0; font-size: 9.5pt; }
+    .print-container { margin: 0; padding: 10mm; box-shadow: none !important; border: none !important; width: 100%; height: auto; min-height: initial;}
+    button.no-print, a.no-print { display: none !important; }
+    .items-table, .customer-details-grid, .meta-info, .totals-table { page-break-inside: avoid; }
 }
 
-.receipt-container {
-    width: 210mm; /* A4 Width */
-    height: 297mm; /* A4 Height */
-    margin: auto;
+/* Styles for screen preview */
+body:has(.print-container) {
+     background: #ccc; /* Grey background only when showing receipt/estimate */
+}
+
+.print-container {
+    width: 210mm; /* A4 width */
+    min-height: 150mm; /* Min height */
+    margin: 20px auto; /* Center on screen */
+    padding: 15mm;
     background: white;
-    padding: 20mm;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    position: relative;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 10pt;
+    position: relative; /* For potential absolute positioning inside */
 }
 
-header {
+/* Header Section */
+.header-section {
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
 }
+.header-section img.logo {
+     max-width: 180px;
+     max-height: 60px;
+     margin-bottom: 5px;
+     display: block; /* Make it a block for auto margins */
+     margin-left: auto;
+     margin-right: auto;
+ }
+.header-section .tagline { font-size: 8pt; margin: 0; color: #555; }
+.header-section .shop-name { font-size: 16pt; font-weight: bold; margin: 2px 0; color: #2c3e50; }
+.header-section .document-title { font-size: 14pt; font-weight: bold; margin-top: 10px; text-transform: uppercase; letter-spacing: 1px; }
 
-header .logo {
-    width: 100px;
-    height: auto;
+/* Branch/Date Info */
+.meta-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    font-size: 9.5pt;
 }
+.meta-info .branch-details p, .meta-info .date-details p { margin: 1px 0; line-height: 1.4; }
+.meta-info .branch-details h3 { margin: 0 0 5px 0; font-size: 11pt; color: #333;}
+.meta-info .date-details { text-align: right; }
+.meta-info .date-details p { margin-bottom: 3px; }
 
-.customer-details,
-.fee-details {
-    margin-bottom: 20px;
+/* Customer Details */
+.customer-details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2px 20px;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    font-size: 9.5pt;
 }
+.customer-details-grid div { padding: 3px 0; line-height: 1.4; }
+.customer-details-grid strong { display: inline-block; min-width: 80px; color: #444; font-weight: 600; }
 
-h1, h3 {
+/* Items Table */
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0; /* Removed for totals table connection */
+    font-size: 9.5pt;
+    border: 1px solid #999;
+}
+.items-table th, .items-table td {
+    border: 1px solid #ccc;
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: top;
+}
+.items-table th {
+    background-color: #f0f0f0;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 9pt;
     color: #333;
 }
-
-ul {
-    list-style: none;
-    padding: 0;
+.items-table .amount-col { text-align: right; }
+.items-table .placeholder-row td {
+    height: 60px;
+    border-left: none;
+    border-right: none;
+    border-top: 1px dashed #eee;
+    border-bottom: none;
 }
 
-ul li {
-    margin-bottom: 5px;
-}
-
-footer {
-    text-align: center;
-    position: absolute;
-    bottom: 10mm;
+/* Receipt specific totals table */
+.totals-table {
     width: 100%;
-    color: #666;
+    margin-top: -1px; /* Overlap border slightly */
+    border-collapse: collapse;
+    border: 1px solid #999;
+    font-size: 9.5pt;
+}
+.totals-table td {
+    border: 1px solid #ccc;
+    padding: 6px 8px;
+    line-height: 1.3;
+}
+.totals-table .label-col { text-align: left; }
+.totals-table .value-col { text-align: right; font-weight: bold; }
+.totals-table .highlight { background-color: #f0f0f0; font-weight: bold; }
+
+/* Footer */
+.footer-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: 30px;
+    padding-top: 10px;
+    border-top: 1px solid #eee;
+    font-size: 9pt;
+}
+.footer-section .note { color: #444; max-width: 60%; line-height: 1.3; }
+.footer-section .note strong { display: block; margin-bottom: 3px;}
+.footer-section .signature {
+    text-align: center;
+    padding-top: 25px;
+    border-top: 1px dotted #666;
+    min-width: 150px;
+    color: #555;
 }
 
-@media print {
-    body {
-        background: none;
-    }
-
-    button {
-        display: none;
-    }
-
-    .receipt-container {
-        box-shadow: none;
-    }
+/* Action Buttons Styling (outside .print-container) */
+.action-buttons {
+    text-align:center;
+    margin: 20px auto; /* Center the container */
+    width: 210mm; /* Match container width */
+    max-width: 90%; /* Responsive */
+    padding: 0 15mm; /* Align with container padding */
 }
+.action-buttons button, .action-buttons a {
+    padding: 10px 20px;
+    cursor: pointer;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    margin: 0 5px; /* Spacing between buttons */
+    text-decoration: none;
+    font-size: 1rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.action-buttons button:hover, .action-buttons a:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+.action-buttons button.print-btn { background-color: #007bff; }
+.action-buttons button.print-btn:hover { background-color: #0056b3; }
+.action-buttons a.back-btn { background-color: #6c757d; }
+.action-buttons a.back-btn:hover { background-color: #5a6268; }

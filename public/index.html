@@ -3,15 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
+    <title>Login - Medical System</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 0.9em;
+        }
+    </style>
 </head>
 <body>
     <form id="login-form" method="POST" action="/login">
         <h1>Login</h1>
-        <input type="text" name="userId" placeholder="User ID" required>
-        <input type="password" name="password" placeholder="Password" required>
+
+        <!-- Placeholder for error messages -->
+        <div id="error-message-container" class="error-message" style="display: none;">
+            <!-- Error message will be inserted here by JS or Server -->
+        </div>
+
+        <label for="userId" style="display: none;">User ID</label> <!-- Hidden label for accessibility -->
+        <input type="text" id="userId" name="userId" placeholder="User ID" required>
+
+        <label for="password" style="display: none;">Password</label> <!-- Hidden label for accessibility -->
+        <input type="password" id="password" name="password" placeholder="Password" required>
+
         <button type="submit">Login</button>
     </form>
+
+    <script>
+        // Simple script to show error message if passed via query parameter (example)
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const error = urlParams.get('error');
+            if (error) {
+                const container = document.getElementById('error-message-container');
+                if (container) {
+                    if (error === 'invalid') {
+                        container.textContent = 'Invalid username or password.';
+                    } else if (error === 'missing') {
+                         container.textContent = 'Username and Password are required.';
+                    } else {
+                         container.textContent = 'An error occurred during login.';
+                    }
+                    container.style.display = 'block';
+                }
+            }
+        });
+    </script>
 </body>
 </html>

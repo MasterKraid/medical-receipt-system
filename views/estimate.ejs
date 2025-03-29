@@ -1,0 +1,124 @@
+<!-- medical_receipt_system/views/estimate.ejs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estimate - ID <%= estimateData.id %></title>
+    <link rel="stylesheet" href="/receipt.css"> <!-- Uses shared receipt styles -->
+</head>
+<body>
+     <div class="print-container">
+        <!-- Header -->
+        <header class="header-section">
+            <!-- Use a placeholder if logo.png doesn't exist -->
+            <img src="/logo.png" alt="Logo" class="logo" onerror="this.style.display='none'">
+            <p class="tagline">Dedicated To Care, Committed To Service</p>
+            <div class="shop-name">TREAT & CURE</div> <!-- Replace with dynamic if needed -->
+            <div class="document-title">Estimate</div>
+        </header>
+
+        <!-- Meta Info: Branch, Date, ID -->
+        <div class="meta-info">
+             <div class="branch-details">
+                <h3><%= branchDetails.name %></h3>
+                <p>Ph: <%= branchDetails.phone %></p>
+                <!-- Ensure address line breaks are preserved -->
+                <p style="white-space: pre-line;"><%= branchDetails.address %></p>
+             </div>
+             <div class="date-details">
+                <p><strong>DATE:</strong> <%= estimateData.displayEstimateDate %></p>
+                <p><strong>Estimate ID:</strong> EST-<%= String(estimateData.id).padStart(6, '0') %></p> <!-- Example formatting -->
+             </div>
+        </div>
+
+        <!-- Customer Details -->
+        <div class="customer-details-grid">
+             <div><strong>NAME:</strong> <%= estimateData.customer_name || 'N/A' %></div>
+             <div><strong>MOBILE NO:</strong> <%= estimateData.customer_mobile || 'N/A' %></div>
+             <div>
+                 <strong>AGE/DOB:</strong>
+                 <%
+                    // Combine Age and DOB cleanly
+                    let ageDisplay = (estimateData.customer_age !== null && estimateData.customer_age !== undefined) ? `${estimateData.customer_age} yrs` : '';
+                    let dobDisplay = (estimateData.displayCustomerDob && estimateData.displayCustomerDob !== 'N/A') ? estimateData.displayCustomerDob : '';
+                    let ageDobOutputEstimate = [ageDisplay, dobDisplay].filter(Boolean).join(' / ') || 'N/A';
+                 %>
+                 <%- ageDobOutputEstimate %>
+             </div>
+             <div><strong>REFERRED BY DR.:</strong> <%= estimateData.referred_by || 'N/A' %></div>
+             <div><strong>GENDER:</strong> <%= estimateData.customer_gender || 'N/A' %></div>
+             <div></div> <!-- Optional: Spacer cell -->
+        </div>
+
+        <!-- Items Table -->
+        <table class="items-table">
+             <thead>
+                <tr>
+                    <th style="width: 50%;">Test/Package</th>
+                    <th style="width: 15%;" class="amount-col">MRP (₹)</th>
+                    <th style="width: 15%;" class="amount-col">Item Disc %</th>
+                    <th style="width: 20%;" class="amount-col">Price (₹)</th>
+                 </tr>
+            </thead>
+             <tbody>
+                <% items.forEach(item => { %>
+                    <tr>
+                        <td><%= item.package_name %></td>
+                        <td class="amount-col"><%= item.mrpFormatted %></td>
+                        <td class="amount-col"><%= item.discountPercentageFormatted %>%</td>
+                        <td class="amount-col"><%= item.priceAfterItemDiscountFormatted %></td>
+                    </tr>
+                <% }) %>
+                <!-- Add placeholder rows for consistent table height if fewer than (e.g.) 3 items -->
+                <% const minRows = 3; %>
+                <% if (items.length < minRows) { %>
+                    <% for(let i = 0; i < (minRows - items.length); i++) { %>
+                        <tr class="placeholder-row"><td colspan="4"> </td></tr>
+                    <% } %>
+                <% } %>
+             </tbody>
+             <!-- Footer section of the table for totals -->
+             <tfoot>
+                  <tr class="summary-row">
+                       <td colspan="3" style="text-align: right;"><strong>TOTAL MRP</strong></td>
+                       <td class="amount-col"><strong>₹<%= estimateData.totalMrpFormatted %></strong></td>
+                  </tr>
+                  <tr class="summary-row">
+                       <td colspan="3" style="text-align: right;">SUBTOTAL (After Item Discounts)</td>
+                       <td class="amount-col">₹<%= estimateData.subtotalAfterItemDiscountsFormatted %></td>
+                  </tr>
+                  <tr class="summary-row">
+                       <td colspan="3" style="text-align: right;">OVERALL DISCOUNT (<%= estimateData.overallDiscountPercentageFormatted %>%)</td>
+                       <td class="amount-col">(-) ₹<%= estimateData.overallDiscountAmountFormatted %></td>
+                  </tr>
+                  <tr class="summary-row highlight"> <!-- Highlight final amount row -->
+                       <td colspan="3" style="text-align: right; font-weight: bold;">ESTIMATED PAYABLE</td>
+                       <td class="amount-col" style="font-weight: bold;">₹<%= estimateData.finalAmountFormatted %></td>
+                  </tr>
+             </tfoot>
+        </table>
+
+        <!-- Footer -->
+        <footer class="footer-section">
+             <div class="note">
+                 <% if (estimateData.notes && estimateData.notes.trim() !== '') { %>
+                     <strong>Notes:</strong> <%- estimateData.notes.replace(/\n/g, '<br>') %><br><br> <!-- Preserve line breaks -->
+                 <% } %>
+                 This is an estimate only. Final pricing may vary.
+             </div>
+             <div class="signature">
+                 SIGNATURE / STAMP
+             </div>
+        </footer>
+     </div>
+
+     <!-- Action Buttons (Outside printable area) -->
+     <div class="action-buttons no-print">
+         <button onclick="window.print()" class="print-btn">Print Estimate</button>
+         <a href="/estimate-form" class="back-btn">New Estimate Form</a>
+         <!-- Add other relevant links, e.g., back to dashboard -->
+         <a href="/" class="back-btn" style="background-color: #6c757d;">Dashboard</a>
+     </div>
+</body>
+</html>
