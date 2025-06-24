@@ -1,4 +1,3 @@
-<!-- medical_receipt_system/views/form_estimate.ejs -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,355 +6,125 @@
     <title>Estimate Form - <%= currentBranchDetails ? currentBranchDetails.name : 'Unknown Branch' %></title>
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        /* Styles remain the same */
-        form:not(#login-form) { max-width: 950px; }
-        .item-row { display: grid; grid-template-columns: 1fr auto 80px 50px auto; gap: 10px; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #eee; }
-        .item-row:last-child { border-bottom: none; } /* Remove border from last item */
-        .item-row label { display: none; } .item-row input { margin-bottom: 0; }
-        .item-row .mrp-input { max-width: 100px; text-align: right; }
-        .item-row .discount-input { max-width: 70px; text-align: right; }
-        .item-row .discount-amount-display { font-size: 0.9em; color: #555; min-width: 50px; text-align: right; padding-right: 5px;}
-        .remove-item-btn { background-color: #dc3545; color: white; border: none; border-radius: 4px; padding: 5px 8px; cursor: pointer; font-size: 0.9em; line-height: 1.2; }
-        .remove-item-btn:hover { background-color: #c82333; }
-        #add-item-btn { display: inline-block; background-color: #28a745; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; font-size: 1.2em; line-height: 28px; cursor: pointer; margin-left: 10px; vertical-align: middle; text-align: center; }
-        #items-container { margin-top: 15px; border: 1px solid #eee; padding: 15px; border-radius: 5px; }
-        /* Updated Live Preview Styles */
-        #live-preview { margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; text-align: right; font-size: 1.05em; font-weight: bold; }
-        #live-preview div { margin-bottom: 5px;}
-        #live-preview span { color: #0056b3; display: inline-block; min-width: 100px; text-align: right; font-family: monospace; /* Better alignment for numbers */ }
-        #live-preview .label { display: inline-block; min-width: 250px; text-align: right; font-weight: normal; color: #333; padding-right: 10px; }
-        #live-preview .subtotal .label, #live-preview .overall-discount-display .label { font-size: 0.95em; font-weight: normal;}
-        #live-preview .overall-discount-display span { color: #dc3545; } /* Discount amount in red */
-        #live-preview .total span { color: #007bff; font-size: 1.1em; } /* Final total blue */
-        .item-header { display: grid; grid-template-columns: 1fr auto 80px 50px auto; gap: 10px; font-weight: bold; color: #555; font-size: 0.9em; margin-bottom: 5px; padding: 0 5px; }
-        .item-header > div:nth-child(2), .item-header > div:nth-child(3), .item-header > div:nth-child(4) { text-align: right; }
+        /* --- General Styles (Unchanged) --- */
+        form:not(#login-form) { max-width: 950px; } fieldset { border: 1px solid #ddd; padding: 15px 20px; margin-bottom: 20px; border-radius: 5px; } legend { font-weight: bold; color: #333; padding: 0 10px; } hr { margin: 25px 0; border-top: 1px solid #eee; }
+
+        /* --- Customer Section --- */
+        .customer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;}
+        #customer_search_container { position: relative; margin-bottom: 10px; display: none; }
+        #customer_suggestions { /* ... same ... */ display: none; position: absolute; border: 1px solid #ccc; background-color: white; max-height: 200px; overflow-y: auto; width: calc(100% - 2px); z-index: 1000; box-shadow: 0 4px 8px rgba(0,0,0,0.1); list-style-type: none; padding: 0; margin: 0; border-radius: 0 0 5px 5px; }
+        #customer_suggestions li { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 0.9em; }
+        #customer_suggestions li:last-child { border-bottom: none; } #customer_suggestions li:hover { background-color: #f0f0f0; } #customer_suggestions li strong { color: #0056b3; }
+        /* --- Selected Customer Display Formatting --- */
+        #selected_customer_display { border: 1px dashed #ccc; padding: 10px 15px; margin-top: 10px; border-radius: 5px; background-color: #f9f9f9; font-size: 0.95em; display: none; }
+        #selected_customer_display .display-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        #selected_customer_display .display-header strong { font-size: 1.1em; color: #333; }
+        #selected_customer_display .details-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 5px 15px; }
+        #selected_customer_display .details-grid p { margin: 2px 0; }
+        #selected_customer_display .details-grid strong { color: #555; display: inline-block; min-width: 60px; }
+        #clear_selection_btn { font-size: 0.9em; color: #dc3545; cursor: pointer; text-decoration: underline; background: none; border: none; padding: 0; }
+        /* --- End Display Formatting --- */
+        #new_customer_fields { display: block; }
+        .customer-toggle-btn { background: none; border: none; font-size: 1.4em; color: #007bff; cursor: pointer; padding: 0 5px; vertical-align: middle; }
+        .customer-toggle-btn:hover { color: #0056b3; }
+
+        /* --- Item Row & Live Preview Styles (Unchanged) --- */
+        /* ... */
+         .item-row { display: grid; grid-template-columns: 1fr auto 80px 50px auto; gap: 10px; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px dashed #eee; } .item-row:last-child { border-bottom: none; } .item-row label { display: none; } .item-row input { margin-bottom: 0; } .item-row .mrp-input, .item-row .discount-input { max-width: 100px; text-align: right; } .item-row .discount-amount-display { font-size: 0.9em; color: #555; min-width: 50px; text-align: right; padding-right: 5px;} .remove-item-btn { background-color: #dc3545; color: white; border: none; border-radius: 4px; padding: 5px 8px; cursor: pointer; font-size: 0.9em; line-height: 1.2; } .remove-item-btn:hover { background-color: #c82333; } #add-item-btn { display: inline-block; background-color: #28a745; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; font-size: 1.2em; line-height: 28px; cursor: pointer; margin-left: 10px; vertical-align: middle; text-align: center; } #items-container { margin-top: 0; border: 1px solid #eee; padding: 15px; border-radius: 5px; } .item-header { display: grid; grid-template-columns: 1fr auto 80px 50px auto; gap: 10px; font-weight: bold; color: #555; font-size: 0.9em; margin-bottom: 5px; padding: 0 5px; } .item-header > div:nth-child(n+2) { text-align: right; }
+         #live-preview { margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; text-align: right; font-size: 1.05em; font-weight: bold; } #live-preview div { margin-bottom: 5px;} #live-preview span { color: #0056b3; display: inline-block; min-width: 100px; text-align: right; font-family: monospace; } #live-preview .label { display: inline-block; min-width: 250px; text-align: right; font-weight: normal; color: #333; padding-right: 10px; } #live-preview .subtotal .label, #live-preview .overall-discount-display .label { font-size: 0.95em; font-weight: normal;} #live-preview .overall-discount-display span { color: #dc3545; } #live-preview .total span { color: #007bff; font-size: 1.1em; }
+
     </style>
 </head>
 <body>
     <form id="estimate-form" action="/estimate-submit" method="POST">
         <h1>Estimate Form</h1>
-        <% if (currentBranchDetails && sessionUser) { %>
-            <p> Branch: <strong><%= currentBranchDetails.name %></strong> | User: <%= sessionUser.username %> | <a href="/logout">Logout</a> | <a href="/receipt-form">Go to Receipt Form</a> </p>
-        <% } %>
-         <hr>
-         <!-- Customer Details -->
-         <fieldset>
-              <legend>Customer Details</legend>
-              <div class="form-grid">
-                   <div> <label for="estimate_date">Estimate Date:</label> <input type="text" id="estimate_date" name="estimate_date" placeholder="DD/MM/YYYY" required class="flatpickr-date"> </div> <div></div> <!-- Spacer -->
-                   <div class="full-width"> <label for="customer_name">Customer Name:</label> <input type="text" id="customer_name" name="customer_name" required> </div>
-                   <div> <label for="age">Age:</label> <input type="number" id="age" name="age" min="0" max="130"> <small>(Enter Age or DOB)</small> </div>
-                   <div> <label for="customer_dob">Date of Birth:</label> <input type="text" id="customer_dob" name="customer_dob" placeholder="DD/MM/YYYY" class="flatpickr-date"> </div>
-                   <div> <label>Gender:</label> <div class="radio-group"> <input type="radio" id="male" name="gender" value="Male"> <label for="male">Male</label> <input type="radio" id="female" name="gender" value="Female"> <label for="female">Female</label> <input type="radio" id="other" name="gender" value="Other"> <label for="other">Other</label> </div> </div>
-                   <div> <label for="mobile_no">Mobile No:</label> <input type="tel" id="mobile_no" name="mobile_no" pattern="[0-9\s+-]*" title="Enter a valid phone number"> </div>
-                   <div class="full-width"> <label for="referred_by">Referred By Dr.:</label> <input type="text" id="referred_by" name="referred_by"> </div>
-              </div>
-         </fieldset>
-         <hr>
-         <!-- Items Section -->
-          <fieldset>
-             <legend>Tests / Packages <button type="button" id="add-item-btn" title="Add Item">+</button></legend>
-              <div class="item-header">
-                  <div>Package Name</div>
-                  <div>MRP (₹)</div>
-                  <div>Disc (%)</div>
-                  <div>Disc Amt (₹)</div>
-                  <div>Action</div>
-              </div>
-             <div id="items-container">
-                 <!-- Item Row Template -->
-                 <div class="item-row">
-                     <input type="text" name="package_names[]" placeholder="Select or Type Package" list="package-list" required class="package-name-input item-calc-trigger">
-                     <input type="number" name="mrps[]" placeholder="MRP" step="0.01" min="0" required class="mrp-input item-calc-trigger">
-                     <input type="number" name="item_discounts[]" placeholder="Disc %" step="0.1" min="0" max="100" value="0" class="discount-input item-calc-trigger">
-                     <span class="discount-amount-display">0.00</span>
-                     <button type="button" class="remove-item-btn" onclick="removeItem(this)">X</button>
+         <% if (currentBranchDetails && sessionUser) { %> <p> Branch: <strong><%= currentBranchDetails.name %></strong> | User: <%= sessionUser.username %> | <a href="/logout">Logout</a> | <a href="/receipt-form">Go to Receipt Form</a> </p> <% } %>
+        <hr>
+
+        <!-- Customer Section -->
+        <fieldset>
+            <div class="customer-header">
+                 <legend>Customer Information</legend>
+                 <button type="button" id="customer_toggle_btn" class="customer-toggle-btn" title="Search Existing Customer">
+                      <i class="fa-solid fa-magnifying-glass"></i>
+                 </button>
+            </div>
+            <input type="hidden" id="selected_customer_id" name="customer_id" value="">
+
+            <div id="customer_search_container">
+                <label for="customer_search">Search Existing (ID/Name/Mobile):</label>
+                <input type="text" id="customer_search" name="customer_search_term" autocomplete="off" placeholder="Start typing ID, Name or Mobile...">
+                <ul id="customer_suggestions"></ul>
+            </div>
+
+             <div id="selected_customer_display">
+                 <div class="display-header">
+                      <strong><span id="display_customer_name"></span></strong>
+                      <button type="button" id="clear_selection_btn" title="Clear selection and enter new customer details">Clear</button>
                  </div>
-                 <!-- More item rows will be added here by JS -->
-             </div>
-             <datalist id="package-list">
-                 <!-- Options will be populated by JS -->
-             </datalist>
-         </fieldset>
-         <hr>
-         <!-- Totals and Notes -->
-         <fieldset>
-              <legend>Totals & Notes</legend>
-              <div class="form-grid">
-                   <div>
-                        <label for="discount_percentage">Overall Discount (%):</label>
-                        <input type="number" id="discount_percentage" name="discount_percentage" step="0.1" min="0" max="100" value="0" class="item-calc-trigger">
-                   </div>
-                   <!-- Live Preview Area -->
-                   <div id="live-preview">
-                        <div><span class="label">Total MRP:</span> ₹<span id="calculated-mrp">0.00</span></div>
-                        <div class="subtotal"><span class="label">Subtotal (After Item Disc):</span> ₹<span id="calculated-subtotal">0.00</span></div>
-                        <div class="overall-discount-display"><span class="label">Overall Disc Amount:</span> ₹<span id="calculated-overall-discount-amount">0.00</span></div>
-                        <div class="total"><span class="label">Estimated Payable:</span> ₹<span id="calculated-total">0.00</span></div>
-                   </div>
-              </div>
-              <div class="full-width" style="margin-top: 15px;">
-                   <label for="notes">Notes:</label>
-                   <textarea id="notes" name="notes" rows="3"></textarea>
-              </div>
-         </fieldset>
-         <button type="submit" class="full-width">Generate Estimate</button>
+                 <div class="details-grid">
+                      <p><strong>ID:</strong> <span id="display_customer_id"></span></p>
+                      <p><strong>Mobile:</strong> <span id="display_customer_mobile"></span></p>
+                      <p><strong>Gender:</strong> <span id="display_customer_gender"></span></p>
+                      <p><strong>DOB:</strong> <span id="display_customer_dob"></span></p>
+                      <p><strong>Age:</strong> <span id="display_customer_age"></span></p>
+                 </div>
+            </div>
+
+            <div id="new_customer_fields">
+                <h4>Enter New Customer Details:</h4>
+                <div class="form-grid">
+                    <div class="full-width"> <label for="new_customer_name">Customer Name:</label> <input type="text" id="new_customer_name" name="new_customer_name"> </div>
+                    <div> <label for="new_customer_mobile">Mobile No:</label> <input type="tel" id="new_customer_mobile" name="new_customer_mobile" pattern="[0-9\s+-]*"> </div>
+                    <div> <label for="new_customer_dob">Date of Birth:</label> <input type="text" id="new_customer_dob" name="new_customer_dob" placeholder="DD/MM/YYYY" class="flatpickr-date"> <small>Optional if Age provided</small></div>
+                    <div> <label for="new_customer_age">Age (Years):</label> <input type="number" id="new_customer_age" name="new_customer_age" min="0" max="130"> <small>Optional if DOB provided</small> </div>
+                    <div> <label>Gender:</label> <div class="radio-group"> <input type="radio" id="new_male" name="new_customer_gender" value="Male" checked> <label for="new_male">Male</label> <input type="radio" id="new_female" name="new_customer_gender" value="Female"> <label for="new_female">Female</label> <input type="radio" id="new_other" name="new_customer_gender" value="Other"> <label for="new_other">Other</label> </div> </div>
+                </div>
+            </div>
+        </fieldset>
+        <hr>
+
+        <!-- Estimate Details, Items, Totals (Unchanged) -->
+        <fieldset> <legend>Estimate Details</legend> <div class="form-grid"> <div> <label for="estimate_date">Estimate Date:</label> <input type="text" id="estimate_date" name="estimate_date" placeholder="DD/MM/YYYY" required class="flatpickr-date"> </div> <div class="full-width"> <label for="referred_by">Referred By Dr.:</label> <input type="text" id="referred_by" name="referred_by"> </div> </div> </fieldset> <hr>
+        <fieldset> <legend>Tests / Packages <button type="button" id="add-item-btn" title="Add Item">+</button></legend> <div class="item-header"> <div>Package Name</div> <div>MRP (₹)</div> <div>Disc (%)</div> <div>Disc Amt (₹)</div> <div>Action</div> </div> <div id="items-container"> <div class="item-row"> <input type="text" name="package_names[]" placeholder="Select or Type Package" list="package-list" required class="package-name-input item-calc-trigger"> <input type="number" name="mrps[]" placeholder="MRP" step="0.01" min="0" required class="mrp-input item-calc-trigger"> <input type="number" name="item_discounts[]" placeholder="Disc %" step="0.1" min="0" max="100" value="0" class="discount-input item-calc-trigger"> <span class="discount-amount-display">0.00</span> <button type="button" class="remove-item-btn" onclick="removeItem(this)">X</button> </div> </div> <datalist id="package-list"></datalist> </fieldset> <hr>
+        <fieldset> <legend>Totals & Notes</legend> <div class="form-grid"> <div> <label for="discount_percentage">Overall Discount (%):</label> <input type="number" id="discount_percentage" name="discount_percentage" step="0.1" min="0" max="100" value="0" class="item-calc-trigger"> </div> <div id="live-preview"> <div><span class="label">Total MRP:</span> ₹<span id="calculated-mrp">0.00</span></div> <div class="subtotal"><span class="label">Subtotal (After Item Disc):</span> ₹<span id="calculated-subtotal">0.00</span></div> <div class="overall-discount-display"><span class="label">Overall Disc Amount:</span> ₹<span id="calculated-overall-discount-amount">0.00</span></div> <div class="total"><span class="label">Estimated Payable:</span> ₹<span id="calculated-total">0.00</span></div> </div> </div> <div class="full-width" style="margin-top: 15px;"> <label for="notes">Notes:</label> <textarea id="notes" name="notes" rows="3"></textarea> </div> </fieldset>
+
+        <button type="submit" class="full-width">Generate Estimate</button>
     </form>
 
+    <!-- JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
-        let packageData = []; // Holds package data fetched from API {id, name, mrp}
+        let packageData = []; let customerSearchTimeout;
 
-        // Initialize Flatpickr date pickers
-        // Use "d/m/Y" format for display and user input
-        flatpickr(".flatpickr-date", {
-            dateFormat: "d/m/Y",
-            allowInput: true // Allows manual typing in DD/MM/YYYY format
-        });
+        // --- Init (Unchanged) ---
+        flatpickr(".flatpickr-date", { dateFormat: "d/m/Y", allowInput: true }); const estimateDateInput = document.getElementById('estimate_date'); if (!estimateDateInput.value) { flatpickr(estimateDateInput).setDate(new Date(), false); }
 
-        // Set default date for Estimate Date only if it's empty
-        const estimateDateInput = document.getElementById('estimate_date');
-        if (!estimateDateInput.value) {
-             flatpickr(estimateDateInput).setDate(new Date(), false); // Set to today, don't trigger change event
-        }
+        // --- DOMContentLoaded (Unchanged) ---
+        document.addEventListener('DOMContentLoaded', async () => { try { const r = await fetch('/api/packages'); if (!r.ok) throw new Error(`E:${r.status}`); packageData = await r.json(); populateDatalist(); } catch (e) { console.error("Pkg fetch err:", e); } addEventListenersToAllRows(); updateTotalEstimate(); document.getElementById('discount_percentage').addEventListener('input', updateTotalEstimate); document.getElementById('add-item-btn').addEventListener('click', addItem); document.getElementById('customer_toggle_btn').addEventListener('click', toggleCustomerMode); document.getElementById('clear_selection_btn').addEventListener('click', clearCustomerSelection); const searchInput = document.getElementById('customer_search'); const suggestionsList = document.getElementById('customer_suggestions'); searchInput.addEventListener('input', () => { clearTimeout(customerSearchTimeout); const q = searchInput.value; if (q.length < 1) { suggestionsList.innerHTML = ''; suggestionsList.style.display = 'none'; return; } customerSearchTimeout = setTimeout(() => { fetchCustomerSuggestions(q); }, 300); }); document.addEventListener('click', (e) => { if (!document.getElementById('customer_search_container').contains(e.target) && !document.getElementById('customer_toggle_btn').contains(e.target)) { suggestionsList.style.display = 'none'; } }); document.getElementById('new_customer_dob').addEventListener('change', validateAgeDob); document.getElementById('new_customer_age').addEventListener('input', validateAgeDob); setCustomerMode('new'); });
 
+        // --- Customer Mode (Unchanged) ---
+        function toggleCustomerMode() { /* ... Same ... */ const currentMode = document.getElementById('new_customer_fields').style.display === 'none' ? 'search' : 'new'; setCustomerMode(currentMode === 'new' ? 'search' : 'new'); }
+        function setCustomerMode(mode) { /* ... Same ... */ const searchContainer = document.getElementById('customer_search_container'); const displayContainer = document.getElementById('selected_customer_display'); const newFieldsContainer = document.getElementById('new_customer_fields'); const toggleBtnIcon = document.getElementById('customer_toggle_btn').querySelector('i'); const hiddenCustomerIdInput = document.getElementById('selected_customer_id'); const searchInput = document.getElementById('customer_search'); if (mode === 'search') { searchContainer.style.display = 'block'; newFieldsContainer.style.display = 'none'; displayContainer.style.display = hiddenCustomerIdInput.value ? 'block' : 'none'; toggleBtnIcon.classList.remove('fa-magnifying-glass'); toggleBtnIcon.classList.add('fa-user-plus'); document.getElementById('customer_toggle_btn').title = "Enter New Customer"; document.getElementById('new_customer_name').required = false; searchInput.focus(); } else { searchContainer.style.display = 'none'; newFieldsContainer.style.display = 'block'; displayContainer.style.display = 'none'; toggleBtnIcon.classList.remove('fa-user-plus'); toggleBtnIcon.classList.add('fa-magnifying-glass'); document.getElementById('customer_toggle_btn').title = "Search Existing Customer"; hiddenCustomerIdInput.value = ''; searchInput.value = ''; document.getElementById('customer_suggestions').style.display = 'none'; document.getElementById('new_customer_name').required = true; document.getElementById('new_customer_name').focus(); } validateAgeDob(); }
+        function clearCustomerSelection() { /* ... Same ... */ document.getElementById('selected_customer_id').value = ''; setCustomerMode('new'); }
+        function validateAgeDob() { /* ... Same ... */ const dobInput = document.getElementById('new_customer_dob'); const ageInput = document.getElementById('new_customer_age'); if (new_customer_fields.style.display !== 'none') { const dobValue = dobInput.value.trim(); const ageValue = ageInput.value.trim(); /* Validation styling can go here */ } }
 
-        // --- DOMContentLoaded Event Listener ---
-        document.addEventListener('DOMContentLoaded', async () => {
-            // Fetch package data for the datalist
-            try {
-                const response = await fetch('/api/packages');
-                if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
-                packageData = await response.json();
-                populateDatalist();
-            } catch (error) {
-                console.error("Failed to fetch packages:", error);
-                // Optionally display an error to the user
-            }
+        // --- Customer Search & Select (Updates for Age display) ---
+        async function fetchCustomerSuggestions(query) { /* Uses display_text from controller */ const suggestionsList = document.getElementById('customer_suggestions'); try { const r = await fetch(`/api/customers/search?q=${encodeURIComponent(query)}`); if (!r.ok) throw new Error('Network error'); const customers = await r.json(); suggestionsList.innerHTML = ''; if (customers.length > 0) { customers.forEach(cust => { const li = document.createElement('li'); li.innerHTML = cust.display_text; /* Pass all needed data */ li.dataset.customerId = cust.id; li.dataset.customerName = cust.name; li.dataset.customerMobile = cust.mobile || ''; li.dataset.customerGender = cust.gender || ''; li.dataset.customerDob = cust.dob || ''; li.dataset.customerDobFormatted = cust.dob_formatted || 'N/A'; li.dataset.customerAge = cust.age !== null ? cust.age : ''; /* Store original age */ li.dataset.displayAge = cust.display_age || 'N/A'; /* Store pre-formatted display age */ li.addEventListener('click', () => selectCustomer(li.dataset)); suggestionsList.appendChild(li); }); suggestionsList.style.display = 'block'; } else { suggestionsList.innerHTML = '<li>No customers found</li>'; suggestionsList.style.display = 'block'; } } catch (error) { console.error('Error fetching customer suggestions:', error); suggestionsList.innerHTML = '<li>Error fetching data</li>'; suggestionsList.style.display = 'block'; } }
+        function selectCustomer(customerData) { /* Uses dataset.displayAge */ document.getElementById('selected_customer_id').value = customerData.customerId; document.getElementById('display_customer_id').textContent = `CUST-${String(customerData.customerId).padStart(10, '0')}`; /* Format ID */ document.getElementById('display_customer_name').textContent = customerData.customerName; document.getElementById('display_customer_mobile').textContent = customerData.customerMobile || 'N/A'; document.getElementById('display_customer_gender').textContent = customerData.customerGender || 'N/A'; document.getElementById('display_customer_dob').textContent = customerData.customerDobFormatted || 'N/A'; document.getElementById('display_customer_age').textContent = customerData.displayAge || 'N/A'; /* Use pre-formatted display age */ document.getElementById('customer_suggestions').style.display = 'none'; document.getElementById('customer_search').value = ''; setCustomerMode('search'); document.getElementById('selected_customer_display').style.display = 'block'; document.getElementById('new_customer_fields').style.display = 'none'; document.getElementById('new_customer_name').required = false; }
 
-            // Attach event listeners to the initial item row and overall discount
-            addEventListenersToAllRows();
-            document.getElementById('discount_percentage').addEventListener('input', updateTotalEstimate);
+        // --- Item Management (Unchanged) ---
+        function populateDatalist() { /* ... */ const d=document.getElementById('package-list'); d.innerHTML=''; packageData.forEach(p => { const o=document.createElement('option'); o.value=p.name; o.dataset.mrp=p.mrp; d.appendChild(o); }); }
+        function addItem() { /* ... */ const c=document.getElementById('items-container'); const n=document.createElement('div'); n.classList.add('item-row'); n.innerHTML=`<input type="text" name="package_names[]" placeholder="Select or Type Package" list="package-list" required class="package-name-input item-calc-trigger"><input type="number" name="mrps[]" placeholder="MRP" step="0.01" min="0" required class="mrp-input item-calc-trigger"><input type="number" name="item_discounts[]" placeholder="Disc %" step="0.1" min="0" max="100" value="0" class="discount-input item-calc-trigger"><span class="discount-amount-display">0.00</span><button type="button" class="remove-item-btn" onclick="removeItem(this)">X</button>`; c.appendChild(n); addEventListenersToRow(n); updateTotalEstimate(); }
+        function removeItem(b) { /* ... */ const r=b.closest('.item-row'); if(document.querySelectorAll('.item-row').length>1){ r.remove(); updateTotalEstimate(); }else{ alert("Need one item."); } }
+        function addEventListenersToAllRows() { /* ... */ document.querySelectorAll('.item-row').forEach(addEventListenersToRow); }
+        function addEventListenersToRow(r) { /* ... */ const ni=r.querySelector('.package-name-input'); const mi=r.querySelector('.mrp-input'); ni.addEventListener('input',(e)=>{ const sn=e.target.value; const o=document.querySelector(`#package-list option[value="${sn}"]`); if(o&&o.dataset.mrp){ mi.value=parseFloat(o.dataset.mrp).toFixed(2); mi.readOnly=true; } else { mi.readOnly=false; } updateTotalEstimate(); }); ni.addEventListener('blur',()=>{ const cn=ni.value; const o=document.querySelector(`#package-list option[value="${cn}"]`); if(!o){mi.readOnly=false;} }); mi.addEventListener('input', updateTotalEstimate); r.querySelector('.discount-input').addEventListener('input', updateTotalEstimate); }
 
-            // Initial calculation based on default values
-            updateTotalEstimate();
+        // --- Calculation (Unchanged) ---
+        function updateTotalEstimate() { /* ... */ let totalMrp = 0; let subtotalAfterItemDiscounts = 0; document.querySelectorAll('.item-row').forEach(row => { const mrpInput = row.querySelector('.mrp-input'); const itemDiscountInput = row.querySelector('.discount-input'); const itemDiscountDisplay = row.querySelector('.discount-amount-display'); const mrp = parseFloat(mrpInput.value) || 0; const itemDiscPerc = parseFloat(itemDiscountInput.value) || 0; const validItemDiscPerc = Math.max(0, Math.min(100, itemDiscPerc)); if (itemDiscPerc !== validItemDiscPerc) { itemDiscountInput.value = validItemDiscPerc; } const itemPriceAfterDiscount = mrp * (1 - (validItemDiscPerc / 100)); totalMrp += mrp; subtotalAfterItemDiscounts += itemPriceAfterDiscount; const itemDiscAmount = mrp * (validItemDiscPerc / 100); itemDiscountDisplay.textContent = itemDiscAmount.toFixed(2); }); const overallDiscountInput = document.getElementById('discount_percentage'); const overallDiscountPercent = parseFloat(overallDiscountInput.value) || 0; const validOverallDiscPerc = Math.max(0, Math.min(100, overallDiscountPercent)); if (overallDiscountPercent !== validOverallDiscPerc) { overallDiscountInput.value = validOverallDiscPerc; } const overallDiscountAmount = subtotalAfterItemDiscounts * (validOverallDiscPerc / 100); const finalTotal = subtotalAfterItemDiscounts - overallDiscountAmount; document.getElementById('calculated-mrp').textContent = totalMrp.toFixed(2); document.getElementById('calculated-subtotal').textContent = subtotalAfterItemDiscounts.toFixed(2); document.getElementById('calculated-overall-discount-amount').textContent = overallDiscountAmount.toFixed(2); document.getElementById('calculated-total').textContent = finalTotal.toFixed(2); }
 
-            // Add event listener for the "Add Item" button
-            document.getElementById('add-item-btn').addEventListener('click', addItem);
-
-             // Add listener to DOB input to potentially clear Age if DOB is entered, and vice-versa
-             const ageInput = document.getElementById('age');
-             const dobInput = document.getElementById('customer_dob');
-             ageInput.addEventListener('input', () => {
-                 if (ageInput.value.trim() !== '') {
-                      // Optional: Clear DOB if age is entered? Or just let both exist?
-                      // flatpickr(dobInput).clear(); // Uncomment to clear DOB
-                 }
-                 validateAgeDob();
-             });
-              dobInput.addEventListener('change', () => { // Use change for flatpickr
-                 if (dobInput.value.trim() !== '') {
-                     // Optional: Clear Age if DOB is entered?
-                     // ageInput.value = ''; // Uncomment to clear age
-                 }
-                  validateAgeDob();
-              });
-        });
-
-        // --- Functions ---
-
-        /**
-         * Populates the datalist element with package names and MRPs.
-         */
-        function populateDatalist() {
-            const datalist = document.getElementById('package-list');
-            datalist.innerHTML = ''; // Clear existing options
-            packageData.forEach(pkg => {
-                const option = document.createElement('option');
-                option.value = pkg.name;
-                // Store MRP in a data attribute for easy retrieval
-                option.dataset.mrp = pkg.mrp;
-                datalist.appendChild(option);
-            });
-        }
-
-         /**
-         * Validates that either Age or DOB has been entered.
-         * Adds/removes hypothetical 'is-invalid' class for visual feedback (requires CSS).
-         */
-         function validateAgeDob() {
-            const ageInput = document.getElementById('age');
-            const dobInput = document.getElementById('customer_dob');
-             const ageValue = ageInput.value.trim();
-             const dobValue = dobInput.value.trim();
-
-             if (ageValue === '' && dobValue === '') {
-                 // Example: Add invalid class styling (needs CSS)
-                 // ageInput.classList.add('is-invalid');
-                 // dobInput.classList.add('is-invalid');
-                 console.warn("Validation: Age or DOB is required."); // Or show message on page
-             } else {
-                 // ageInput.classList.remove('is-invalid');
-                 // dobInput.classList.remove('is-invalid');
-             }
-         }
-
-
-        /**
-         * Adds a new, empty item row to the items container.
-         */
-        function addItem() {
-            const itemsContainer = document.getElementById('items-container');
-            const newItemRow = document.createElement('div');
-            newItemRow.classList.add('item-row');
-            newItemRow.innerHTML = `
-                <input type="text" name="package_names[]" placeholder="Select or Type Package" list="package-list" required class="package-name-input item-calc-trigger">
-                <input type="number" name="mrps[]" placeholder="MRP" step="0.01" min="0" required class="mrp-input item-calc-trigger">
-                <input type="number" name="item_discounts[]" placeholder="Disc %" step="0.1" min="0" max="100" value="0" class="discount-input item-calc-trigger">
-                <span class="discount-amount-display">0.00</span>
-                <button type="button" class="remove-item-btn" onclick="removeItem(this)">X</button>
-            `;
-            itemsContainer.appendChild(newItemRow);
-
-            // Add event listeners to the new row's inputs
-            addEventListenersToRow(newItemRow);
-
-            // Recalculate totals
-            updateTotalEstimate();
-        }
-
-        /**
-         * Removes an item row, ensuring at least one row remains.
-         * @param {HTMLButtonElement} button - The remove button that was clicked.
-         */
-        function removeItem(button) {
-            const itemRow = button.closest('.item-row');
-            const itemsContainer = document.getElementById('items-container');
-
-            // Prevent removing the last item row
-            if (itemsContainer.querySelectorAll('.item-row').length > 1) {
-                itemRow.remove();
-                // Recalculate totals after removing the row
-                updateTotalEstimate();
-            } else {
-                alert("At least one item is required.");
-                 // Optionally clear the inputs of the last row instead of showing alert
-                 // itemRow.querySelector('.package-name-input').value = '';
-                 // itemRow.querySelector('.mrp-input').value = '';
-                 // itemRow.querySelector('.discount-input').value = '0';
-                 // updateTotalEstimate();
-            }
-        }
-
-        /**
-         * Adds event listeners to all input elements within all item rows
-         * that trigger recalculation.
-         */
-        function addEventListenersToAllRows() {
-            document.querySelectorAll('.item-row').forEach(row => {
-                addEventListenersToRow(row);
-            });
-        }
-
-        /**
-         * Adds event listeners to the inputs within a specific item row.
-         * Handles auto-filling MRP when a package is selected from the datalist.
-         * @param {HTMLElement} row - The item row element.
-         */
-        function addEventListenersToRow(row) {
-            const packageNameInput = row.querySelector('.package-name-input');
-            const mrpInput = row.querySelector('.mrp-input');
-            const discountInput = row.querySelector('.discount-input');
-
-            // Event listener for package name input (live search)
-            packageNameInput.addEventListener('input', (event) => {
-                const selectedName = event.target.value;
-                const matchingOption = document.querySelector(`#package-list option[value="${selectedName}"]`);
-
-                if (matchingOption && matchingOption.dataset.mrp) {
-                    mrpInput.value = parseFloat(matchingOption.dataset.mrp).toFixed(2);
-                    mrpInput.readOnly = true; // Prevent manual editing if selected from list
-                } else {
-                    mrpInput.readOnly = false; // Allow manual MRP entry if not found in list
-                }
-                // Recalculate whenever input changes (even if not fully selected yet)
-                updateTotalEstimate();
-            });
-
-             // Add blur event to handle case where user types a name not in list, then tabs away
-             packageNameInput.addEventListener('blur', () => {
-                 const currentName = packageNameInput.value;
-                  const matchingOption = document.querySelector(`#package-list option[value="${currentName}"]`);
-                  if (!matchingOption) {
-                      mrpInput.readOnly = false; // Ensure MRP is editable if name doesn't match list
-                  }
-                  // No need to trigger update here, input/change already does
-             });
-
-
-            // Add listeners to MRP and Discount inputs to trigger recalculation
-            mrpInput.addEventListener('input', updateTotalEstimate);
-            discountInput.addEventListener('input', updateTotalEstimate);
-        }
-
-        /**
-         * Calculates and updates all totals displayed in the live preview section.
-         * Reads values directly from the form inputs.
-         */
-        function updateTotalEstimate() {
-            let totalMrp = 0;
-            let subtotalAfterItemDiscounts = 0;
-
-            // Iterate through each item row to calculate totals
-            document.querySelectorAll('.item-row').forEach(row => {
-                const mrpInput = row.querySelector('.mrp-input');
-                const itemDiscountInput = row.querySelector('.discount-input');
-                const itemDiscountDisplay = row.querySelector('.discount-amount-display'); // Span to show item discount amount
-
-                const mrp = parseFloat(mrpInput.value) || 0;
-                const itemDiscPerc = parseFloat(itemDiscountInput.value) || 0;
-
-                 // Validate item discount percentage
-                 const validItemDiscPerc = Math.max(0, Math.min(100, itemDiscPerc)); // Clamp between 0 and 100
-                 if (itemDiscPerc !== validItemDiscPerc) {
-                     itemDiscountInput.value = validItemDiscPerc; // Correct the input value if invalid
-                 }
-
-                // Calculate price for this item after its specific discount
-                const itemPriceAfterDiscount = mrp * (1 - (validItemDiscPerc / 100));
-
-                // Update running totals
-                totalMrp += mrp;
-                subtotalAfterItemDiscounts += itemPriceAfterDiscount;
-
-                // Calculate and display the discount amount for this specific item
-                const itemDiscAmount = mrp * (validItemDiscPerc / 100);
-                itemDiscountDisplay.textContent = itemDiscAmount.toFixed(2);
-            });
-
-            // Get the overall discount percentage
-            const overallDiscountInput = document.getElementById('discount_percentage');
-            const overallDiscountPercent = parseFloat(overallDiscountInput.value) || 0;
-
-             // Validate overall discount percentage
-             const validOverallDiscPerc = Math.max(0, Math.min(100, overallDiscountPercent)); // Clamp
-             if (overallDiscountPercent !== validOverallDiscPerc) {
-                 overallDiscountInput.value = validOverallDiscPerc; // Correct the input value
-             }
-
-            // Calculate the overall discount amount based on the subtotal
-            const overallDiscountAmount = subtotalAfterItemDiscounts * (validOverallDiscPerc / 100);
-
-            // Calculate the final payable amount
-            const finalTotal = subtotalAfterItemDiscounts - overallDiscountAmount;
-
-            // Update the live preview elements in the HTML
-            document.getElementById('calculated-mrp').textContent = totalMrp.toFixed(2);
-            document.getElementById('calculated-subtotal').textContent = subtotalAfterItemDiscounts.toFixed(2);
-            document.getElementById('calculated-overall-discount-amount').textContent = overallDiscountAmount.toFixed(2);
-            document.getElementById('calculated-total').textContent = finalTotal.toFixed(2);
-        }
     </script>
 </body>
 </html>
