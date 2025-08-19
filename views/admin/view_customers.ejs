@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Customers</title>
+    <link rel="stylesheet" href="/styles.css">
+    <style>
+        .dashboard-container { max-width: 1200px; }
+        .dashboard-header { border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .dashboard-header h1 { margin: 0; text-align: left; }
+        .action-link { display: inline-block; padding: 8px 15px; background-color: #6c757d; color: white; text-decoration: none; border-radius: 5px; font-size: 0.9em; }
+        .action-link:hover { background-color: #5a6268; }
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .data-table th, .data-table td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 0.95em; }
+        .data-table th { background-color: #f4f4f9; font-weight: bold; }
+        .data-table tr:nth-child(even) { background-color: #f9f9f9; }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="dashboard-header">
+            <h1>All Customers</h1>
+            <% if (sessionUser && sessionUser.isAdmin) { %>
+                <a href="/admin-dashboard" class="action-link">Back to Dashboard</a>
+            <% } else { %>
+                <a href="/dashboard" class="action-link">Back to Dashboard</a>
+            <% } %>
+        </div>
+
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Customer ID</th>
+                    <th>Name</th>
+                    <th>Mobile</th>
+                    <th>Gender</th>
+                    <th>DOB / Age</th>
+                    <th>Registered On</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% if(customers && customers.length > 0) { %>
+                    <% customers.forEach(cust => { %>
+                        <tr>
+                            <td><%= cust.display_id %></td>
+                            <td><%= cust.name %></td>
+                            <td><%= cust.mobile || 'N/A' %></td>
+                            <td><%= cust.gender || 'N/A' %></td>
+                            <td><%= cust.dob ? new Date(cust.dob).toLocaleDateString('en-GB') : (cust.age ? `${cust.age} yrs` : 'N/A') %></td>
+                            <td><%= cust.display_created_at %></td>
+                        </tr>
+                    <% }) %>
+                <% } else { %>
+                    <tr>
+                        <td colspan="6" style="text-align: center;">No customers found.</td>
+                    </tr>
+                <% } %>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

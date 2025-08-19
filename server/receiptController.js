@@ -21,6 +21,33 @@ exports.createReceipt = (req, res) => {
         package_names, mrps, item_discounts, // Item fields
     } = req.body;
 
+    try {
+        // Validate customer info: If no existing customer is selected, a new name is mandatory.
+        if (!customer_id && (!new_customer_name || String(new_customer_name).trim() === '')) {
+            return res.status(400).send("A customer name is required for new customers.");
+        }
+
+        // Validate items: Must have at least one item.
+        if (!Array.isArray(package_names) || package_names.length === 0) {
+            return res.status(400).send("At least one test/package item is required.");
+        }
+        
+        // Validate core numeric fields
+        const received = parseFloat(amount_received);
+        if (isNaN(received) || received < 0) {
+            return res.status(400).send("Received Amount must be a valid non-negative number.");
+        }
+
+        const overallDisc = parseFloat(discount_percentage);
+        if (isNaN(overallDisc) || overallDisc < 0 || overallDisc > 100) {
+            return res.status(400).send("Overall Discount must be a number between 0 and 100.");
+        }
+    } catch (validationError) {
+        // This catch block is for unexpected errors during the validation itself.
+        console.error("Error during validation:", validationError);
+        return res.status(500).send("An error occurred during input validation.");
+    }
+    
     // --- Validation & Customer Handling ---
     if (!branchId || !userId) { return res.redirect('/?error=session'); }
 

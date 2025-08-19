@@ -93,8 +93,17 @@
 
         <button type="submit" class="full-width">Generate Estimate</button>
     </form>
-
     <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="/form_logic.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize the shared logic for an 'estimate' form
+            initializeFormLogic('estimate');
+        });
+    </script>
+
+    <!-- JavaScript 
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
         let packageData = []; let customerSearchTimeout;
@@ -125,6 +134,6 @@
         // --- Calculation (Unchanged) ---
         function updateTotalEstimate() { /* ... */ let totalMrp = 0; let subtotalAfterItemDiscounts = 0; document.querySelectorAll('.item-row').forEach(row => { const mrpInput = row.querySelector('.mrp-input'); const itemDiscountInput = row.querySelector('.discount-input'); const itemDiscountDisplay = row.querySelector('.discount-amount-display'); const mrp = parseFloat(mrpInput.value) || 0; const itemDiscPerc = parseFloat(itemDiscountInput.value) || 0; const validItemDiscPerc = Math.max(0, Math.min(100, itemDiscPerc)); if (itemDiscPerc !== validItemDiscPerc) { itemDiscountInput.value = validItemDiscPerc; } const itemPriceAfterDiscount = mrp * (1 - (validItemDiscPerc / 100)); totalMrp += mrp; subtotalAfterItemDiscounts += itemPriceAfterDiscount; const itemDiscAmount = mrp * (validItemDiscPerc / 100); itemDiscountDisplay.textContent = itemDiscAmount.toFixed(2); }); const overallDiscountInput = document.getElementById('discount_percentage'); const overallDiscountPercent = parseFloat(overallDiscountInput.value) || 0; const validOverallDiscPerc = Math.max(0, Math.min(100, overallDiscountPercent)); if (overallDiscountPercent !== validOverallDiscPerc) { overallDiscountInput.value = validOverallDiscPerc; } const overallDiscountAmount = subtotalAfterItemDiscounts * (validOverallDiscPerc / 100); const finalTotal = subtotalAfterItemDiscounts - overallDiscountAmount; document.getElementById('calculated-mrp').textContent = totalMrp.toFixed(2); document.getElementById('calculated-subtotal').textContent = subtotalAfterItemDiscounts.toFixed(2); document.getElementById('calculated-overall-discount-amount').textContent = overallDiscountAmount.toFixed(2); document.getElementById('calculated-total').textContent = finalTotal.toFixed(2); }
 
-    </script>
+    </script> commented out for sanity-->
 </body>
 </html>

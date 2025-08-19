@@ -60,7 +60,7 @@ exports.login = (req, res) => {
       console.log("Session regenerated. User data restored to new session.");
 
       // Check if there was a URL the user was trying to access before login
-      const returnTo = req.session.returnTo || (userDataForSession.isAdmin ? '/admin-dashboard' : '/receipt-form');
+      const returnTo = req.session.returnTo || (userDataForSession.isAdmin ? '/admin-dashboard' : '/dashboard');
       delete req.session.returnTo; // Clear the stored URL
 
       // Save the session explicitly before redirecting (recommended)

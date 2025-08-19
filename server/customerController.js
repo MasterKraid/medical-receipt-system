@@ -18,6 +18,11 @@ function calculateAge(dobString) {
 exports.searchCustomers = (req, res) => {
     const query = req.query.q;
     const limit = parseInt(req.query.limit) || 10;
+    
+    // Prevent overly long queries which could be used for DoS attacks
+    if (query && query.length > 100) {
+        return res.status(400).json({ error: "Search query is too long." });
+    }
 
     if (!query || query.trim().length < 1) {
         return res.json([]);

@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
-    <link rel="stylesheet" href="/styles.css"> <!-- Use general styles -->
-    <style>
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="/styles.css">
+    <!-- Reusing admin dashboard styles for consistency -->
+    <link rel="stylesheet" href="/admin_dashboard.css">
+     <style>
         .dashboard-container {
             max-width: 900px;
             margin: 20px auto;
@@ -100,7 +102,7 @@
 <body>
     <div class="dashboard-container">
         <div class="dashboard-header">
-            <h1>Admin Dashboard</h1>
+            <h1>User Dashboard</h1>
             <% if (sessionUser) { %>
                 <div class="user-info">
                     Logged in as: <strong><%= sessionUser.username %></strong>
@@ -112,16 +114,11 @@
         </div>
 
         <nav class="dashboard-nav">
-             <h2>Quick Actions</h2>
+             <h2>Actions</h2>
             <ul>
                 <li><a href="/receipt-form">Create New Receipt</a></li>
                 <li><a href="/estimate-form">Create New Estimate</a></li>
-                <li><a href="/admin/receipts">View Receipts</a></li>
-                <li><a href="/admin/estimates">View Estimates</a></li>
-                <li><a href="/admin/customers">View Customers</a></li>
-                <li><a href="/admin/packages">Manage Packages</a></li>
-                <li><a href="/admin/branches">Manage Branches</a></li>
-                <li><a href="/admin/users">Manage Users</a></li>
+                <li><a href="/customers">View Customers</a></li>
             </ul>
         </nav>
 

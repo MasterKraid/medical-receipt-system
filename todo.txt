@@ -1,0 +1,36 @@
+make a client  user type who collects blood under the corp
+take away account discount accest they wont be able to make dicounts and also cant "print" reciept only estimate.
+
+implement a virtual wallet for virtual allocation of fund incase of personal reasons from client type only to be filled by admin.
+rate db different for this user type. different from normal users.
+
+when saving customer save which user created it.
+
+create dynamic user selection
+make different databases for different users make them selectable during account creation by admin
+
+ability to have multiple package list with each list have the ability to import from excel sheet
+each list will have same structure.
+pop up to show the structure in case import fails
+
+
+"client" user type will have a virtual wallet which generally won't run into negative unless allowed by admin. 
+from virtual wallet cut only the column named B2B. In specific case allow admin to allow negative till 24 hours. 
+
+during user creation select user type general employee, admin, client etc. have specific selection for each,
+ie admin can do anything 
+ie general employee can create estimate and receipt and view customer (not edit customer) 
+
+
+
+1 test 1 entry currently 1 test can be inputted indifinite times in receipt and estimate
+
+
+
+during estimate and receipt generated drop down for select lab and have a jpeg for each lab, have a link between db and lab.
+
+in estimate creation add created by user name.
+
+create head user type that is lower than admin but has most access but cant edit anything.
+
+implement lab mrp selection at top only for "user" data type.
