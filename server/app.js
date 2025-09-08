@@ -13,9 +13,10 @@ const authController = require("./authController");
 const receiptController = require("./receiptController");
 const estimateController = require("./estimateController");
 const packageController = require("./packageController");
-const customerController = require("./customerController"); // <-- Import Customer Controller
+const customerController = require("./customerController"); 
 const { isAuthenticated, isAdmin } = require("./authMiddleware");
 const adminController = require("./adminController");
+const locationController = require("./locationController");
 
 const app = express();
 const PORT = process.env.PORT || 3000; // Use port from .env
@@ -120,7 +121,8 @@ app.get("/receipt/:id", isAuthenticated, receiptController.showReceipt); // Will
 
 // --- API Routes ---
 app.get("/api/packages", isAuthenticated, packageController.getAllPackages);
-app.get("/api/customers/search", isAuthenticated, customerController.searchCustomers); // <-- Add Customer Search API Route
+app.get("/api/customers/search", isAuthenticated, customerController.searchCustomers);
+app.get("/api/locations", isAuthenticated, locationController.getAllLocations);
 
 // --- Admin Routes ---
 app.get("/admin-dashboard", isAuthenticated, isAdmin, (req, res) => {

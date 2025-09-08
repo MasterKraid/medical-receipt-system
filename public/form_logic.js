@@ -24,8 +24,9 @@ function initializeFormLogic(formType) {
         }
     }
 
-    // Fetch package data from the server
+    // Fetch data from the server
     fetchPackages();
+    fetchLocations();
 
     // Add all necessary event listeners
     addGlobalEventListeners();
@@ -34,6 +35,33 @@ function initializeFormLogic(formType) {
 
     // Set the initial customer mode to 'new'
     setCustomerMode('new');
+}
+
+async function fetchLocations() {
+    try {
+        const response = await fetch('/api/locations');
+        if (!response.ok) throw new Error(`Server error: ${response.status}`);
+        const locations = await response.json();
+        populateLocationsDatalist(locations);
+    } catch (error) {
+        console.error("Failed to fetch locations:", error);
+        // Non-critical, so we don't alert the user, just log it.
+    }
+}
+
+/**
+ * Populates the <datalist> element with location options.
+ * @param {Array} locations - The array of location objects from the server.
+ */
+function populateLocationsDatalist(locations) {
+    const datalist = document.getElementById('locations-list');
+    if (!datalist) return;
+    datalist.innerHTML = '';
+    locations.forEach(loc => {
+        const option = document.createElement('option');
+        option.value = loc.name;
+        datalist.appendChild(option);
+    });
 }
 
 /**

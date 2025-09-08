@@ -144,7 +144,13 @@ try {
             FOREIGN KEY (receipt_id) REFERENCES receipts (id) ON DELETE CASCADE
         );`
     );
-
+    // Test Locations Table (NEW)
+    db.exec(
+        `CREATE TABLE IF NOT EXISTS test_locations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE
+        );`
+    );
     console.log("All tables checked/created.");
 
     // --- Seed Data (Unchanged from v5) ---
@@ -160,6 +166,19 @@ try {
     const testUserCount = db.prepare("SELECT COUNT(*) as count FROM users WHERE username = 'testuser'").get().count; if (testUserCount === 0) { const h = bcrypt.hashSync("test", 10); db.prepare("INSERT INTO users (username, password_hash, branch_id, is_admin) VALUES (?, ?, ?, ?)").run("testuser", h, defaultBranchId, 0); console.log(`Created test user "testuser".`); }
     // Packages
     const packageCount = db.prepare("SELECT COUNT(*) as count FROM packages").get().count; if (packageCount === 0) { db.prepare("INSERT INTO packages (name, mrp) VALUES (?, ?)").run("Basic Health Check", 1200.0); db.prepare("INSERT INTO packages (name, mrp) VALUES (?, ?)").run("Blood Sugar Fasting", 150.0); db.prepare("INSERT INTO packages (name, mrp) VALUES (?, ?)").run("Lipid Profile", 800.0); console.log("Seeded packages."); }
+    // Test Locations (NEW)
+    const locationCount = db.prepare("SELECT COUNT(*) as count FROM test_locations").get().count;
+    if (locationCount === 0) {
+        console.log("Seeding test locations...");
+        const insertLocation = db.prepare("INSERT INTO test_locations (name) VALUES (?)");
+        insertLocation.run("Apollo Diagnostic");
+        insertLocation.run("Labcorp Diagnostic (LDPL)");
+        insertLocation.run("RB Diagnostic");
+        insertLocation.run("General Diagnostic (GD)");
+        insertLocation.run("Serum Analysis Centre");
+        insertLocation.run("Thesim Diagnostic");
+        console.log("Seeded test locations.");
+    }
 
     console.log("Database initialization complete.");
 
