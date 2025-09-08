@@ -150,6 +150,7 @@ app.post("/admin/branches/edit/:id", isAuthenticated, isAdmin, adminController.u
 // Manage Users
 app.get("/admin/users", isAuthenticated, isAdmin, adminController.showManageUsersPage);
 app.post("/admin/users/add", isAuthenticated, isAdmin, adminController.createUser);
+app.post("/admin/users/delete/:id", isAuthenticated, isAdmin, adminController.deleteUser);
 // Note: User editing is more complex and can be added later following the same pattern.
 
 // Add other admin routes later...

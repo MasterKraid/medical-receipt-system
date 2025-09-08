@@ -181,3 +181,30 @@ exports.createUser = (req, res) => {
         res.status(500).send("Error creating user.");
     }
 };
+
+exports.deleteUser = (req, res) => {
+    const { id } = req.params;
+    const loggedInUserId = req.session.user.id;
+
+    // Critical safety check: prevent a user from deleting their own account
+    if (parseInt(id, 10) === loggedInUserId) {
+        return res.status(403).send("Error: You cannot delete your own account.");
+    }
+
+    try {
+        const info = db.prepare("DELETE FROM users WHERE id = ?").run(id);
+        if (info.changes === 0) {
+            return res.status(404).send("User not found or already deleted.");
+        }
+        console.log(`Admin (ID: ${loggedInUserId}) deleted user with ID: ${id}`);
+        res.redirect("/admin/users");
+    } catch (err) {
+        console.error(`Error deleting user ${id}:`, err);
+        // A foreign key constraint error will happen if the user has created receipts.
+        // This is a good thing, as it prevents orphaning records.
+        if (err.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+             return res.status(400).send("Cannot delete this user because they have existing records (receipts, estimates) in the system. Consider deactivating the user instead (future feature).");
+        }
+        res.status(500).send("Error deleting user.");
+    }
+};
