@@ -3,23 +3,29 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const session = require("express-session");
 const path = require("path");
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') }); // Load .env file
+const multer = require('multer');
+const os = require('os');
+require("dotenv").config({ path: path.join(__dirname, "..", ".env") }); // Load .env file
 const ejs = require("ejs");
 const db = require("./db"); // Import the database connection
-const rateLimit = require('express-rate-limit');
+const rateLimit = require("express-rate-limit");
 
 // --- Import Controllers and Middleware ---
 const authController = require("./authController");
 const receiptController = require("./receiptController");
 const estimateController = require("./estimateController");
 const packageController = require("./packageController");
-const customerController = require("./customerController"); 
-const { isAuthenticated, isAdmin } = require("./authMiddleware");
+const packageListController = require("./packageListController");
+const customerController = require("./customerController");
+const { isAuthenticated, isAdmin, hasPermission } = require("./authMiddleware");
 const adminController = require("./adminController");
 const locationController = require("./locationController");
 
 const app = express();
 const PORT = process.env.PORT || 3000; // Use port from .env
+
+// Multer config for temp file storage
+const upload = multer({ dest: os.tmpdir() });
 
 // --- Middleware Setup ---
 app.set("view engine", "ejs");
@@ -27,107 +33,107 @@ app.set("views", path.join(__dirname, "..", "views"));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(
-    session({
-        secret: process.env.SESSION_SECRET, // Use secret from .env
-        resave: false,
-        saveUninitialized: false,
-        cookie: {
-            secure: process.env.NODE_ENV === 'production', // Set to true if using HTTPS in production
-            httpOnly: true,
-            maxAge: 24 * 60 * 60 * 1000, // 24 hours
-        },
-    }),
+  session({
+    secret: process.env.SESSION_SECRET, // Use secret from .env
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production", // Set to true if using HTTPS in production
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    },
+  }),
 );
 app.use(express.static(path.join(__dirname, "..", "public")));
 
 // --- Custom Middleware to load user/branch details ---
 app.use((req, res, next) => {
-    res.locals.sessionUser = req.session.user || null;
-    res.locals.currentBranchDetails = null;
-    if (req.session.user && req.session.user.branchId) {
-        try {
-            const branchStmt = db.prepare("SELECT id, name, address, phone FROM branches WHERE id = ?");
-            res.locals.currentBranchDetails = branchStmt.get(req.session.user.branchId);
-        } catch (dbError) {
-            console.error("Middleware branch fetch error:", dbError);
-        }
+  res.locals.sessionUser = req.session.user || null;
+  res.locals.currentBranchDetails = null;
+  if (req.session.user && req.session.user.branchId) {
+    try {
+      const branchStmt = db.prepare(
+        "SELECT id, name, address, phone FROM branches WHERE id = ?"
+      );
+      res.locals.currentBranchDetails = branchStmt.get(
+        req.session.user.branchId
+      );
+    } catch (dbError) {
+      console.error("Middleware branch fetch error:", dbError);
     }
-    next();
+  }
+  next();
 });
 
 // --- Route Definitions ---
 
 // Root & Login/Logout
 const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // Limit each IP to 10 login requests per windowMs
-    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-    message: 'Too many login attempts from this IP, please try again after 15 minutes',
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 login requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message:
+    "Too many login attempts from this IP, please try again after 15 minutes",
 });
-
-/*app.get("/", (req, res) => {
-    // Redirect to intended URL or dashboard/receipt form after login
-    const defaultRedirect = req.session.user
-        ? (req.session.user.isAdmin ? "/admin-dashboard" : "/receipt-form")
-        : null;
-    const returnTo = req.session.returnTo || defaultRedirect;
-
-    if (req.session.user && returnTo) {
-         // Clear the returnTo session variable after using it
-         // delete req.session.returnTo; // Do this in authController after redirect instead
-        res.redirect(returnTo);
-    } else if (req.session.user) {
-        res.redirect(req.session.user.isAdmin ? "/admin-dashboard" : "/receipt-form"); // Fallback
-    }
-    else {
-        res.sendFile(path.join(__dirname, "..", "public", "index.html"));
-    }
-});
-uncommented for my sanity.*/
 
 app.get("/", (req, res) => {
-    // If a user session exists, redirect them to their appropriate dashboard.
-    if (req.session.user) {
-        const redirectUrl = req.session.user.isAdmin ? "/admin-dashboard" : "/dashboard";
-        return res.redirect(redirectUrl);
-    }
+  if (req.session.user) {
+    // Use role to determine dashboard
+    const redirectUrl =
+      req.session.user.role === "ADMIN" ? "/admin-dashboard" : "/dashboard";
+    return res.redirect(redirectUrl);
+  }
 
-    // Otherwise, the user is not logged in, so show the login page.
-    res.sendFile(path.join(__dirname, "..", "public", "index.html"));
+  res.sendFile(path.join(__dirname, "..", "public", "index.html"));
 });
 
 app.post("/login", loginLimiter, authController.login);
 app.get("/logout", authController.logout);
 
-// User Dashboard
+// --- User Dashboard ---
 app.get("/dashboard", isAuthenticated, (req, res) => {
-    // Simple render, no special data needed from controller
-    res.render("user_dashboard");
+  if (req.session.user.role === "ADMIN") {
+    return res.redirect("/admin-dashboard");
+  }
+  res.render("user_dashboard");
 });
 
-// Route for users to view customers (reuses admin logic but could be separated)
+// --- Customers (accessible to logged-in users) ---
 app.get("/customers", isAuthenticated, adminController.viewCustomers);
 
-// Estimate Routes (Protected)
+// --- Estimate Routes (Protected: any authenticated user) ---
 app.get("/estimate-form", isAuthenticated, estimateController.showEstimateForm);
-app.post("/estimate-submit", isAuthenticated, estimateController.createEstimate); // Will be updated
-app.get("/estimate/:id", isAuthenticated, estimateController.showEstimate); // Will be updated
+app.post("/estimate-submit", isAuthenticated, estimateController.createEstimate);
+app.get("/estimate/:id", isAuthenticated, estimateController.showEstimate);
 
-// Receipt Routes (Protected)
-app.get("/receipt-form", isAuthenticated, receiptController.showReceiptForm);
-app.post("/receipt-submit", isAuthenticated, receiptController.createReceipt); // Will be updated
-app.get("/receipt/:id", isAuthenticated, receiptController.showReceipt); // Will be updated
+// --- Receipt Routes (Protected: only Admin + General Employee) ---
+app.get(
+  "/receipt-form",
+  isAuthenticated,
+  hasPermission(["ADMIN", "GENERAL_EMPLOYEE"]),
+  receiptController.showReceiptForm
+);
+app.post(
+  "/receipt-submit",
+  isAuthenticated,
+  hasPermission(["ADMIN", "GENERAL_EMPLOYEE"]),
+  receiptController.createReceipt
+);
+app.get("/receipt/:id", isAuthenticated, receiptController.showReceipt);
 
 // --- API Routes ---
 app.get("/api/packages", isAuthenticated, packageController.getAllPackages);
-app.get("/api/customers/search", isAuthenticated, customerController.searchCustomers);
+app.get(
+  "/api/customers/search",
+  isAuthenticated,
+  customerController.searchCustomers
+);
 app.get("/api/locations", isAuthenticated, locationController.getAllLocations);
 
 // --- Admin Routes ---
 app.get("/admin-dashboard", isAuthenticated, isAdmin, (req, res) => {
-    // Pass user/branch info to admin dashboard as well
-    res.render("admin_dashboard"); // Already available via middleware locals
+  res.render("admin_dashboard");
 });
 
 // View Receipts & Estimates
@@ -147,28 +153,29 @@ app.get("/admin/branches", isAuthenticated, isAdmin, adminController.showManageB
 app.post("/admin/branches/add", isAuthenticated, isAdmin, adminController.createBranch);
 app.post("/admin/branches/edit/:id", isAuthenticated, isAdmin, adminController.updateBranch);
 
+// Manage Package Lists & Import (NEW)
+app.get("/admin/package-lists", isAuthenticated, isAdmin, packageListController.showManageListsPage);
+app.post("/admin/package-lists/add", isAuthenticated, isAdmin, packageListController.createList);
+app.post("/admin/packages/upload", isAuthenticated, isAdmin, upload.single('package_file'), packageListController.uploadPackages);
+
 // Manage Users
 app.get("/admin/users", isAuthenticated, isAdmin, adminController.showManageUsersPage);
 app.post("/admin/users/add", isAuthenticated, isAdmin, adminController.createUser);
 app.post("/admin/users/delete/:id", isAuthenticated, isAdmin, adminController.deleteUser);
 // Note: User editing is more complex and can be added later following the same pattern.
 
-// Add other admin routes later...
-
-// --- Optional: Central Error Handler ---
+// --- Central Error Handler ---
 app.use((err, req, res, next) => {
   console.error("Unhandled Error:", err.stack || err);
-  res.status(500).render('error_general', {
+  res.status(500).render("error_general", {
     title: "Server Error",
     message: "An unexpected error occurred on the server.",
-    // Only show stack trace in development environment for security
-    error: process.env.NODE_ENV === 'development' ? err : {}
+    error: process.env.NODE_ENV === "development" ? err : {},
   });
 });
 
-
 // --- Server Startup ---
 app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
-    // db.js handles its own console logs now
+  console.log(`Server running at http://localhost:${PORT}`);
+  // db.js handles its own console logs
 });

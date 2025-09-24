@@ -1,3 +1,4 @@
+completely shift to mysql
 make a client  user type who collects blood under the corp
 take away account discount accest they wont be able to make dicounts and also cant "print" reciept only estimate.
 

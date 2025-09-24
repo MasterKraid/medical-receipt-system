@@ -3,54 +3,41 @@
 // Middleware to check if the user is authenticated
 exports.isAuthenticated = (req, res, next) => {
   if (req.session && req.session.user && req.session.user.id) {
-    // User is logged in, make user info easily available in templates if not already done globally
+    // User is logged in, make user info easily available in templates
     res.locals.sessionUser = req.session.user;
     return next();
   } else {
     console.log("Authentication required. Redirecting to login.");
-    // Store the original URL they tried to access, so we can redirect back after login
+    // Store the original URL they tried to access for post-login redirect
     req.session.returnTo = req.originalUrl;
     res.redirect("/"); // Redirect to login page
   }
 };
 
-// Middleware to check if the user is an admin
-exports.isAdmin = (req, res, next) => {
-  // Ensure user is authenticated first before checking admin status
-  if (!req.session || !req.session.user || !req.session.user.id) {
-      console.log("Admin check failed: User not authenticated.");
-      req.session.returnTo = req.originalUrl; // Store intended URL
-      return res.redirect("/"); // Redirect to login
-  }
+// NEW: Flexible role-based permission middleware
+exports.hasPermission = (allowedRoles = []) => {
+  return (req, res, next) => {
+    // This middleware must run *after* isAuthenticated
+    const userRole = req.session.user ? req.session.user.role : null;
 
-  // Now check if the authenticated user is an admin
-  if (req.session.user.isAdmin) {
-      res.locals.sessionUser = req.session.user; // Ensure available in admin templates too
-      return next(); // User is an admin, proceed
-  } else {
-      // Logged in but not an admin
-      console.log(`Admin access denied for user: ${req.session.user.username} (ID: ${req.session.user.id})`);
-      // Send a more user-friendly forbidden page/message
-      res.status(403).render('error_forbidden', { // Assuming you create an EJS view for this
-           message: "You do not have administrative privileges to access this page.",
-           title: "Access Denied" ,
-           sessionUser: req.session.user // Pass user info for potential header/layout
-         });
+    if (userRole && allowedRoles.includes(userRole)) {
+      return next(); // User has the required role, proceed
+    }
 
-      /* // --- OR --- Send simpler HTML if no dedicated view
-      res.status(403).send(`
-            <!DOCTYPE html>
-            <html lang="en">
-            <head><title>Forbidden</title><link rel="stylesheet" href="/styles.css"></head>
-            <body style="padding: 30px;">
-                <h1>403 - Forbidden</h1>
-                <p>You do not have administrative privileges to access this page.</p>
-                <p>Logged in as: ${req.session.user.username}</p>
-                <hr>
-                <p><a href="/">Go to Dashboard/Login</a> | <a href="javascript:history.back()">Go Back</a></p>
-            </body>
-            </html>
-        `);
-       */
-  }
+    // Logged in but not the correct role, or not logged in at all
+    console.log(
+      `Access denied for user: ${
+        req.session.user ? req.session.user.username : "Guest"
+      }. Role: ${userRole}. Required: ${allowedRoles.join(", ")}`
+    );
+
+    res.status(403).render("error_forbidden", {
+      message: "You do not have the required permissions to access this page.",
+      title: "Access Denied",
+      sessionUser: req.session.user || null,
+    });
+  };
 };
+
+// OLD isAdmin is now just a specific use of hasPermission
+exports.isAdmin = exports.hasPermission(["ADMIN"]);

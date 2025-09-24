@@ -4,15 +4,17 @@
 let packageData = [];
 let customerSearchTimeout;
 let currentFormType = 'receipt'; // Default, will be set on initialization
+let currentUserRole = 'GENERAL_EMPLOYEE'; // NEW: Store the user's role
 
 /**
  * Initializes all form logic, event listeners, and sets the form type.
  * This is the main entry point called from the EJS templates.
  * @param {'receipt' | 'estimate'} formType - The type of form being initialized.
  */
-function initializeFormLogic(formType) {
+function initializeFormLogic(formType, userRole) {
     currentFormType = formType;
-    console.log(`Initializing form logic for: ${currentFormType}`);
+    currentUserRole = userRole;
+    console.log(`Initializing form logic for: ${currentFormType} as role: ${currentUserRole}`);
 
     // Initialize date pickers
     flatpickr(".flatpickr-date", { dateFormat: "d/m/Y", allowInput: true });
@@ -90,6 +92,7 @@ function populateDatalist() {
         const option = document.createElement('option');
         option.value = pkg.name;
         option.dataset.mrp = pkg.mrp;
+        option.dataset.b2bPrice = pkg.b2b_price;
         datalist.appendChild(option);
     });
 }
@@ -140,6 +143,27 @@ function addGlobalEventListeners() {
 
 // --- ITEM ROW MANAGEMENT ---
 
+// --- DUPLICATE PACKAGE CHECK ---
+/**
+ * Checks if a given package name already exists in one of the item rows.
+ * @param {string} packageName - The name of the package to check.
+ * @param {HTMLElement} currentRow - The row being edited, to exclude it from the check.
+ * @returns {boolean} - True if the package is a duplicate, false otherwise.
+ */
+function isDuplicatePackage(packageName, currentRow) {
+    const allRows = document.querySelectorAll('.item-row');
+    for (const row of allRows) {
+        if (row === currentRow) continue; // Skip the row we're currently typing in
+        
+        const input = row.querySelector('.package-name-input');
+        if (input && input.value.trim().toLowerCase() === packageName.trim().toLowerCase()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
 /**
  * Adds a new, empty item row to the form.
  */
@@ -182,18 +206,36 @@ function addEventListenersToRow(row) {
     const mrpInput = row.querySelector('.mrp-input');
     const discountInput = row.querySelector('.discount-input');
 
+    // This listener handles AUTO-FILLING the price when a package is selected.
     nameInput.addEventListener('input', (e) => {
         const selectedName = e.target.value;
         const option = document.querySelector(`#package-list option[value="${selectedName}"]`);
-        if (option && option.dataset.mrp) {
-            mrpInput.value = parseFloat(option.dataset.mrp).toFixed(2);
-            mrpInput.readOnly = true; // Lock MRP for predefined packages
+
+        if (option) {
+            // DECIDE WHICH PRICE TO USE BASED ON USER ROLE
+            const priceToUse = currentUserRole === 'CLIENT' ? option.dataset.b2bPrice : option.dataset.mrp;
+            mrpInput.value = parseFloat(priceToUse || 0).toFixed(2);
+            mrpInput.readOnly = true; // Lock price for predefined packages
         } else {
             mrpInput.readOnly = false; // Unlock for custom entries
         }
         updateCalculations();
     });
 
+    // This listener handles DUPLICATE CHECKS when the user finishes entering a package name.
+    nameInput.addEventListener('change', (e) => {
+        const finalName = e.target.value.trim();
+        if (!finalName) return; // Ignore if empty
+
+        if (isDuplicatePackage(finalName, row)) {
+            alert(`'${finalName}' has already been added. Please choose a different test or remove the other entry.`);
+            e.target.value = ''; // Clear the invalid input
+            mrpInput.value = ''; // Clear the associated price
+            mrpInput.readOnly = false;
+            updateCalculations();
+        }
+    });
+    
     // Ensure MRP is editable if the user blurs from a custom package name
     nameInput.addEventListener('blur', () => {
         const currentName = nameInput.value;
@@ -202,7 +244,7 @@ function addEventListenersToRow(row) {
             mrpInput.readOnly = false;
         }
     });
-    
+
     mrpInput.addEventListener('input', updateCalculations);
     discountInput.addEventListener('input', updateCalculations);
 }

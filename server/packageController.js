@@ -1,19 +1,33 @@
 // medical_receipt_system/server/packageController.js
 const db = require("./db");
 
-// Get all packages for dropdown/datalist
+// Get all packages for dropdown/datalist based on user's assigned list
 exports.getAllPackages = (req, res) => {
-  try {
-    // Select only necessary fields
-    const stmt = db.prepare(
-      "SELECT id, name, mrp FROM packages ORDER BY name COLLATE NOCASE",
-    );
-    const packages = stmt.all();
-    res.json(packages); // Send data as JSON
-  } catch (err) {
-    console.error("Error fetching packages:", err);
-    res.status(500).json({ error: "Failed to retrieve packages" });
-  }
+    // Get the user's assigned package list ID from their session
+    let userPackageListId = req.session.user.packageListId;
+
+    try {
+        // If the user has no specific list assigned, fall back to the very first list in the DB (e.g., Default Retail)
+        if (!userPackageListId) {
+            console.warn(`User ${req.session.user.username} has no package list. Falling back to default.`);
+            const firstList = db.prepare("SELECT id FROM package_lists ORDER BY id LIMIT 1").get();
+            if (!firstList) {
+                // This happens if there are no package lists in the database at all.
+                return res.json([]);
+            }
+            userPackageListId = firstList.id;
+        }
+
+        // Fetch packages from the user's assigned list, including the new b2b_price
+        const stmt = db.prepare(
+            "SELECT id, name, mrp, b2b_price FROM packages WHERE package_list_id = ? ORDER BY name COLLATE NOCASE",
+        );
+        const packages = stmt.all(userPackageListId);
+        res.json(packages); // Send data as JSON
+    } catch (err) {
+        console.error("Error fetching packages:", err);
+        res.status(500).json({ error: "Failed to retrieve packages" });
+    }
 };
 
 // --- Admin Management Functions ---

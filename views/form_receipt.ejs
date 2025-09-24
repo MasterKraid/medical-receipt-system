@@ -431,11 +431,18 @@
         <fieldset>
             <legend>Payment & Other Details</legend>
             <div class="form-grid">
+                <% if (sessionUser.role !== 'CLIENT') { %>
                 <div>
                     <label for="discount_percentage">Overall Discount (%):</label>
                     <input type="number" id="discount_percentage" name="discount_percentage"
-                           step="0.1" min="0" max="100" value="0" class="item-calc-trigger">
+                            step="0.1" min="0" max="100" value="0" class="item-calc-trigger">
                 </div>
+                <% } else { %>
+                <div>
+                    <!-- For clients, send a zero value but hide the input -->
+                    <input type="hidden" id="discount_percentage" name="discount_percentage" value="0">
+                </div>
+                <% } %>
                 <div>
                     <label for="amount_received">Received Amount:</label>
                     <input type="number" id="amount_received" name="amount_received"
@@ -511,8 +518,8 @@
     <script src="/form_logic.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Initialize shared logic for a 'receipt' form
-            initializeFormLogic('receipt');
+            // Pass the user's role to the initialization function
+            initializeFormLogic('receipt', '<%= sessionUser.role %>');
         });
     </script>
 </body>

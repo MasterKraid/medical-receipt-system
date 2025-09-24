@@ -6,21 +6,17 @@ const { formatTimestampForDisplayIST } = require('./utils/dateUtils');
 const formatDataForView = (items, type) => {
     return items.map(item => ({
         ...item,
-        // Use the same robust date formatting from receipts
         display_date: formatTimestampForDisplayIST(item.created_at),
-        // Format the customer ID for consistency
         display_customer_id: `CUST-${String(item.customer_id).padStart(10, '0')}`,
-        // Format the document ID
         display_doc_id: `${type === 'receipt' ? 'RCPT' : 'EST'}-${String(item.id).padStart(6, '0')}`,
-        // Format currency
         display_amount: `₹${parseFloat(item.amount).toFixed(2)}`
     }));
 };
 
-//view receipts
+// --- View Receipts ---
 exports.viewReceipts = (req, res) => {
     try {
-        const stmt = db.prepare(`
+        const receipts = db.prepare(`
             SELECT
                 r.id,
                 r.created_at,
@@ -33,8 +29,7 @@ exports.viewReceipts = (req, res) => {
             JOIN users u ON r.user_id = u.id
             ORDER BY r.id DESC
             LIMIT 200
-        `);
-        const receipts = stmt.all();
+        `).all();
         res.render("admin/view_documents", {
             title: "Receipts",
             documents: formatDataForView(receipts, 'receipt'),
@@ -46,10 +41,10 @@ exports.viewReceipts = (req, res) => {
     }
 };
 
-//view Essstimates
+// --- View Estimates ---
 exports.viewEstimates = (req, res) => {
     try {
-        const stmt = db.prepare(`
+        const estimates = db.prepare(`
             SELECT
                 e.id,
                 e.created_at,
@@ -62,8 +57,7 @@ exports.viewEstimates = (req, res) => {
             JOIN users u ON e.user_id = u.id
             ORDER BY e.id DESC
             LIMIT 200
-        `);
-        const estimates = stmt.all();
+        `).all();
         res.render("admin/view_documents", {
             title: "Estimates",
             documents: formatDataForView(estimates, 'estimate'),
@@ -145,13 +139,16 @@ exports.updateBranch = (req, res) => {
 exports.showManageUsersPage = (req, res) => {
     try {
         const users = db.prepare(`
-            SELECT u.id, u.username, u.is_admin, b.name as branch_name
+            SELECT u.id, u.username, u.role, b.name as branch_name, pl.name as package_list_name
             FROM users u
-            JOIN branches b ON u.branch_id = b.id
+            LEFT JOIN branches b ON u.branch_id = b.id
+            LEFT JOIN package_lists pl ON u.package_list_id = pl.id
             ORDER BY u.username
         `).all();
         const branches = db.prepare("SELECT id, name FROM branches ORDER BY name").all();
-        res.render("admin/manage_users", { users, branches });
+        const packageLists = db.prepare("SELECT id, name FROM package_lists ORDER BY name").all();
+
+        res.render("admin/manage_users", { users, branches, packageLists });
     } catch (err) {
         console.error("Error loading manage users page:", err);
         res.status(500).send("Could not load page.");
@@ -159,19 +156,18 @@ exports.showManageUsersPage = (req, res) => {
 };
 
 exports.createUser = (req, res) => {
-    const { username, password, branch_id, is_admin } = req.body;
-    if (!username || !password || !branch_id) {
-        return res.status(400).send("Username, Password, and Branch are required.");
+    const { username, password, branch_id, role, package_list_id } = req.body;
+    if (!username || !password || !branch_id || !role) {
+        return res.status(400).send("Username, Password, Branch, and Role are required.");
     }
     try {
         const bcrypt = require("bcrypt");
         const password_hash = bcrypt.hashSync(password, 10);
-        const isAdminValue = is_admin ? 1 : 0; // Convert 'on' or undefined to 1 or 0
-        
+
         db.prepare(
-            "INSERT INTO users (username, password_hash, branch_id, is_admin) VALUES (?, ?, ?, ?)"
-        ).run(username, password_hash, branch_id, isAdminValue);
-        
+            "INSERT INTO users (username, password_hash, branch_id, role, package_list_id) VALUES (?, ?, ?, ?, ?)"
+        ).run(username, password_hash, branch_id, role, package_list_id || null);
+
         res.redirect("/admin/users");
     } catch (err) {
         if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
@@ -186,7 +182,6 @@ exports.deleteUser = (req, res) => {
     const { id } = req.params;
     const loggedInUserId = req.session.user.id;
 
-    // Critical safety check: prevent a user from deleting their own account
     if (parseInt(id, 10) === loggedInUserId) {
         return res.status(403).send("Error: You cannot delete your own account.");
     }
@@ -200,8 +195,6 @@ exports.deleteUser = (req, res) => {
         res.redirect("/admin/users");
     } catch (err) {
         console.error(`Error deleting user ${id}:`, err);
-        // A foreign key constraint error will happen if the user has created receipts.
-        // This is a good thing, as it prevents orphaning records.
         if (err.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
              return res.status(400).send("Cannot delete this user because they have existing records (receipts, estimates) in the system. Consider deactivating the user instead (future feature).");
         }
