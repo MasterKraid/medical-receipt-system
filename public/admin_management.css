@@ -260,3 +260,25 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
+/* --- Search Bar Fix --- */
+.search-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    align-items: center; /* This vertically aligns the input, button, and link */
+}
+
+.search-container input[type="search"] {
+    flex-grow: 1;
+    margin: 0;
+}
+
+.search-container button, 
+.search-container .action-link {
+    flex-shrink: 0;
+    margin: 0;
+    padding: 10px 20px;
+    width: auto;       /* This is the key fix to override width: 100% */
+    font-size: 1rem;   /* Standardize font size */
+    font-weight: 500;  /* Standardize font weight */
+}

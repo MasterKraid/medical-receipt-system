@@ -5,67 +5,57 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>View <%= title %></title>
     <link rel="stylesheet" href="/styles.css">
-    <style>
-        .dashboard-container { max-width: 1000px; }
-        .dashboard-header { border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-        .dashboard-header h1 { margin: 0; text-align: left; }
-        .action-link { display: inline-block; padding: 8px 15px; background-color: #6c757d; color: white; text-decoration: none; border-radius: 5px; font-size: 0.9em; }
-        .action-link:hover { background-color: #5a6268; }
-        .data-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        .data-table th, .data-table td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 0.95em; }
-        .data-table th { background-color: #f4f4f9; font-weight: bold; }
-        .data-table tr:nth-child(even) { background-color: #f9f9f9; }
-        .data-table a { color: #007bff; text-decoration: none; }
-        .data-table a:hover { text-decoration: underline; }
-    </style>
+    <link rel="stylesheet" href="/admin_management.css">
 </head>
 <body>
-    <div class="dashboard-container">
-        <div class="dashboard-header">
+    <div class="management-container">
+        <header class="management-header">
             <h1>All <%= title %></h1>
-            <a href="/admin-dashboard" class="action-link">Back to Dashboard</a>
-        </div>
+            <a href="/admin-dashboard" class="back-link">Back to Dashboard</a>
+        </header>
 
-            <div class="search-section" style="margin-bottom: 20px;">
-                <form method="GET" action="/admin/<%= docType === 'receipt' ? 'receipts' : 'estimates' %>">
-                    <div style="display: flex; gap: 10px;">
-                        <input type="search" name="q" placeholder="Search by Doc ID, Customer Name/ID, User..." value="<%= typeof query !== 'undefined' ? query : '' %>" style="flex-grow: 1; margin: 0;">
-                        <button type="submit" style="margin: 0; padding: 10px 10px;">Search</button>
-                        <a href="/admin/<%= docType === 'receipt' ? 'receipts' : 'estimates' %>" class="action-link" style="padding: 10px 15px; text-align: center;">Clear</a>
-                    </div>
-                </form>
-            </div>
+        <section class="section">
+            <form method="GET" action="/admin/<%= docType === 'receipt' ? 'receipts' : 'estimates' %>">
+                <div class="search-container">
+                    <input type="search" name="q" placeholder="Search by Doc ID, Customer Name/ID, User..." value="<%= typeof query !== 'undefined' ? query : '' %>">
+                    <button type="submit">Search</button>
+                    <a href="/admin/<%= docType === 'receipt' ? 'receipts' : 'estimates' %>" class="action-link" style="text-align: center;">Clear</a>
+                </div>
+            </form>
+        </section>
 
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Date & Time</th>
-                    <th>Customer Name</th>
-                    <th>Amount</th>
-                    <th>Created By</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                <% if(documents && documents.length > 0) { %>
-                    <% documents.forEach(doc => { %>
-                        <tr>
-                            <td><%= doc.display_doc_id %></td>
-                            <td><%= doc.display_date %></td>
-                            <td><%= doc.customer_name %> (<%= doc.display_customer_id %>)</td>
-                            <td><%= doc.display_amount %></td>
-                            <td><%= doc.created_by_user %></td>
-                            <td><a href="/<%= docType %>/<%= doc.id %>" target="_blank">View</a></td>
-                        </tr>
-                    <% }) %>
-                <% } else { %>
+        <section class="section">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <td colspan="6" style="text-align: center;">No <%= title.toLowerCase() %> found.</td>
+                        <th>ID</th>
+                        <th>Date & Time</th>
+                        <th>Customer Name</th>
+                        <th>Amount</th>
+                        <th>Created By</th>
+                        <th>Action</th>
                     </tr>
-                <% } %>
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    <% if(documents && documents.length > 0) { %>
+                        <% documents.forEach(doc => { %>
+                            <tr>
+                                <td><%= doc.display_doc_id %></td>
+                                <td><%= doc.display_date %></td>
+                                <td><%= doc.customer_name %> (<%= doc.display_customer_id %>)</td>
+                                <td><%= doc.display_amount %></td>
+                                <td><%= doc.created_by_user %></td>
+                                <td><a href="/<%= docType %>/<%= doc.id %>" target="_blank">View</a></td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr>
+                            <td colspan="6" style="text-align: center;">No <%= title.toLowerCase() %> found.</td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </section>
     </div>
 </body>
 </html>

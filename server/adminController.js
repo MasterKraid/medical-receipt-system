@@ -101,12 +101,21 @@ exports.viewEstimates = (req, res) => {
 // --- View Customers ---
 exports.viewCustomers = (req, res) => {
     try {
-        const customers = db.prepare(`
-            SELECT id, name, mobile, dob, age, gender, created_at
-            FROM customers
-            ORDER BY id DESC
-            LIMIT 200
-        `).all();
+        const { q: query } = req.query;
+        let customers;
+        let params = [];
+
+        let sql = `SELECT id, name, mobile, dob, age, gender, created_at FROM customers`;
+
+        if (query) {
+            sql += ` WHERE name LIKE ? OR mobile LIKE ? OR CAST(id AS TEXT) LIKE ?`;
+            const searchTerm = `%${query}%`;
+            params = [searchTerm, searchTerm, searchTerm];
+        }
+
+        sql += ` ORDER BY id DESC LIMIT 200`;
+        
+        customers = db.prepare(sql).all(params);
         
         const formattedCustomers = customers.map(cust => ({
             ...cust,
@@ -114,7 +123,7 @@ exports.viewCustomers = (req, res) => {
             display_created_at: formatTimestampForDisplayIST(cust.created_at)
         }));
 
-        res.render("admin/view_customers", { customers: formattedCustomers });
+        res.render("admin/view_customers", { customers: formattedCustomers, query: query || '' });
     } catch (err) {
         console.error("Error fetching customers:", err);
         res.status(500).send("Error fetching customers.");
@@ -297,5 +306,32 @@ exports.updateUser = (req, res) => {
     } catch (err) {
         console.error(`Error updating user ${userId}:`, err);
         res.status(500).send("Error updating user.");
+    }
+};
+
+exports.showEditCustomerPage = (req, res) => {
+    try {
+        const customer = db.prepare("SELECT * FROM customers WHERE id = ?").get(req.params.id);
+        if (!customer) {
+            return res.status(404).send("Customer not found.");
+        }
+        res.render("admin/edit_customer", { customer });
+    } catch (err) {
+        console.error("Error fetching customer for edit:", err);
+        res.status(500).send("Could not load customer data.");
+    }
+};
+
+exports.updateCustomer = (req, res) => {
+    const { id } = req.params;
+    const { name, mobile, dob, age, gender } = req.body;
+    const { findOrCreateCustomer } = require("../server/utils/customerUtils");
+
+    try {
+        findOrCreateCustomer({ id, name, mobile, dob, age, gender });
+        res.redirect("/admin/customers");
+    } catch (err) {
+        console.error(`Error updating customer ${id}:`, err);
+        res.status(500).send("Error updating customer: " + err.message);
     }
 };

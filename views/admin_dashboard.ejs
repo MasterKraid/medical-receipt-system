@@ -13,10 +13,10 @@
         .user-info { font-size: 0.9em; color: #555; text-align: right; line-height: 1.5; }
         .user-info strong { color: #000; }
         .dashboard-nav h2 { font-size: 1.4em; color: #34495e; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        .dashboard-nav ul { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .dashboard-nav ul { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .dashboard-nav li a { display: flex; align-items: center; gap: 10px; padding: 15px; background-color: #f8f9fa; color: #34495e; text-decoration: none; border-radius: 8px; transition: all 0.2s ease; border: 1px solid #dee2e6; font-weight: 500; }
         .dashboard-nav li a:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-color: #007bff; background-color: #fff; color: #007bff; }
-        .dashboard-nav li a i { font-size: 1.1em; width: 20px; text-align: center; }
+        .dashboard-nav li a i { font-size: 1.1em; width: 20px; text-align: center; color: #007bff; }
         .logout-section { text-align: center; margin-top: 40px; }
         .logout-link { color: #dc3545; text-decoration: none; font-weight: 500; background-color: #f8d7da; padding: 8px 15px; border-radius: 5px; transition: background-color 0.2s ease; }
         .logout-link:hover { background-color: #f1c6cb; text-decoration: none; }
@@ -38,13 +38,13 @@
         <nav class="dashboard-nav">
             <h2>System Management</h2>
             <ul>
-                <li><a href="/receipt-form"><i class="fa-solid fa-receipt"></i> Create New Receipt</a></li>
-                <li><a href="/estimate-form"><i class="fa-solid fa-file-invoice"></i> Create New Estimate</a></li>
-                <li><a href="/admin/receipts"><i class="fa-solid fa-eye"></i> View Receipts</a></li>
-                <li><a href="/admin/estimates"><i class="fa-solid fa-eye"></i> View Estimates</a></li>
-                <li><a href="/admin/customers"><i class="fa-solid fa-users"></i> View Customers</a></li>
-                <li><a href="/admin/labs"><i class="fa-solid fa-flask-vial"></i> Manage Labs</a></li>
-                <li><a href="/admin/package-lists"><i class="fa-solid fa-list-check"></i> Manage Rate Lists</a></li>
+                <li><a href="/receipt-form"><i class="fa-solid fa-receipt"></i> Create Receipt</a></li>
+                <li><a href="/estimate-form"><i class="fa-solid fa-file-invoice"></i> Create Estimate</a></li>
+               <li><a href="/admin/receipts"><i class="fa-solid fa-eye"></i> View Receipts</a></li>
+               <li><a href="/admin/estimates"><i class="fa-solid fa-eye"></i> View Estimates</a></li>
+               <li><a href="/admin/customers"><i class="fa-solid fa-users"></i> View Customers</a></li>
+               <li><a href="/admin/labs"><i class="fa-solid fa-flask-vial"></i> Manage Labs</a></li>
+               <li><a href="/admin/package-lists"><i class="fa-solid fa-list-check"></i> Manage Rate Lists</a></li>
                 <li><a href="/admin/branches"><i class="fa-solid fa-store"></i> Manage Branches</a></li>
                 <li><a href="/admin/users"><i class="fa-solid fa-user-cog"></i> Manage Users</a></li>
             </ul>

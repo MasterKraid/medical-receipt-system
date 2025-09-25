@@ -101,6 +101,8 @@ app.get("/dashboard", isAuthenticated, (req, res) => {
 
 // --- Customers (accessible to logged-in users) ---
 app.get("/customers", isAuthenticated, adminController.viewCustomers);
+app.get("/admin/customers/edit/:id", isAuthenticated, isAdmin, adminController.showEditCustomerPage);
+app.post("/admin/customers/edit/:id", isAuthenticated, isAdmin, adminController.updateCustomer);
 
 // --- Estimate Routes (Protected: any authenticated user) ---
 app.get("/estimate-form", isAuthenticated, estimateController.showEstimateForm);

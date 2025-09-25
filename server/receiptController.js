@@ -174,8 +174,9 @@ exports.createReceipt = (req, res) => {
     // --- Database Transaction ---
     const saveReceipt = db.transaction(() => {
         const receiptSql = `INSERT INTO receipts 
-            (branch_id, user_id, customer_id, referred_by, total_mrp, discount_percentage, amount_final, amount_received, amount_due, payment_method, num_tests, conducted_at, notes, created_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+            (branch_id, user_id, customer_id, referred_by, total_mrp, discount_percentage, amount_final, amount_received, amount_due, payment_method, num_tests, conducted_at, notes, created_at, lab_id) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
         const receiptStmt = db.prepare(receiptSql);
         const receiptInfo = receiptStmt.run(
             branchId,
@@ -191,11 +192,12 @@ exports.createReceipt = (req, res) => {
             numTestsValue !== null ? numTestsValue : receiptItemsData.length,
             conducted_at,
             notes,
-            createdAtISO
+            createdAtISO,
+            req.body.lab_id // The added lab_id
         );
         const newReceiptId = receiptInfo.lastInsertRowid;
 
-        const itemSql = `INSERT INTO receipt_items (receipt_id, package_name, mrp, discount_percentage) VALUES (?, ?, ?, ?)`;
+       const itemSql = `INSERT INTO receipt_items (receipt_id, package_name, mrp, discount_percentage) VALUES (?, ?, ?, ?)`;
         const itemStmt = db.prepare(itemSql);
         for (const item of receiptItemsData) {
             if (!item.package_name) continue;
