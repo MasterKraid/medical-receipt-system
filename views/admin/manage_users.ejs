@@ -74,19 +74,17 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <% users.forEach(user => { %>
-                        <tr>
-                            <td><%= user.username %></td>
-                            <td><%= user.branch_name %></td>
-                            <td><%= user.role %></td>
-                            <td>
-                                <%# Too much data to show all assigned lists; use edit page for details %>
-                            </td>
-                            <td>
-                                <a href="/admin/users/edit/<%= user.id %>" class="action-btn edit-btn">Edit</a>
-                                <% if(sessionUser.id !== user.id) { %>
-                                    <form class="delete-form" action="/admin/users/delete/<%= user.id %>" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this user? This cannot be undone.');">
-                                        <button type="submit" class="action-btn delete-btn">Delete</button>
+                   <% users.forEach(user => { %>
+                       <tr>
+                           <td><%= user.username %></td>
+                           <td><%= user.branch_name %></td>
+                           <td><%= user.role %></td>
+                           <td><%= user.assigned_lists || 'Default / None' %></td>
+                           <td>
+                               <a href="/admin/users/edit/<%= user.id %>" class="action-btn edit-btn">Edit</a>
+                               <% if(sessionUser.id !== user.id) { %>
+                                   <form class="delete-form" action="/admin/users/delete/<%= user.id %>" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this user? This cannot be undone.');">
+                                        <button type="submit" class="action-btn delete-btn">Delete</    button>
                                     </form>
                                 <% } %>
                             </td>

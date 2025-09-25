@@ -139,13 +139,23 @@ exports.updateBranch = (req, res) => {
 exports.showManageUsersPage = (req, res) => {
     try {
         const users = db.prepare(`
-            SELECT u.id, u.username, u.role, b.name as branch_name, pl.name as package_list_name
+            SELECT
+                u.id,
+                u.username,
+                u.role,
+                b.name as branch_name,
+                (
+                    SELECT GROUP_CONCAT(pl.name, ', ')
+                    FROM package_lists pl
+                    JOIN user_package_list_access upla ON pl.id = upla.package_list_id
+                    WHERE upla.user_id = u.id
+                ) as assigned_lists
             FROM users u
             LEFT JOIN branches b ON u.branch_id = b.id
-            LEFT JOIN package_lists pl ON u.package_list_id = pl.id
             ORDER BY u.username
         `).all();
         const branches = db.prepare("SELECT id, name FROM branches ORDER BY name").all();
+        // This is needed for the "Add New User" form's dropdown menu
         const packageLists = db.prepare("SELECT id, name FROM package_lists ORDER BY name").all();
 
         res.render("admin/manage_users", { users, branches, packageLists });

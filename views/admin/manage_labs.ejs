@@ -45,45 +45,54 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <% if (labs.length > 0) { %>
-                        <% labs.forEach(lab => { %>
-                            <tr>
-                                <td>
+                <% if (labs.length > 0) { %>
+                    <% labs.forEach(lab => { %>
+                        <tr>
+                            <td>
+                                <div class="lab-info">
                                     <strong><%= lab.name %></strong>
                                     <% if (lab.logo_path) { %>
-                                        <img src="<%= lab.logo_path %>" alt="Logo" style="max-width: 100px; max-height: 40px; display: block; margin-top: 5px;">
+                                        <img src="<%= lab.logo_path %>?v=<%= new Date().getTime() %>" alt="Logo">
+                                    <% } else { %>
+                                        <small>No logo uploaded</small>
                                     <% } %>
-                                </td>
-                                <td>
-                                    <form action="/admin/labs/update-lists" method="POST">
-                                        <input type="hidden" name="lab_id" value="<%= lab.id %>">
-                                        <label for="lists_<%= lab.id %>" class="sr-only">Assign Rate Databases</label>
-                                        <select name="package_list_ids" id="lists_<%= lab.id %>" multiple size="4" style="width: 100%;">
-                                            <% allLists.forEach(list => { %>
-                                                <option value="<%= list.id %>" <%= lab.assigned_list_ids.has(list.id) ? 'selected' : '' %>>
-                                                    <%= list.name %>
-                                                </option>
-                                            <% }) %>
-                                        </select>
-                                        <small>Hold Ctrl/Cmd to select multiple.</small>
-                                        <button type="submit" style="display: block; margin-top: 5px;">Save Assignments</button>
-                                    </form>
-                                </td>
-                                <td>
-                                    <form action="/admin/labs/upload-logo" method="POST" enctype="multipart/form-data">
-                                        <input type="hidden" name="lab_id" value="<%= lab.id %>">
-                                        <input type="file" name="logo_file" accept="image/jpeg, image/png" required>
-                                        <button type="submit">Upload</button>
-                                    </form>
-                                </td>
-                            </tr>
-                        <% }) %>
-                    <% } else { %>
-                        <tr>
-                            <td colspan="3" style="text-align: center;">No labs found. Create one above.</td>
+                                </div>
+                            </td>
+                            <td>
+                                <form action="/admin/labs/update-lists" method="POST" class="in-table-form">
+                                    <input type="hidden" name="lab_id" value="<%= lab.id %>">
+                                    <label for="lists_<%= lab.id %>">Assign one or more rate lists:</label>
+                                    <select name="package_list_ids" id="lists_<%= lab.id %>" multiple size="4">
+                                        <% allLists.forEach(list => { %>
+                                            <option value="<%= list.id %>" <%= lab.assigned_list_ids.has(list.id) ? 'selected' : '' %>>
+                                                <%= list.name %>
+                                            </option>
+                                        <% }) %>
+                                    </select>
+                                    <small>Hold Ctrl/Cmd to select multiple.</small>
+                                    <button type="submit" class="action-btn" style="background-color: #007bff;">Save Assignments</button>
+                               </form>
+                           </td>
+                           <td>
+                               <form action="/admin/labs/upload-logo" method="POST" enctype="multipart/form-data" class="in-table-form" onsubmit="this.querySelector('button').innerText = 'Uploading...'">
+                                    <input type="hidden" name="lab_id" value="<%= lab.id %>">
+                                    <label>Upload or replace logo:</label>
+                                    <div class="file-upload-container">
+                                        <label for="logo_<%= lab.id %>" class="file-upload-label">Choose File</label>
+                                        <span class="file-name-display">No file selected</span>
+                                        <input type="file" name="logo_file" id="logo_<%= lab.id %>" accept="image/jpeg, image/png" required onchange="this.parentElement.querySelector('.file-name-display').textContent = this.files[0] ? this.files[0].name : 'No file selected';">
+                                    </div>
+                                    <button type="submit" class="action-btn" style="background-color: #28a745;">Upload</button>
+                                </form>
+                            </td>
                         </tr>
-                    <% } %>
-                </tbody>
+                    <% }) %>
+                <% } else { %>
+                    <tr>
+                        <td colspan="3" style="text-align: center;">No labs found. Create one above.</td>
+                    </tr>
+                <% } %>
+            </tbody>
             </table>
         </section>
     </div>

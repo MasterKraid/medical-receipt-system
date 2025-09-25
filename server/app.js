@@ -14,7 +14,6 @@ const rateLimit = require("express-rate-limit");
 const authController = require("./authController");
 const receiptController = require("./receiptController");
 const estimateController = require("./estimateController");
-const packageController = require("./packageController");
 const packageListController = require("./packageListController");
 const customerController = require("./customerController");
 const { isAuthenticated, isAdmin, hasPermission } = require("./authMiddleware");
