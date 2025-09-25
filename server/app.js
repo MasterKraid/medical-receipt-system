@@ -19,7 +19,7 @@ const packageListController = require("./packageListController");
 const customerController = require("./customerController");
 const { isAuthenticated, isAdmin, hasPermission } = require("./authMiddleware");
 const adminController = require("./adminController");
-const locationController = require("./locationController");
+const labController = require("./labController");
 
 const app = express();
 const PORT = process.env.PORT || 3000; // Use port from .env
@@ -32,6 +32,7 @@ app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "..", "views"));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+app.use('/lab_logos', express.static(path.join(__dirname, '..', 'public', 'lab_logos')));
 app.use(
   session({
     secret: process.env.SESSION_SECRET, // Use secret from .env
@@ -124,12 +125,20 @@ app.get("/receipt/:id", isAuthenticated, receiptController.showReceipt);
 
 // --- API Routes ---
 app.get("/api/packages", isAuthenticated, packageController.getAllPackages);
-app.get(
-  "/api/customers/search",
-  isAuthenticated,
-  customerController.searchCustomers
-);
-app.get("/api/locations", isAuthenticated, locationController.getAllLocations);
+app.get("/api/user-labs", isAuthenticated, (req, res) => {
+    try {
+        const labs = db.prepare(`
+            SELECT l.id, l.name FROM labs l
+            JOIN user_lab_access ula ON l.id = ula.lab_id
+            WHERE ula.user_id = ?
+            ORDER BY l.name
+        `).all(req.session.user.id);
+        res.json(labs);
+    } catch (err) {
+        res.status(500).json({ error: "Failed to get user labs" });
+    }
+});
+app.get("/api/customers/search", isAuthenticated, customerController.searchCustomers);
 
 // --- Admin Routes ---
 app.get("/admin-dashboard", isAuthenticated, isAdmin, (req, res) => {
@@ -140,10 +149,17 @@ app.get("/admin-dashboard", isAuthenticated, isAdmin, (req, res) => {
 app.get("/admin/receipts", isAuthenticated, isAdmin, adminController.viewReceipts);
 app.get("/admin/estimates", isAuthenticated, isAdmin, adminController.viewEstimates);
 
-// Manage Packages
-app.get("/admin/packages", isAuthenticated, isAdmin, packageController.showManagePackagesPage);
-app.post("/admin/packages/add", isAuthenticated, isAdmin, packageController.createPackage);
-app.post("/admin/packages/edit/:id", isAuthenticated, isAdmin, packageController.updatePackage);
+// Manage Packages and Labs
+app.get("/admin/labs", isAuthenticated, isAdmin, labController.showManageLabsPage);
+app.post("/admin/labs/add", isAuthenticated, isAdmin, labController.createLab);
+app.post("/admin/labs/upload-logo", isAuthenticated, isAdmin, upload.single('logo_file'), labController.uploadLogo);
+app.post("/admin/labs/assign-list", isAuthenticated, isAdmin, labController.assignPackageList);
+app.get("/admin/package-lists", isAuthenticated, isAdmin, packageListController.showManageListsPage);
+app.get("/admin/package-lists/:id", isAuthenticated, isAdmin, packageListController.showListPageDetails); 
+app.post("/admin/package-lists/add", isAuthenticated, isAdmin, packageListController.createList);
+app.post("/admin/packages/upload", isAuthenticated, isAdmin, upload.single('package_file'), packageListController.uploadPackages);
+app.post("/admin/packages/add-to-list", isAuthenticated, isAdmin, packageListController.addPackageToList); 
+app.post("/admin/packages/update", isAuthenticated, isAdmin, packageListController.updatePackageInList); 
 
 // View Customers
 app.get("/admin/customers", isAuthenticated, isAdmin, adminController.viewCustomers);
@@ -152,11 +168,6 @@ app.get("/admin/customers", isAuthenticated, isAdmin, adminController.viewCustom
 app.get("/admin/branches", isAuthenticated, isAdmin, adminController.showManageBranchesPage);
 app.post("/admin/branches/add", isAuthenticated, isAdmin, adminController.createBranch);
 app.post("/admin/branches/edit/:id", isAuthenticated, isAdmin, adminController.updateBranch);
-
-// Manage Package Lists & Import (NEW)
-app.get("/admin/package-lists", isAuthenticated, isAdmin, packageListController.showManageListsPage);
-app.post("/admin/package-lists/add", isAuthenticated, isAdmin, packageListController.createList);
-app.post("/admin/packages/upload", isAuthenticated, isAdmin, upload.single('package_file'), packageListController.uploadPackages);
 
 // Manage Users
 app.get("/admin/users", isAuthenticated, isAdmin, adminController.showManageUsersPage);

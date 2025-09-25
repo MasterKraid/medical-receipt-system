@@ -39,7 +39,21 @@ try {
         CREATE TABLE IF NOT EXISTS labs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
-            logo_path TEXT
+            logo_path TEXT,
+            package_list_id INTEGER UNIQUE,
+            FOREIGN KEY (package_list_id) REFERENCES package_lists(id) ON DELETE SET NULL
+        );
+    `);
+    try { db.exec("ALTER TABLE labs ADD COLUMN package_list_id INTEGER REFERENCES package_lists(id) ON DELETE SET NULL"); } catch (e) { /* ignore */ }
+
+    // --- NEW: Many-to-many relationship between users and labs ---
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS user_lab_access (
+            user_id INTEGER NOT NULL,
+            lab_id INTEGER NOT NULL,
+            PRIMARY KEY (user_id, lab_id),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (lab_id) REFERENCES labs(id) ON DELETE CASCADE
         );
     `);
 

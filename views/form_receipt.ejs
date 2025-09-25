@@ -420,7 +420,6 @@
             </div>
 
             <datalist id="package-list"></datalist>
-            <datalist id="locations-list"></datalist>
         </fieldset>
 
         <hr>
@@ -462,8 +461,10 @@
                     <small>Leave blank to count items automatically.</small>
                 </div>
                 <div>
-                    <label for="conducted_at">Tests Conducted At:</label>
-                    <input type="text" id="conducted_at" name="conducted_at" placeholder="e.g., Branch Name / Lab" list="locations-list">
+                    <label for="lab_selection">Test Conducted At (Lab):</label>
+                    <select id="lab_selection" name="lab_id" required>
+                        <option value="">-- Select a Lab First --</option>
+                    </select>
                 </div>
                 <div class="full-width">
                     <label for="referred_by">Referred By Dr.:</label>

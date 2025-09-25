@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage Labs & Rates</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/admin_management.css">
+</head>
+<body>
+    <div class="management-container">
+        <header class="management-header">
+            <h1>Manage Labs & Rates</h1>
+            <a href="/admin-dashboard" class="back-link">Back to Dashboard</a>
+        </header>
+
+        <section class="section">
+            <h2>Add New Lab</h2>
+            <form action="/admin/labs/add" method="POST">
+                <div class="form-grid" style="grid-template-columns: 2fr 1fr;">
+                    <div>
+                        <label for="name">Lab Name</label>
+                        <input type="text" id="name" name="name" required placeholder="e.g., Apollo Diagnostics, Dr. Lal PathLabs">
+                    </div>
+                    <div style="align-self: end;">
+                        <button type="submit" style="margin-top: 0;">Create Lab</button>
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <section class="section">
+            <h2>Existing Labs</h2>
+            <p style="font-size: 0.9em; color: #555;">Manage labs, upload their logos, and assign a rate database (Package List) to each. You can manage the package lists themselves <a href="/admin/package-lists">here</a>.</p>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Lab</th>
+                        <th style="width: 35%;">Assigned Rate Database</th>
+                        <th style="width: 40%;">Upload Logo (JPEG)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (labs.length > 0) { %>
+                        <% labs.forEach(lab => { %>
+                            <tr>
+                                <td>
+                                    <strong><%= lab.name %></strong>
+                                    <% if (lab.logo_path) { %>
+                                        <img src="<%= lab.logo_path %>" alt="Logo" style="max-width: 100px; max-height: 40px; display: block; margin-top: 5px;">
+                                    <% } %>
+                                </td>
+                                <td>
+                                    <% if (lab.package_list_id) { %>
+                                        <p><strong>Current:</strong> <%= lab.package_list_name %></p>
+                                        <p>(<%= lab.package_count %> packages)</p>
+                                        <a href="/admin/package-lists/<%= lab.package_list_id %>">View/Edit Packages</a>
+                                    <% } else { %>
+                                        <form action="/admin/labs/assign-list" method="POST">
+                                            <input type="hidden" name="lab_id" value="<%= lab.id %>">
+                                            <select name="package_list_id" required>
+                                                <option value="">-- Assign a List --</option>
+                                                <% unassignedLists.forEach(list => { %>
+                                                    <option value="<%= list.id %>"><%= list.name %></option>
+                                                <% }) %>
+                                            </select>
+                                            <button type="submit">Assign</button>
+                                        </form>
+                                    <% } %>
+                                </td>
+                                <td>
+                                    <form action="/admin/labs/upload-logo" method="POST" enctype="multipart/form-data">
+                                        <input type="hidden" name="lab_id" value="<%= lab.id %>">
+                                        <input type="file" name="logo_file" accept="image/jpeg, image/png" required>
+                                        <button type="submit">Upload</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr><td colspan="3" style="text-align: center;">No labs found. Create one above.</td></tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </section>
+    </div>
+</body>
+</html>

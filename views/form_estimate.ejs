@@ -260,6 +260,12 @@
             <legend>Estimate Details</legend>
             <div class="form-grid">
                 <div>
+                    <label for="lab_selection">Select Lab:</label>
+                    <select id="lab_selection" name="lab_id" required>
+                        <option value="">-- Select a Lab First --</option>
+                    </select>
+                </div>
+                <div>
                     <label for="estimate_date">Estimate Date:</label>
                     <input type="text" id="estimate_date" name="estimate_date" placeholder="DD/MM/YYYY" required class="flatpickr-date">
                 </div>

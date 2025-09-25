@@ -3,29 +3,25 @@ const db = require("./db");
 
 // Get all packages for dropdown/datalist based on user's assigned list
 exports.getAllPackages = (req, res) => {
-    // Get the user's assigned package list ID from their session
-    let userPackageListId = req.session.user.packageListId;
+    const { labId } = req.query; // Get labId from query parameter
+    if (!labId) {
+        return res.status(400).json({ error: "Lab ID is required." });
+    }
 
     try {
-        // If the user has no specific list assigned, fall back to the very first list in the DB (e.g., Default Retail)
-        if (!userPackageListId) {
-            console.warn(`User ${req.session.user.username} has no package list. Falling back to default.`);
-            const firstList = db.prepare("SELECT id FROM package_lists ORDER BY id LIMIT 1").get();
-            if (!firstList) {
-                // This happens if there are no package lists in the database at all.
-                return res.json([]);
-            }
-            userPackageListId = firstList.id;
+        const packageList = db.prepare("SELECT package_list_id FROM labs WHERE id = ?").get(labId);
+        if (!packageList || !packageList.package_list_id) {
+            console.warn(`No package list assigned to lab ${labId}.`);
+            return res.json([]); // Return empty if no list is assigned
         }
 
-        // Fetch packages from the user's assigned list, including the new b2b_price
-        const stmt = db.prepare(
-            "SELECT id, name, mrp, b2b_price FROM packages WHERE package_list_id = ? ORDER BY name COLLATE NOCASE",
-        );
-        const packages = stmt.all(userPackageListId);
-        res.json(packages); // Send data as JSON
+        const packages = db.prepare(
+            "SELECT id, name, mrp, b2b_price FROM packages WHERE package_list_id = ? ORDER BY name COLLATE NOCASE"
+        ).all(packageList.package_list_id);
+        
+        res.json(packages);
     } catch (err) {
-        console.error("Error fetching packages:", err);
+        console.error("Error fetching packages for lab:", err);
         res.status(500).json({ error: "Failed to retrieve packages" });
     }
 };

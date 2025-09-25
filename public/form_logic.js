@@ -27,8 +27,7 @@ function initializeFormLogic(formType, userRole) {
     }
 
     // Fetch data from the server
-    fetchPackages();
-    fetchLocations();
+    initializeLabAndPackageLogic();
 
     // Add all necessary event listeners
     addGlobalEventListeners();
@@ -39,45 +38,77 @@ function initializeFormLogic(formType, userRole) {
     setCustomerMode('new');
 }
 
-async function fetchLocations() {
+// --- NEW LAB + PACKAGE FETCHING LOGIC ---
+async function initializeLabAndPackageLogic() {
+    const labSelect = document.getElementById('lab_selection');
+    if (!labSelect) {
+        console.error("Lab selection dropdown not found!");
+        return;
+    }
+
     try {
-        const response = await fetch('/api/locations');
-        if (!response.ok) throw new Error(`Server error: ${response.status}`);
-        const locations = await response.json();
-        populateLocationsDatalist(locations);
+        // 1. Fetch the labs this user has access to
+        const response = await fetch('/api/user-labs');
+        if (!response.ok) throw new Error('Failed to fetch user labs');
+        const labs = await response.json();
+
+        // 2. Populate the lab dropdown
+        if (labs.length === 0) {
+            labSelect.innerHTML = '<option value="">No labs assigned to you</option>';
+            labSelect.disabled = true;
+            return;
+        }
+
+        labSelect.innerHTML = '<option value="">-- Select a Lab --</option>';
+        labs.forEach(lab => {
+            const option = document.createElement('option');
+            option.value = lab.id;
+            option.textContent = lab.name;
+            labSelect.appendChild(option);
+        });
+
+        // 3. Fetch packages when lab changes
+        labSelect.addEventListener('change', async () => {
+            const selectedLabId = labSelect.value;
+            const itemsContainer = document.getElementById('items-container');
+            const addItemBtn = document.getElementById('add-item-btn');
+
+            if (!selectedLabId) {
+                packageData = [];
+                populateDatalist();
+                itemsContainer.style.opacity = '0.5';
+                itemsContainer.style.pointerEvents = 'none';
+                addItemBtn.disabled = true;
+            } else {
+                await fetchPackagesForLab(selectedLabId);
+                itemsContainer.style.opacity = '1';
+                itemsContainer.style.pointerEvents = 'auto';
+                addItemBtn.disabled = false;
+            }
+        });
+
+        // 4. Initially disable the items section
+        document.getElementById('items-container').style.opacity = '0.5';
+        document.getElementById('items-container').style.pointerEvents = 'none';
+        document.getElementById('add-item-btn').disabled = true;
+
     } catch (error) {
-        console.error("Failed to fetch locations:", error);
-        // Non-critical, so we don't alert the user, just log it.
+        console.error("Error during lab initialization:", error);
+        alert("Could not load lab data. Please refresh the page.");
     }
 }
 
-/**
- * Populates the <datalist> element with location options.
- * @param {Array} locations - The array of location objects from the server.
- */
-function populateLocationsDatalist(locations) {
-    const datalist = document.getElementById('locations-list');
-    if (!datalist) return;
-    datalist.innerHTML = '';
-    locations.forEach(loc => {
-        const option = document.createElement('option');
-        option.value = loc.name;
-        datalist.appendChild(option);
-    });
-}
-
-/**
- * Fetches the list of packages from the API and populates the datalist.
- */
-async function fetchPackages() {
+async function fetchPackagesForLab(labId) {
     try {
-        const response = await fetch('/api/packages');
+        console.log(`Fetching packages for lab ID: ${labId}`);
+        const response = await fetch(`/api/packages?labId=${labId}`);
         if (!response.ok) throw new Error(`Server error: ${response.status}`);
         packageData = await response.json();
         populateDatalist();
+        console.log(`Loaded ${packageData.length} packages.`);
     } catch (error) {
         console.error("Failed to fetch packages:", error);
-        alert("Could not load package data. Please check the server connection and refresh.");
+        alert("Could not load package data for the selected lab.");
     }
 }
 
