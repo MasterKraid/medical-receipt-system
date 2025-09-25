@@ -7,11 +7,20 @@ const path = require("path");
 // --- View/Manage Labs ---
 exports.showManageLabsPage = (req, res) => {
     try {
-        const labs = db.prepare(`SELECT id, name, logo_path FROM labs ORDER BY name`).all();
+        const labs = db.prepare(`
+            SELECT 
+                l.id, l.name, l.logo_path,
+                (SELECT GROUP_CONCAT(pl.name, ', ') 
+                 FROM lab_package_lists j 
+                 JOIN package_lists pl ON j.package_list_id = pl.id 
+                 WHERE j.lab_id = l.id) as assigned_list_names
+            FROM labs l 
+            ORDER BY l.name
+        `).all();
+
         const allLists = db.prepare(`SELECT id, name FROM package_lists ORDER BY name`).all();
         const assignments = db.prepare(`SELECT lab_id, package_list_id FROM lab_package_lists`).all();
 
-        // Create a Map for easy lookup of assignments
         const labListMap = new Map();
         assignments.forEach(a => {
             if (!labListMap.has(a.lab_id)) {
@@ -20,9 +29,8 @@ exports.showManageLabsPage = (req, res) => {
             labListMap.get(a.lab_id).add(a.package_list_id);
         });
 
-        // Add assignment info to each lab object
         labs.forEach(lab => {
-            lab.assigned_list_ids = labListMap.get(lab.id) || new Set();
+            lab.assigned_list_ids = Array.from(labListMap.get(lab.id) || new Set());
         });
 
         res.render("admin/manage_labs", { labs, allLists });
@@ -31,6 +39,7 @@ exports.showManageLabsPage = (req, res) => {
         res.status(500).send("Could not load page.");
     }
 };
+
 
 // --- Create a new lab ---
 exports.createLab = (req, res) => {
@@ -56,6 +65,8 @@ exports.uploadLogo = (req, res) => {
     if (!req.file) return res.status(400).send("No image file uploaded.");
     if (!lab_id) return res.status(400).send("Lab ID is missing.");
 
+    const tempPath = req.file.path;
+
     try {
         const oldPathResult = db.prepare("SELECT logo_path FROM labs WHERE id = ?").get(lab_id);
         const oldPath = oldPathResult ? oldPathResult.logo_path : null;
@@ -64,20 +75,32 @@ exports.uploadLogo = (req, res) => {
         const newPathForDb = `/lab_logos/${newFileName}`;
         const finalFilePath = path.join(__dirname, "..", "public", "lab_logos", newFileName);
 
+        // Ensure the target directory exists
         fs.mkdirSync(path.dirname(finalFilePath), { recursive: true });
-        fs.renameSync(req.file.path, finalFilePath);
+
+        // Safer: Copy the file, then delete the temporary one.
+        fs.copyFileSync(tempPath, finalFilePath);
 
         db.prepare("UPDATE labs SET logo_path = ? WHERE id = ?").run(newPathForDb, lab_id);
 
+        // Clean up old logo if it's different from the new one
         if (oldPath && oldPath !== newPathForDb) {
             const oldFilesystemPath = path.join(__dirname, "..", "public", oldPath);
-            if (fs.existsSync(oldFilesystemPath)) fs.unlinkSync(oldFilesystemPath);
+            if (fs.existsSync(oldFilesystemPath)) {
+                fs.unlinkSync(oldFilesystemPath);
+            }
         }
 
         res.redirect("/admin/labs");
     } catch (err) {
+        // More detailed error logging for debugging
         console.error(`Error uploading logo for lab ${lab_id}:`, err);
         res.status(500).send("Error processing logo upload.");
+    } finally {
+        // ALWAYS clean up the temporary file from multer
+        if (fs.existsSync(tempPath)) {
+            fs.unlinkSync(tempPath);
+        }
     }
 };
 

@@ -20,86 +20,111 @@
                 <div class="form-grid" style="grid-template-columns: 2fr 1fr; align-items: end;">
                     <div>
                         <label for="name">Lab Name</label>
-                        <input type="text" id="name" name="name" required placeholder="e.g., Apollo Diagnostics, Dr. Lal PathLabs">
+                        <input type="text" id="name" name="name" required placeholder="e.g., Apollo Diagnostics">
                     </div>
-                    <div style="align-self: end;">
-                        <button type="submit" style="margin-top: 0; margin-bottom: 10px;">Create Lab</button>
+                    <div>
+                        <button type="submit" style="margin-bottom: 10px;">Create Lab</button>
                     </div>
                 </div>
             </form>
         </section>
 
-        <!-- Existing Labs Section -->
         <section class="section">
             <h2>Existing Labs</h2>
-            <p style="font-size: 0.9em; color: #555;">
-                Manage labs, upload their logos, and assign rate databases (Package Lists). Manage package lists <a href="/admin/package-lists">here</a>.
-            </p>
-
+            <p style="font-size: 0.9em; color: #555;">Manage labs, upload their logos, and assign rate databases (Package Lists). Manage package lists <a href="/admin/package-lists">here</a>.</p>
             <table class="data-table">
                 <thead>
                     <tr>
                         <th style="width: 25%;">Lab</th>
                         <th style="width: 35%;">Assigned Rate Databases</th>
-                        <th style="width: 40%;">Upload Logo (JPEG/PNG)</th>
+                        <th style="width: 40%;">Upload Logo (PNG)</th>
                     </tr>
                 </thead>
                 <tbody>
-                <% if (labs.length > 0) { %>
-                    <% labs.forEach(lab => { %>
-                        <tr>
-                            <td>
-                                <div class="lab-info">
-                                    <strong><%= lab.name %></strong>
-                                    <% if (lab.logo_path) { %>
-                                        <img src="<%= lab.logo_path %>?v=<%= new Date().getTime() %>" alt="Logo">
-                                    <% } else { %>
-                                        <small>No logo uploaded</small>
-                                    <% } %>
-                                </div>
-                            </td>
-                            <td>
-                                <form action="/admin/labs/update-lists" method="POST" class="in-table-form">
-                                    <input type="hidden" name="lab_id" value="<%= lab.id %>">
-                                    <label>Assign one or more rate lists:</label>
-                                    <div class="checkbox-list">
-                                        <% allLists.forEach(list => { %>
-                                            <div>
-                                                <input type="checkbox" 
-                                                       name="package_list_ids" 
-                                                       value="<%= list.id %>" 
-                                                       id="list_<%= lab.id %>_<%= list.id %>"
-                                                       <%= lab.assigned_list_ids.has(list.id) ? 'checked' : '' %>>
-                                                <label for="list_<%= lab.id %>_<%= list.id %>"><%= list.name %></label>
-                                            </div>
-                                        <% }) %>
+                    <% if (labs.length > 0) { %>
+                        <% labs.forEach(lab => { %>
+                            <tr>
+                                <td>
+                                    <div class="lab-info">
+                                        <strong><%= lab.name %></strong>
+                                        <% if (lab.logo_path) { %>
+                                            <img src="<%= lab.logo_path %>?v=<%= new Date().getTime() %>" alt="Logo">
+                                        <% } else { %>
+                                            <small>No logo uploaded</small>
+                                        <% } %>
                                     </div>
-                                    <button type="submit" class="action-btn" style="background-color: #007bff;">Save Assignments</button>
-                                </form>
-                            </td>
-                            <td>
-                               <form action="/admin/labs/upload-logo" method="POST" enctype="multipart/form-data" class="in-table-form" onsubmit="this.querySelector('button').innerText = 'Uploading...'">
-                                    <input type="hidden" name="lab_id" value="<%= lab.id %>">
-                                    <label>Upload or replace logo:</label>
-                                    <small style="display: block; margin-bottom: 5px;">Recommended: Transparent PNG, 200x80px</small>
-                                    <div class="file-upload-container">
-                                        <label for="logo_<%= lab.id %>" class="file-upload-label">Choose File</label>
-                                        <span class="file-name-display">No file selected</span>
-                                        <input type="file" name="logo_file" id="logo_<%= lab.id %>" accept="image/jpeg, image/png" required onchange="this.parentElement.querySelector('.file-name-display').textContent = this.files[0] ? this.files[0].name : 'No file selected';">
+                                </td>
+                                <td>
+                                    <div class="assigned-lists" style="font-size: 0.9em; color: #333;">
+                                        <p><%= lab.assigned_list_names || 'None assigned.' %></p>
+                                        <button class="action-btn edit-btn" onclick="openRatesModal('<%= lab.id %>', '<%= lab.name %>', JSON.stringify(<%- JSON.stringify(lab.assigned_list_ids) %>))">Edit Assignments</button>
                                     </div>
-                                    <button type="submit" class="action-btn" style="background-color: #28a745;">Upload</button>
-                                </form>
-                            </td>
-                        </tr>
-                    <% }) %>
-                <% } else { %>
-                    <tr>
-                        <td colspan="3" style="text-align: center;">No labs found. Create one above.</td>
-                    </tr>
-                <% } %>
-            </tbody>
+                                </td>
+                                <td>
+                                    <form action="/admin/labs/upload-logo" method="POST" enctype="multipart/form-data" class="in-table-form" onsubmit="this.querySelector('button').innerText = 'Uploading...'">
+                                        <input type="hidden" name="lab_id" value="<%= lab.id %>">
+                                        <label>Upload or replace logo:</label>
+                                        <small style="display: block; margin-bottom: 5px;">Recommended: Transparent PNG, 200x80px</small>
+                                        <div class="file-upload-container">
+                                            <label for="logo_<%= lab.id %>" class="file-upload-label">Choose File</label>
+                                            <span class="file-name-display">No file selected</span>
+                                            <input type="file" name="logo_file" id="logo_<%= lab.id %>" accept="image/png, image/jpeg" required onchange="this.parentElement.querySelector('.file-name-display').textContent = this.files[0] ? this.files[0].name : 'No file selected';">
+                                        </div>
+                                        <button type="submit" class="action-btn" style="background-color: #28a745;">Upload</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr><td colspan="3" style="text-align: center;">No labs found. Create one above.</td></tr>
+                    <% } %>
+                </tbody>
             </table>
         </section>
     </div>
+
+    <!-- Edit Rates Modal -->
+    <div id="edit-rates-modal" class="modal-overlay">
+        <div class="modal-content">
+            <form action="/admin/labs/update-lists" method="POST">
+                <input type="hidden" name="lab_id" id="modal-lab-id">
+                <div class="modal-header">
+                    <h2 id="modal-title">Edit Rate Assignments</h2>
+                    <span class="close-btn" onclick="closeRatesModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <p>Select which rate lists should be available for <strong id="modal-lab-name"></strong>:</p>
+                    <div class="checkbox-list" id="modal-checkbox-list">
+                        <% allLists.forEach(list => { %>
+                            <div>
+                                <input type="checkbox" name="package_list_ids" value="<%= list.id %>" id="modal_list_<%= list.id %>">
+                                <label for="modal_list_<%= list.id %>"><%= list.name %></label>
+                            </div>
+                        <% }) %>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="action-btn" style="background-color:#007bff; border:0;">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const modal = document.getElementById('edit-rates-modal');
+        function openRatesModal(labId, labName, assignedIdsJson) {
+            const assignedIds = new Set(JSON.parse(assignedIdsJson));
+            document.getElementById('modal-lab-id').value = labId;
+            document.getElementById('modal-lab-name').textContent = labName;
+            
+            const checkboxes = modal.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                cb.checked = assignedIds.has(parseInt(cb.value, 10));
+            });
+            modal.style.display = 'block';
+        }
+        function closeRatesModal() { modal.style.display = 'none'; }
+        window.onclick = function(event) { if (event.target == modal) { closeRatesModal(); } }
+    </script>
 </body>
 </html>

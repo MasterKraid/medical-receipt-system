@@ -217,3 +217,46 @@
     display: inline;
     margin-left: 5px;
 }
+
+/* --- Modal Styles --- */
+.modal-overlay {
+    display: none; position: fixed; z-index: 1000; left: 0; top: 0;
+    width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5);
+}
+.modal-content {
+    background-color: #fefefe; margin: 10% auto; padding: 25px;
+    border-radius: 8px; width: 90%; max-width: 600px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+.modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 20px;
+}
+.modal-header h2 { margin: 0; font-size: 1.5em; }
+.close-btn { color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
+.close-btn:hover { color: #333; }
+.modal-body .checkbox-list {
+    max-height: 250px; overflow-y: auto; border: 1px solid #ddd;
+    padding: 10px; border-radius: 5px; background-color: #f9f9f9;
+}
+.modal-body .checkbox-list div { display: block; margin-bottom: 8px; }
+.modal-body .checkbox-list label { font-weight: normal; margin-left: 8px; }
+.modal-footer { margin-top: 20px; text-align: right; }
+
+/* --- Fix for File Upload Input --- */
+.in-table-form .file-upload-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 5px 8px;
+}
+.in-table-form .file-name-display {
+    flex-grow: 1; /* Take remaining space */
+    font-size: 0.85em;
+    color: #555;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
