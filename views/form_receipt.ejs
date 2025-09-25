@@ -306,7 +306,8 @@
                 Branch: <strong><%= currentBranchDetails.name %></strong> |
                 User: <%= sessionUser.username %> |
                 <a href="/logout">Logout</a> |
-                <a href="/estimate-form">Go to Estimate Form</a>
+                <a href="/estimate-form">Go to Estimate Form</a> |
+                <a href="<%= sessionUser.role === 'ADMIN' ? '/admin-dashboard' : '/dashboard' %>">Dashboard</a>
             </p>
         <% } %>
 
@@ -387,6 +388,26 @@
         </fieldset>
 
         <hr>
+        <!-- =====================
+             Receipt Details
+        ====================== -->
+        <fieldset>
+            <legend>Receipt Details</legend>
+            <div class="form-grid">
+                <div>
+                    <label for="lab_selection">Test Conducted At (Lab):</label>
+                    <select id="lab_selection" name="lab_id" required>
+                        <option value="">-- Select a Lab First --</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="package_list_selection">Select Rate Database:</label>
+                    <select id="package_list_selection" name="package_list_id" required>
+                        <option value="">-- Select a Lab First --</option>
+                    </select>
+                </div>
+            </div>
+        </fieldset>
 
         <!-- =====================
              Items Section
@@ -459,18 +480,6 @@
                     <input type="number" id="num_tests" name="num_tests" min="0"
                            placeholder="Auto-count if blank">
                     <small>Leave blank to count items automatically.</small>
-                </div>
-                <div>
-                    <label for="lab_selection">Test Conducted At (Lab):</label>
-                    <select id="lab_selection" name="lab_id" required>
-                        <option value="">-- Select a Lab First --</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="package_list_selection">Select Rate Database:</label>
-                    <select id="package_list_selection" name="package_list_id" required>
-                        <option value="">-- Select a Lab First --</option>
-                    </select>
                 </div>
                 <div class="full-width">
                     <label for="referred_by">Referred By Dr.:</label>

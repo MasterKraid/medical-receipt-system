@@ -26,6 +26,16 @@
             <a href="/admin-dashboard" class="action-link">Back to Dashboard</a>
         </div>
 
+            <div class="search-section" style="margin-bottom: 20px;">
+                <form method="GET" action="/admin/<%= docType === 'receipt' ? 'receipts' : 'estimates' %>">
+                    <div style="display: flex; gap: 10px;">
+                        <input type="search" name="q" placeholder="Search by Doc ID, Customer Name/ID, User..." value="<%= typeof query !== 'undefined' ? query : '' %>" style="flex-grow: 1; margin: 0;">
+                        <button type="submit" style="margin: 0; padding: 10px 10px;">Search</button>
+                        <a href="/admin/<%= docType === 'receipt' ? 'receipts' : 'estimates' %>" class="action-link" style="padding: 10px 15px; text-align: center;">Clear</a>
+                    </div>
+                </form>
+            </div>
+
         <table class="data-table">
             <thead>
                 <tr>

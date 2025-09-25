@@ -53,7 +53,7 @@ async function initializeCascadingDropdowns() {
     }
 
     // Initial state: disable items section
-    setItemSectionEnabled(false);
+    setItemSectionEnabled(true);
     listSelect.disabled = true;
 
     // Fetch and populate labs

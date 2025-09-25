@@ -17,13 +17,13 @@
         <section class="section">
             <h2>Add New Lab</h2>
             <form action="/admin/labs/add" method="POST">
-                <div class="form-grid" style="grid-template-columns: 2fr 1fr;">
+                <div class="form-grid" style="grid-template-columns: 2fr 1fr; align-items: end;">
                     <div>
                         <label for="name">Lab Name</label>
                         <input type="text" id="name" name="name" required placeholder="e.g., Apollo Diagnostics, Dr. Lal PathLabs">
                     </div>
                     <div style="align-self: end;">
-                        <button type="submit" style="margin-top: 0;">Create Lab</button>
+                        <button type="submit" style="margin-top: 0; margin-bottom: 10px;">Create Lab</button>
                     </div>
                 </div>
             </form>
@@ -61,22 +61,27 @@
                             <td>
                                 <form action="/admin/labs/update-lists" method="POST" class="in-table-form">
                                     <input type="hidden" name="lab_id" value="<%= lab.id %>">
-                                    <label for="lists_<%= lab.id %>">Assign one or more rate lists:</label>
-                                    <select name="package_list_ids" id="lists_<%= lab.id %>" multiple size="4">
+                                    <label>Assign one or more rate lists:</label>
+                                    <div class="checkbox-list">
                                         <% allLists.forEach(list => { %>
-                                            <option value="<%= list.id %>" <%= lab.assigned_list_ids.has(list.id) ? 'selected' : '' %>>
-                                                <%= list.name %>
-                                            </option>
+                                            <div>
+                                                <input type="checkbox" 
+                                                       name="package_list_ids" 
+                                                       value="<%= list.id %>" 
+                                                       id="list_<%= lab.id %>_<%= list.id %>"
+                                                       <%= lab.assigned_list_ids.has(list.id) ? 'checked' : '' %>>
+                                                <label for="list_<%= lab.id %>_<%= list.id %>"><%= list.name %></label>
+                                            </div>
                                         <% }) %>
-                                    </select>
-                                    <small>Hold Ctrl/Cmd to select multiple.</small>
+                                    </div>
                                     <button type="submit" class="action-btn" style="background-color: #007bff;">Save Assignments</button>
-                               </form>
-                           </td>
-                           <td>
+                                </form>
+                            </td>
+                            <td>
                                <form action="/admin/labs/upload-logo" method="POST" enctype="multipart/form-data" class="in-table-form" onsubmit="this.querySelector('button').innerText = 'Uploading...'">
                                     <input type="hidden" name="lab_id" value="<%= lab.id %>">
                                     <label>Upload or replace logo:</label>
+                                    <small style="display: block; margin-bottom: 5px;">Recommended: Transparent PNG, 200x80px</small>
                                     <div class="file-upload-container">
                                         <label for="logo_<%= lab.id %>" class="file-upload-label">Choose File</label>
                                         <span class="file-name-display">No file selected</span>

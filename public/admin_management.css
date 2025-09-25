@@ -200,3 +200,20 @@
     border-radius: 4px;
     border: 1px solid #eee;
 }
+.in-table-form .checkbox-list {
+    max-height: 120px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 8px;
+    border-radius: 4px;
+    background-color: #fff;
+}
+.in-table-form .checkbox-list div {
+    display: block;
+    margin-bottom: 5px;
+}
+.in-table-form .checkbox-list label {
+    font-weight: normal;
+    display: inline;
+    margin-left: 5px;
+}

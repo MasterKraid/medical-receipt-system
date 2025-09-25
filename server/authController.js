@@ -14,8 +14,9 @@ exports.login = (req, res) => {
 
   try {
     // --- Fetch user data ---
+    // REMOVED package_list_id from the query
     const stmt = db.prepare(
-      "SELECT id, username, password_hash, branch_id, role, package_list_id FROM users WHERE username = ?"
+      "SELECT id, username, password_hash, branch_id, role FROM users WHERE username = ?"
     );
     const user = stmt.get(username);
 
@@ -44,8 +45,7 @@ exports.login = (req, res) => {
       username: user.username,
       branchId: user.branch_id,
       role: user.role, // <-- New field
-      packageListId: user.package_list_id, // <-- New field
-      // isAdmin is now deprecated, role is used instead
+      // REMOVED packageListId from session data
     };
 
     console.log(

@@ -185,7 +185,8 @@
                 Branch: <strong><%= currentBranchDetails.name %></strong> |
                 User: <%= sessionUser.username %> |
                 <a href="/logout">Logout</a> |
-                <a href="/receipt-form">Go to Receipt Form</a>
+                <a href="/receipt-form">Go to Receipt Form</a> |
+                <a href="<%= sessionUser.role === 'ADMIN' ? '/admin-dashboard' : '/dashboard' %>">Dashboard</a>
             </p>
         <% } %>
         <hr>

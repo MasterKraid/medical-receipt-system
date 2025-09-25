@@ -135,7 +135,12 @@ exports.uploadPackages = (req, res) => {
 
     } catch (err) {
         console.error("Excel import error:", err);
-        res.status(500).send(`<h1>Import Failed</h1><p><strong>Error:</strong> ${err.message}</p><a href="/admin/labs">Go Back</a>`);
+        let userMessage = err.message;
+        // Provide a more specific error message for this common issue.
+        if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || err.message.includes('UNIQUE constraint failed: packages.name')) {
+            userMessage = `A package name in the Excel file already exists in this specific list. If you are sure it doesn't, your database might have an old schema. Please ensure the package names are unique per list.`;
+        }
+        res.status(500).send(`<h1>Import Failed</h1><p><strong>Error:</strong> ${userMessage}</p><a href="/admin/package-lists">Go Back</a>`);
     } finally {
         fs.unlinkSync(req.file.path);
     }

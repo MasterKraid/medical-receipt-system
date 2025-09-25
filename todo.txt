@@ -35,3 +35,8 @@ in estimate creation add created by user name.
 create head user type that is lower than admin but has most access but cant edit anything.
 
 implement lab mrp selection at top only for "user" data type.
+
+
+
+and what else are we left with?
+oh yes the virtual wallet! make it so admin can only asign money to the other client user type. which when other client user log in they can see in their dashboard at top right how much money they have in virtual wallet and when creating estimate they can click pay from wallet which will deduct the B2B price from the wallet, not the mrp(you see this is the reason the database has mrp and b2b columns, the mrp is to show customers and generate during receipt but B2b is for clients we hire for collecting the bloods). remember also admin can click on a tick box on the user's box to allow going negative in virtual wallet which is crucial.  

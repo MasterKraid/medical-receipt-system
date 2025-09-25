@@ -6,23 +6,19 @@
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/admin_management.css">
     <style>
-        .file-upload-wrapper {
-            position: relative;
-            display: inline-block;
-        }
-        .file-upload-wrapper .file-upload-btn {
-            background-color: #28a745;
-            color: white;
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .file-upload-wrapper input[type="file"] {
-            display: none;
-        }
-        .file-upload-wrapper .file-name {
-            margin-left: 10px; font-style: italic;
-        }
+        .file-upload-wrapper { position: relative; display: inline-block; }
+        .file-upload-wrapper .file-upload-btn { background-color: #28a745; color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+        .file-upload-wrapper input[type="file"] { display: none; }
+        .file-upload-wrapper .file-name { margin-left: 10px; font-style: italic; }
+
+        /* Modal Styles */
+        .modal-overlay { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
+        .modal-content { background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 800px; border-radius: 8px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 20px; }
+        .modal-header h2 { margin: 0; }
+        .close-btn { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close-btn:hover, .close-btn:focus { color: black; }
+        .modal-body .data-table { max-height: 40vh; overflow-y: auto; display: block; }
     </style>
 </head>
 <body>
@@ -63,7 +59,9 @@
                         <tr>
                             <td><strong><%= list.name %></strong></td>
                             <td><%= list.package_count %></td>
-                            <td><a href="/admin/package-lists/<%= list.id %>" class="action-btn edit-btn">View/Edit</a></td>
+                            <td>
+                                <button class="action-btn edit-btn" onclick="openEditModal('<%= list.id %>', '<%= list.name %>')">View/Edit</button>
+                            </td>
                             <td>
                                 <form action="/admin/packages/upload" method="POST" enctype="multipart/form-data">
                                     <input type="hidden" name="list_id" value="<%= list.id %>">
@@ -81,10 +79,103 @@
             </table>
         </section>
     </div>
+
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Editing List</h2>
+                <span class="close-btn" onclick="closeEditModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <section class="section">
+                    <h3>Add New Package to this List</h3>
+                    <form action="/admin/packages/add-to-list" method="POST">
+                        <input type="hidden" name="package_list_id" id="modal-add-list-id">
+                        <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr auto; align-items: end;">
+                            <input type="text" name="name" placeholder="Package Name" required>
+                            <input type="number" name="mrp" step="0.01" min="0" placeholder="MRP (₹)" required>
+                            <input type="number" name="b2b_price" step="0.01" min="0" placeholder="B2B Price (₹)" required>
+                            <button type="submit" style="margin: 0; margin-bottom: 10px;">Add</button>
+                        </div>
+                    </form>
+                </section>
+                <section class="section">
+                    <h3>Existing Packages</h3>
+                    <div class="data-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Package Name</th>
+                                    <th style="width: 20%;">MRP (₹)</th>
+                                    <th style="width: 20%;">B2B Price (₹)</th>
+                                    <th style="width: 15%;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modal-packages-tbody">
+                                <!-- Rows will be populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
     <script>
         function updateFileName(input) {
             const fileName = input.files.length > 0 ? input.files[0].name : 'No file chosen';
             input.closest('.file-upload-wrapper').querySelector('.file-name').textContent = fileName;
+        }
+
+        const modal = document.getElementById('edit-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalTbody = document.getElementById('modal-packages-tbody');
+        const modalAddListIdInput = document.getElementById('modal-add-list-id');
+
+        async function openEditModal(listId, listName) {
+            modalTitle.textContent = `Editing: ${listName}`;
+            modalAddListIdInput.value = listId;
+            modalTbody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
+            modal.style.display = 'block';
+
+            try {
+                const response = await fetch(`/api/packages-for-list?listId=${listId}`);
+                const packages = await response.json();
+                
+                modalTbody.innerHTML = '';
+                if (packages.length > 0) {
+                    packages.forEach(pkg => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <form action="/admin/packages/update" method="POST">
+                                <input type="hidden" name="package_id" value="${pkg.id}">
+                                <input type="hidden" name="package_list_id" value="${listId}">
+                                <td><input type="text" name="name" value="${pkg.name}" style="margin:0;"></td>
+                                <td><input type="number" name="mrp" step="0.01" value="${pkg.mrp}" style="margin:0;"></td>
+                                <td><input type="number" name="b2b_price" step="0.01" value="${pkg.b2b_price}" style="margin:0;"></td>
+                                <td><button type="submit" class="action-btn edit-btn" style="margin:0;">Save</button></td>
+                            </form>
+                        `;
+                        modalTbody.appendChild(row);
+                    });
+                } else {
+                    modalTbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No packages in this list yet.</td></tr>';
+                }
+            } catch (error) {
+                console.error('Failed to fetch packages:', error);
+                modalTbody.innerHTML = '<tr><td colspan="4" style="color:red;">Error loading packages.</td></tr>';
+            }
+        }
+
+        function closeEditModal() {
+            modal.style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                closeEditModal();
+            }
         }
     </script>
 </body>

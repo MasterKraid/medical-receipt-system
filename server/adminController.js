@@ -16,24 +16,38 @@ const formatDataForView = (items, type) => {
 // --- View Receipts ---
 exports.viewReceipts = (req, res) => {
     try {
-        const receipts = db.prepare(`
-            SELECT
-                r.id,
-                r.created_at,
-                r.amount_final as amount,
-                c.id as customer_id,
-                c.name as customer_name,
-                u.username as created_by_user
+        const { q: query } = req.query;
+        let receipts;
+        let params = [];
+
+        let sql = `
+            SELECT r.id, r.created_at, r.amount_final as amount,
+                   c.id as customer_id, c.name as customer_name, u.username as created_by_user
             FROM receipts r
             JOIN customers c ON r.customer_id = c.id
             JOIN users u ON r.user_id = u.id
-            ORDER BY r.id DESC
-            LIMIT 200
-        `).all();
+        `;
+
+        if (query) {
+            sql += ` WHERE
+                CAST(r.id AS TEXT) LIKE ? OR
+                c.name LIKE ? OR
+                CAST(c.id AS TEXT) LIKE ? OR
+                u.username LIKE ?
+            `;
+            const searchTerm = `%${query}%`;
+            params = [searchTerm, searchTerm, searchTerm, searchTerm];
+        }
+
+        sql += ` ORDER BY r.id DESC LIMIT 200`;
+
+        receipts = db.prepare(sql).all(params);
+
         res.render("admin/view_documents", {
             title: "Receipts",
             documents: formatDataForView(receipts, 'receipt'),
-            docType: 'receipt'
+            docType: 'receipt',
+            query: query || ''
         });
     } catch (err) {
         console.error("Error fetching receipts:", err);
@@ -44,26 +58,41 @@ exports.viewReceipts = (req, res) => {
 // --- View Estimates ---
 exports.viewEstimates = (req, res) => {
     try {
-        const estimates = db.prepare(`
-            SELECT
-                e.id,
-                e.created_at,
-                e.amount_after_discount as amount,
-                c.id as customer_id,
-                c.name as customer_name,
-                u.username as created_by_user
+        const { q: query } = req.query;
+        let estimates;
+        let params = [];
+        
+        let sql = `
+            SELECT e.id, e.created_at, e.amount_after_discount as amount,
+                   c.id as customer_id, c.name as customer_name, u.username as created_by_user
             FROM estimates e
             JOIN customers c ON e.customer_id = c.id
             JOIN users u ON e.user_id = u.id
-            ORDER BY e.id DESC
-            LIMIT 200
-        `).all();
+        `;
+
+        if (query) {
+            sql += ` WHERE
+                CAST(e.id AS TEXT) LIKE ? OR
+                c.name LIKE ? OR
+                CAST(c.id AS TEXT) LIKE ? OR
+                u.username LIKE ?
+            `;
+            const searchTerm = `%${query}%`;
+            params = [searchTerm, searchTerm, searchTerm, searchTerm];
+        }
+
+        sql += ` ORDER BY e.id DESC LIMIT 200`;
+        
+        estimates = db.prepare(sql).all(params);
+
         res.render("admin/view_documents", {
             title: "Estimates",
             documents: formatDataForView(estimates, 'estimate'),
-            docType: 'estimate'
+            docType: 'estimate',
+            query: query || ''
         });
-    } catch (err) {
+    } catch (err)
+        {
         console.error("Error fetching estimates:", err);
         res.status(500).send("Error fetching estimates.");
     }

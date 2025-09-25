@@ -222,7 +222,13 @@ exports.showReceipt = (req, res) => {
     if (!receiptId || isNaN(parseInt(receiptId))) { return res.status(400).send("Invalid Receipt ID."); }
 
     try {
-        const receiptData = db.prepare("SELECT * FROM receipts WHERE id = ?").get(receiptId);
+        const receiptData = db.prepare(`
+            SELECT r.*, l.logo_path 
+            FROM receipts r 
+            LEFT JOIN labs l ON r.lab_id = l.id 
+            WHERE r.id = ?
+        `).get(receiptId);
+
         if (!receiptData) { return res.status(404).send("Receipt not found."); }
 
         const customerDetails = db.prepare("SELECT id, name, mobile, dob, age, gender FROM customers WHERE id = ?").get(receiptData.customer_id);
@@ -244,9 +250,12 @@ exports.showReceipt = (req, res) => {
         receiptData.totalMrpFormatted = (receiptData.total_mrp !== null ? parseFloat(receiptData.total_mrp) : calculatedTotalMrp).toFixed(2); receiptData.subtotalAfterItemDiscountsFormatted = calculatedSubtotalAfterItemDiscounts.toFixed(2); const overallDiscPerc = parseFloat(receiptData.discount_percentage) || 0; receiptData.overallDiscountPercentageFormatted = overallDiscPerc.toFixed(1); const calculatedOverallDiscountAmount = calculatedSubtotalAfterItemDiscounts * (overallDiscPerc / 100); receiptData.overallDiscountAmountFormatted = calculatedOverallDiscountAmount.toFixed(2); const dbFinalAmount = parseFloat(receiptData.amount_final) || 0; receiptData.finalAmountFormatted = dbFinalAmount.toFixed(2); receiptData.amountReceivedFormatted = (parseFloat(receiptData.amount_received) || 0).toFixed(2); receiptData.amountDueFormatted = (parseFloat(receiptData.amount_due) || 0).toFixed(2);
         receiptData.displayReceiptDate = formatTimestampForDisplayIST(receiptData.created_at);
         customerDetails.displayDob = formatDateForDisplay(customerDetails.dob);
+        
+        // Pass the lab logo path to the view
+        const labLogoPath = receiptData.logo_path;
 
         // --- Render View ---
-        res.render("receipt", { receiptData, customerDetails, items, branchDetails });
+        res.render("receipt", { receiptData, customerDetails, items, branchDetails, labLogoPath });
 
     } catch (err) {
         console.error(`Error fetching receipt ID ${receiptId}: ${err.message}\n${err.stack}`);
