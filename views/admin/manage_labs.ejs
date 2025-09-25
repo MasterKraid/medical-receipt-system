@@ -13,6 +13,7 @@
             <a href="/admin-dashboard" class="back-link">Back to Dashboard</a>
         </header>
 
+        <!-- Add New Lab Section -->
         <section class="section">
             <h2>Add New Lab</h2>
             <form action="/admin/labs/add" method="POST">
@@ -28,15 +29,19 @@
             </form>
         </section>
 
+        <!-- Existing Labs Section -->
         <section class="section">
             <h2>Existing Labs</h2>
-            <p style="font-size: 0.9em; color: #555;">Manage labs, upload their logos, and assign a rate database (Package List) to each. You can manage the package lists themselves <a href="/admin/package-lists">here</a>.</p>
+            <p style="font-size: 0.9em; color: #555;">
+                Manage labs, upload their logos, and assign rate databases (Package Lists). Manage package lists <a href="/admin/package-lists">here</a>.
+            </p>
+
             <table class="data-table">
                 <thead>
                     <tr>
                         <th style="width: 25%;">Lab</th>
-                        <th style="width: 35%;">Assigned Rate Database</th>
-                        <th style="width: 40%;">Upload Logo (JPEG)</th>
+                        <th style="width: 35%;">Assigned Rate Databases</th>
+                        <th style="width: 40%;">Upload Logo (JPEG/PNG)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -50,22 +55,19 @@
                                     <% } %>
                                 </td>
                                 <td>
-                                    <% if (lab.package_list_id) { %>
-                                        <p><strong>Current:</strong> <%= lab.package_list_name %></p>
-                                        <p>(<%= lab.package_count %> packages)</p>
-                                        <a href="/admin/package-lists/<%= lab.package_list_id %>">View/Edit Packages</a>
-                                    <% } else { %>
-                                        <form action="/admin/labs/assign-list" method="POST">
-                                            <input type="hidden" name="lab_id" value="<%= lab.id %>">
-                                            <select name="package_list_id" required>
-                                                <option value="">-- Assign a List --</option>
-                                                <% unassignedLists.forEach(list => { %>
-                                                    <option value="<%= list.id %>"><%= list.name %></option>
-                                                <% }) %>
-                                            </select>
-                                            <button type="submit">Assign</button>
-                                        </form>
-                                    <% } %>
+                                    <form action="/admin/labs/update-lists" method="POST">
+                                        <input type="hidden" name="lab_id" value="<%= lab.id %>">
+                                        <label for="lists_<%= lab.id %>" class="sr-only">Assign Rate Databases</label>
+                                        <select name="package_list_ids" id="lists_<%= lab.id %>" multiple size="4" style="width: 100%;">
+                                            <% allLists.forEach(list => { %>
+                                                <option value="<%= list.id %>" <%= lab.assigned_list_ids.has(list.id) ? 'selected' : '' %>>
+                                                    <%= list.name %>
+                                                </option>
+                                            <% }) %>
+                                        </select>
+                                        <small>Hold Ctrl/Cmd to select multiple.</small>
+                                        <button type="submit" style="display: block; margin-top: 5px;">Save Assignments</button>
+                                    </form>
                                 </td>
                                 <td>
                                     <form action="/admin/labs/upload-logo" method="POST" enctype="multipart/form-data">
@@ -77,7 +79,9 @@
                             </tr>
                         <% }) %>
                     <% } else { %>
-                        <tr><td colspan="3" style="text-align: center;">No labs found. Create one above.</td></tr>
+                        <tr>
+                            <td colspan="3" style="text-align: center;">No labs found. Create one above.</td>
+                        </tr>
                     <% } %>
                 </tbody>
             </table>

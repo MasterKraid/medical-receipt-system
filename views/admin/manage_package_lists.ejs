@@ -2,28 +2,46 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Package Lists</title>
+    <title>Manage Rate Databases</title>
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/admin_management.css">
+    <style>
+        .file-upload-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        .file-upload-wrapper .file-upload-btn {
+            background-color: #28a745;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .file-upload-wrapper input[type="file"] {
+            display: none;
+        }
+        .file-upload-wrapper .file-name {
+            margin-left: 10px; font-style: italic;
+        }
+    </style>
 </head>
 <body>
     <div class="management-container">
         <header class="management-header">
-            <h1>Manage Package Lists (Rate Databases)</h1>
-            <a href="/admin-dashboard" class="back-link">Back to Dashboard</a>
+            <h1>Manage Rate Databases (Package Lists)</h1>
+            <a href="/admin/labs" class="back-link">Back to Labs</a>
         </header>
 
         <section class="section">
             <h2>Add New List</h2>
             <form action="/admin/package-lists/add" method="POST">
-                <div class="form-grid" style="grid-template-columns: 2fr 1fr;">
+                <div class="form-grid" style="grid-template-columns: 2fr 1fr; align-items: end;">
                     <div>
                         <label for="name">List Name</label>
-                        <input type="text" id="name" name="name" required placeholder="e.g., Corporate B2B Rates, Retail Walk-in">
+                        <input type="text" id="name" name="name" required placeholder="e.g., Corporate B2B Rates">
                     </div>
-                    <div style="align-self: end;">
-                        <button type="submit" style="margin-top: 0;">Create List</button>
+                    <div>
+                        <button type="submit" style="margin-bottom: 10px;">Create List</button>
                     </div>
                 </div>
             </form>
@@ -35,8 +53,9 @@
                 <thead>
                     <tr>
                         <th>List Name</th>
-                        <th style="width: 150px;">Package Count</th>
-                        <th style="width: 50%;">Import Packages from Excel</th>
+                        <th style="width: 15%;">Packages</th>
+                        <th style="width: 15%;">Actions</th>
+                        <th style="width: 40%;">Import from Excel</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -44,26 +63,29 @@
                         <tr>
                             <td><strong><%= list.name %></strong></td>
                             <td><%= list.package_count %></td>
+                            <td><a href="/admin/package-lists/<%= list.id %>" class="action-btn edit-btn">View/Edit</a></td>
                             <td>
-                                <form action="/admin/packages/upload" method="POST" enctype="multipart/form-data" class="upload-form">
+                                <form action="/admin/packages/upload" method="POST" enctype="multipart/form-data">
                                     <input type="hidden" name="list_id" value="<%= list.id %>">
-                                    <input type="file" name="package_file" accept=".xlsx, .xls" required style="width: 70%;">
-                                    <button type="submit" class="action-btn" style="background-color: #28a745;">Upload</button>
+                                    <div class="file-upload-wrapper">
+                                        <label for="file_<%= list.id %>" class="file-upload-btn">Choose File</label>
+                                        <input type="file" name="package_file" id="file_<%= list.id %>" accept=".xlsx, .xls" required onchange="updateFileName(this)">
+                                        <span class="file-name">No file chosen</span>
+                                    </div>
+                                    <button type="submit" style="padding: 6px 12px; margin-left: 5px;">Upload</button>
                                 </form>
                             </td>
                         </tr>
                     <% }) %>
-                    <% if (lists.length === 0) { %>
-                        <tr>
-                            <td colspan="3" style="text-align: center;">No package lists found. Create one above to begin.</td>
-                        </tr>
-                    <% } %>
                 </tbody>
             </table>
-            <div style="margin-top: 15px; padding: 10px; background-color: #e9ecef; border-radius: 5px; font-size: 0.9em;">
-                <strong>Import Instructions:</strong> Your Excel file must have columns with the exact headers: <code>name</code>, <code>mrp</code>, and <code>b2b_price</code>. Any existing packages with the same name within a list will be updated with the new prices from the file.
-            </div>
         </section>
     </div>
+    <script>
+        function updateFileName(input) {
+            const fileName = input.files.length > 0 ? input.files[0].name : 'No file chosen';
+            input.closest('.file-upload-wrapper').querySelector('.file-name').textContent = fileName;
+        }
+    </script>
 </body>
 </html>

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Users</title>
     <link rel="stylesheet" href="/styles.css">
-    <link rel="stylesheet" href="/admin_management.css"> <!-- NEW STYLESHEET -->
+    <link rel="stylesheet" href="/admin_management.css">
 </head>
 <body>
     <div class="management-container">
@@ -79,8 +79,11 @@
                             <td><%= user.username %></td>
                             <td><%= user.branch_name %></td>
                             <td><%= user.role %></td>
-                            <td><%= user.package_list_name || 'Default' %></td>
                             <td>
+                                <%# Too much data to show all assigned lists; use edit page for details %>
+                            </td>
+                            <td>
+                                <a href="/admin/users/edit/<%= user.id %>" class="action-btn edit-btn">Edit</a>
                                 <% if(sessionUser.id !== user.id) { %>
                                     <form class="delete-form" action="/admin/users/delete/<%= user.id %>" method="POST" onsubmit="return confirm('Are you sure you want to permanently delete this user? This cannot be undone.');">
                                         <button type="submit" class="action-btn delete-btn">Delete</button>

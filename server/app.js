@@ -124,19 +124,63 @@ app.post(
 app.get("/receipt/:id", isAuthenticated, receiptController.showReceipt);
 
 // --- API Routes ---
-app.get("/api/packages", isAuthenticated, packageController.getAllPackages);
 app.get("/api/user-labs", isAuthenticated, (req, res) => {
     try {
-        const labs = db.prepare(`
-            SELECT l.id, l.name FROM labs l
-            JOIN user_lab_access ula ON l.id = ula.lab_id
-            WHERE ula.user_id = ?
-            ORDER BY l.name
-        `).all(req.session.user.id);
+        const userId = req.session.user.id;
+        const userRole = req.session.user.role;
+        let labs;
+        if (userRole === 'ADMIN') {
+            // Admins can see all labs
+            labs = db.prepare(`SELECT DISTINCT l.id, l.name FROM labs l ORDER BY l.name`).all();
+        } else {
+            // Other users see labs that have at least one list they are assigned to
+            labs = db.prepare(`
+                SELECT DISTINCT l.id, l.name FROM labs l
+                JOIN lab_package_lists lpl ON l.id = lpl.lab_id
+                JOIN user_package_list_access upla ON lpl.package_list_id = upla.package_list_id
+                WHERE upla.user_id = ?
+                ORDER BY l.name
+            `).all(userId);
+        }
         res.json(labs);
-    } catch (err) {
-        res.status(500).json({ error: "Failed to get user labs" });
-    }
+    } catch (err) { res.status(500).json({ error: "Failed to get user labs" }); }
+});
+
+app.get("/api/user-lists-for-lab", isAuthenticated, (req, res) => {
+    const { labId } = req.query;
+    const userId = req.session.user.id;
+    const userRole = req.session.user.role;
+    try {
+        let lists;
+        if (userRole === 'ADMIN') {
+            // Admins see all lists associated with the selected lab
+            lists = db.prepare(`
+                SELECT pl.id, pl.name FROM package_lists pl
+                JOIN lab_package_lists lpl ON pl.id = lpl.package_list_id
+                WHERE lpl.lab_id = ? ORDER BY pl.name
+            `).all(labId);
+        } else {
+            // Others see only the lists for that lab they have been granted access to
+            lists = db.prepare(`
+                SELECT pl.id, pl.name FROM package_lists pl
+                JOIN lab_package_lists lpl ON pl.id = lpl.package_list_id
+                JOIN user_package_list_access upla ON pl.id = upla.package_list_id
+                WHERE lpl.lab_id = ? AND upla.user_id = ?
+                ORDER BY pl.name
+            `).all(labId, userId);
+        }
+        res.json(lists);
+    } catch (err) { res.status(500).json({ error: "Failed to get lists for lab" }); }
+});
+
+app.get("/api/packages-for-list", isAuthenticated, (req, res) => {
+    const { listId } = req.query;
+    try {
+        const packages = db.prepare(
+            "SELECT name, mrp, b2b_price FROM packages WHERE package_list_id = ? ORDER BY name"
+        ).all(listId);
+        res.json(packages);
+    } catch (err) { res.status(500).json({ error: "Failed to get packages" }); }
 });
 app.get("/api/customers/search", isAuthenticated, customerController.searchCustomers);
 
@@ -153,7 +197,7 @@ app.get("/admin/estimates", isAuthenticated, isAdmin, adminController.viewEstima
 app.get("/admin/labs", isAuthenticated, isAdmin, labController.showManageLabsPage);
 app.post("/admin/labs/add", isAuthenticated, isAdmin, labController.createLab);
 app.post("/admin/labs/upload-logo", isAuthenticated, isAdmin, upload.single('logo_file'), labController.uploadLogo);
-app.post("/admin/labs/assign-list", isAuthenticated, isAdmin, labController.assignPackageList);
+app.post("/admin/labs/update-lists", isAuthenticated, isAdmin, labController.updateLabLists);
 app.get("/admin/package-lists", isAuthenticated, isAdmin, packageListController.showManageListsPage);
 app.get("/admin/package-lists/:id", isAuthenticated, isAdmin, packageListController.showListPageDetails); 
 app.post("/admin/package-lists/add", isAuthenticated, isAdmin, packageListController.createList);
@@ -173,7 +217,8 @@ app.post("/admin/branches/edit/:id", isAuthenticated, isAdmin, adminController.u
 app.get("/admin/users", isAuthenticated, isAdmin, adminController.showManageUsersPage);
 app.post("/admin/users/add", isAuthenticated, isAdmin, adminController.createUser);
 app.post("/admin/users/delete/:id", isAuthenticated, isAdmin, adminController.deleteUser);
-// Note: User editing is more complex and can be added later following the same pattern.
+app.get("/admin/users/edit/:id", isAuthenticated, isAdmin, adminController.showEditUserPage);
+app.post("/admin/users/edit/:id", isAuthenticated, isAdmin, adminController.updateUser);
 
 // --- Central Error Handler ---
 app.use((err, req, res, next) => {

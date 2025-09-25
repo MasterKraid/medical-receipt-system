@@ -201,3 +201,62 @@ exports.deleteUser = (req, res) => {
         res.status(500).send("Error deleting user.");
     }
 };
+
+exports.showEditUserPage = (req, res) => {
+    const userId = req.params.id;
+    try {
+        const user = db.prepare("SELECT id, username, role, branch_id FROM users WHERE id = ?").get(userId);
+        if (!user) return res.status(404).send("User not found.");
+
+        const branches = db.prepare("SELECT id, name FROM branches").all();
+        const packageLists = db.prepare("SELECT id, name FROM package_lists ORDER BY name").all();
+        
+        // Get the IDs of lists this user currently has access to
+        const userAccess = db.prepare("SELECT package_list_id FROM user_package_list_access WHERE user_id = ?").all(userId);
+        const userAccessIds = new Set(userAccess.map(item => item.package_list_id));
+
+        res.render("admin/edit_user", { user, branches, packageLists, userAccessIds });
+    } catch (err) {
+        console.error("Error loading edit user page:", err);
+        res.status(500).send("Could not load user data.");
+    }
+};
+
+exports.updateUser = (req, res) => {
+    const userId = req.params.id;
+    const { username, password, branch_id, role, package_list_ids } = req.body;
+
+    // Use a transaction to ensure atomicity
+    const updateUserTransaction = db.transaction(() => {
+        // 1. Update core user details
+        if (password && password.trim() !== '') {
+            const bcrypt = require("bcrypt");
+            const password_hash = bcrypt.hashSync(password, 10);
+            db.prepare("UPDATE users SET username = ?, role = ?, branch_id = ?, password_hash = ? WHERE id = ?")
+              .run(username, role, branch_id, password_hash, userId);
+        } else {
+            db.prepare("UPDATE users SET username = ?, role = ?, branch_id = ? WHERE id = ?")
+              .run(username, role, branch_id, userId);
+        }
+
+        // 2. Clear existing package list permissions for this user
+        db.prepare("DELETE FROM user_package_list_access WHERE user_id = ?").run(userId);
+
+        // 3. Insert new permissions
+        if (package_list_ids) {
+            const insertAccess = db.prepare("INSERT INTO user_package_list_access (user_id, package_list_id) VALUES (?, ?)");
+            const ids = Array.isArray(package_list_ids) ? package_list_ids : [package_list_ids];
+            ids.forEach(listId => {
+                insertAccess.run(userId, listId);
+            });
+        }
+    });
+
+    try {
+        updateUserTransaction();
+        res.redirect("/admin/users");
+    } catch (err) {
+        console.error(`Error updating user ${userId}:`, err);
+        res.status(500).send("Error updating user.");
+    }
+};

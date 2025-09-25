@@ -27,89 +27,88 @@ function initializeFormLogic(formType, userRole) {
     }
 
     // Fetch data from the server
-    initializeLabAndPackageLogic();
+    initializeCascadingDropdowns();
 
     // Add all necessary event listeners
     addGlobalEventListeners();
     addEventListenersToAllRows();
-    updateCalculations(); // Initial calculation on page load
+    updateCalculations();
 
-    // Set the initial customer mode to 'new'
     setCustomerMode('new');
 }
 
-// --- NEW LAB + PACKAGE FETCHING LOGIC ---
-async function initializeLabAndPackageLogic() {
+/**
+ * Initializes cascading Lab → Package List dropdowns and package items section.
+ */
+async function initializeCascadingDropdowns() {
     const labSelect = document.getElementById('lab_selection');
-    if (!labSelect) {
-        console.error("Lab selection dropdown not found!");
-        return;
+    const listSelect = document.getElementById('package_list_selection');
+    const itemsContainer = document.getElementById('items-container');
+    const addItemBtn = document.getElementById('add-item-btn');
+
+    function setItemSectionEnabled(isEnabled) {
+        itemsContainer.style.opacity = isEnabled ? '1' : '0.5';
+        itemsContainer.style.pointerEvents = isEnabled ? 'auto' : 'none';
+        addItemBtn.disabled = !isEnabled;
     }
 
-    try {
-        // 1. Fetch the labs this user has access to
-        const response = await fetch('/api/user-labs');
-        if (!response.ok) throw new Error('Failed to fetch user labs');
-        const labs = await response.json();
+    // Initial state: disable items section
+    setItemSectionEnabled(false);
+    listSelect.disabled = true;
 
-        // 2. Populate the lab dropdown
-        if (labs.length === 0) {
-            labSelect.innerHTML = '<option value="">No labs assigned to you</option>';
-            labSelect.disabled = true;
+    // Fetch and populate labs
+    try {
+        const labResponse = await fetch('/api/user-labs');
+        const labs = await labResponse.json();
+        labSelect.innerHTML = '<option value="">-- Select a Lab --</option>';
+        labs.forEach(lab => labSelect.innerHTML += `<option value="${lab.id}">${lab.name}</option>`);
+    } catch (e) {
+        console.error("Failed to load labs", e);
+    }
+
+    // Lab selection event
+    labSelect.addEventListener('change', async () => {
+        const labId = labSelect.value;
+        listSelect.innerHTML = '<option value="">-- Loading Lists... --</option>';
+        packageData = [];
+        populateDatalist();
+        setItemSectionEnabled(false);
+
+        if (!labId) {
+            listSelect.innerHTML = '<option value="">-- Select a Lab First --</option>';
+            listSelect.disabled = true;
             return;
         }
 
-        labSelect.innerHTML = '<option value="">-- Select a Lab --</option>';
-        labs.forEach(lab => {
-            const option = document.createElement('option');
-            option.value = lab.id;
-            option.textContent = lab.name;
-            labSelect.appendChild(option);
-        });
+        try {
+            const listResponse = await fetch(`/api/user-lists-for-lab?labId=${labId}`);
+            const lists = await listResponse.json();
+            listSelect.innerHTML = lists.length > 0 ? '<option value="">-- Select a Rate List --</option>' : '<option value="">-- No Lists Available --</option>';
+            lists.forEach(list => listSelect.innerHTML += `<option value="${list.id}">${list.name}</option>`);
+            listSelect.disabled = lists.length === 0;
+        } catch (e) {
+            console.error("Failed to load package lists", e);
+        }
+    });
 
-        // 3. Fetch packages when lab changes
-        labSelect.addEventListener('change', async () => {
-            const selectedLabId = labSelect.value;
-            const itemsContainer = document.getElementById('items-container');
-            const addItemBtn = document.getElementById('add-item-btn');
-
-            if (!selectedLabId) {
-                packageData = [];
-                populateDatalist();
-                itemsContainer.style.opacity = '0.5';
-                itemsContainer.style.pointerEvents = 'none';
-                addItemBtn.disabled = true;
-            } else {
-                await fetchPackagesForLab(selectedLabId);
-                itemsContainer.style.opacity = '1';
-                itemsContainer.style.pointerEvents = 'auto';
-                addItemBtn.disabled = false;
-            }
-        });
-
-        // 4. Initially disable the items section
-        document.getElementById('items-container').style.opacity = '0.5';
-        document.getElementById('items-container').style.pointerEvents = 'none';
-        document.getElementById('add-item-btn').disabled = true;
-
-    } catch (error) {
-        console.error("Error during lab initialization:", error);
-        alert("Could not load lab data. Please refresh the page.");
-    }
-}
-
-async function fetchPackagesForLab(labId) {
-    try {
-        console.log(`Fetching packages for lab ID: ${labId}`);
-        const response = await fetch(`/api/packages?labId=${labId}`);
-        if (!response.ok) throw new Error(`Server error: ${response.status}`);
-        packageData = await response.json();
+    // Rate List selection event
+    listSelect.addEventListener('change', async () => {
+        const listId = listSelect.value;
+        packageData = [];
         populateDatalist();
-        console.log(`Loaded ${packageData.length} packages.`);
-    } catch (error) {
-        console.error("Failed to fetch packages:", error);
-        alert("Could not load package data for the selected lab.");
-    }
+        setItemSectionEnabled(false);
+
+        if (!listId) return;
+
+        try {
+            const packageResponse = await fetch(`/api/packages-for-list?listId=${listId}`);
+            packageData = await packageResponse.json();
+            populateDatalist();
+            setItemSectionEnabled(true);
+        } catch (e) {
+            console.error("Failed to load packages", e);
+        }
+    });
 }
 
 /**

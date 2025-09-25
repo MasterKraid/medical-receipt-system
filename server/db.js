@@ -14,7 +14,7 @@ try {
     console.log("Initializing database schema...");
 
     // ===================================================================
-    // --- NEW SCHEMA DEFINITIONS ---
+    // --- SCHEMA DEFINITIONS ---
     // ===================================================================
 
     // --- Core Tables ---
@@ -39,25 +39,33 @@ try {
         CREATE TABLE IF NOT EXISTS labs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
-            logo_path TEXT,
-            package_list_id INTEGER UNIQUE,
-            FOREIGN KEY (package_list_id) REFERENCES package_lists(id) ON DELETE SET NULL
+            logo_path TEXT
         );
     `);
-    try { db.exec("ALTER TABLE labs ADD COLUMN package_list_id INTEGER REFERENCES package_lists(id) ON DELETE SET NULL"); } catch (e) { /* ignore */ }
 
-    // --- NEW: Many-to-many relationship between users and labs ---
+    // --- Join table for Labs <-> Package Lists (Many-to-Many) ---
     db.exec(`
-        CREATE TABLE IF NOT EXISTS user_lab_access (
-            user_id INTEGER NOT NULL,
+        CREATE TABLE IF NOT EXISTS lab_package_lists (
             lab_id INTEGER NOT NULL,
-            PRIMARY KEY (user_id, lab_id),
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY (lab_id) REFERENCES labs(id) ON DELETE CASCADE
+            package_list_id INTEGER NOT NULL,
+            PRIMARY KEY (lab_id, package_list_id),
+            FOREIGN KEY (lab_id) REFERENCES labs(id) ON DELETE CASCADE,
+            FOREIGN KEY (package_list_id) REFERENCES package_lists(id) ON DELETE CASCADE
         );
     `);
 
-    // --- Users Table (MODIFIED) ---
+    // --- Join table for Users <-> Package Lists (Many-to-Many Access Control) ---
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS user_package_list_access (
+            user_id INTEGER NOT NULL,
+            package_list_id INTEGER NOT NULL,
+            PRIMARY KEY (user_id, package_list_id),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (package_list_id) REFERENCES package_lists(id) ON DELETE CASCADE
+        );
+    `);
+
+    // --- Users Table ---
     db.exec(`
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,21 +76,12 @@ try {
             wallet_balance REAL DEFAULT 0,
             allow_negative_balance BOOLEAN DEFAULT 0,
             negative_balance_allowed_until TEXT,
-            package_list_id INTEGER,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (branch_id) REFERENCES branches (id) ON DELETE RESTRICT,
-            FOREIGN KEY (package_list_id) REFERENCES package_lists (id) ON DELETE SET NULL
+            FOREIGN KEY (branch_id) REFERENCES branches (id) ON DELETE RESTRICT
         );
     `);
 
-    try { db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'GENERAL_EMPLOYEE'"); } catch (e) {}
-    try { db.exec("ALTER TABLE users ADD COLUMN wallet_balance REAL DEFAULT 0"); } catch (e) {}
-    try { db.exec("ALTER TABLE users ADD COLUMN allow_negative_balance BOOLEAN DEFAULT 0"); } catch (e) {}
-    try { db.exec("ALTER TABLE users ADD COLUMN negative_balance_allowed_until TEXT"); } catch (e) {}
-    try { db.exec("ALTER TABLE users ADD COLUMN package_list_id INTEGER REFERENCES package_lists(id) ON DELETE SET NULL"); } catch (e) {}
-    try { db.exec("UPDATE users SET role = 'ADMIN' WHERE is_admin = 1 AND role != 'ADMIN'"); } catch (e) {}
-
-    // --- Packages Table (MODIFIED) ---
+    // --- Packages Table ---
     db.exec(`
         CREATE TABLE IF NOT EXISTS packages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -95,10 +94,8 @@ try {
             UNIQUE(name, package_list_id)
         );
     `);
-    try { db.exec("ALTER TABLE packages ADD COLUMN b2b_price REAL NOT NULL DEFAULT 0"); } catch (e) {}
-    try { db.exec("ALTER TABLE packages ADD COLUMN package_list_id INTEGER REFERENCES package_lists(id) ON DELETE CASCADE"); } catch (e) {}
 
-    // --- Customers Table (MODIFIED) ---
+    // --- Customers Table ---
     db.exec(`
         CREATE TABLE IF NOT EXISTS customers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -113,11 +110,10 @@ try {
             FOREIGN KEY (created_by_user_id) REFERENCES users (id) ON DELETE SET NULL
         );
     `);
-    try { db.exec("ALTER TABLE customers ADD COLUMN created_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL"); } catch (e) {}
     db.exec(`CREATE INDEX IF NOT EXISTS idx_customers_mobile ON customers (mobile);`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_customers_name ON customers (name);`);
 
-    // --- Estimates Table (MODIFIED) ---
+    // --- Estimates Table ---
     db.exec(`
         CREATE TABLE IF NOT EXISTS estimates (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -137,7 +133,6 @@ try {
             FOREIGN KEY (lab_id) REFERENCES labs (id) ON DELETE SET NULL
         );
     `);
-    try { db.exec("ALTER TABLE estimates ADD COLUMN lab_id INTEGER REFERENCES labs(id) ON DELETE SET NULL"); } catch (e) {}
 
     db.exec(`
         CREATE TABLE IF NOT EXISTS estimate_items (
@@ -150,9 +145,8 @@ try {
             FOREIGN KEY (estimate_id) REFERENCES estimates (id) ON DELETE CASCADE
         );
     `);
-    try { db.exec("ALTER TABLE estimate_items ADD COLUMN b2b_price REAL NOT NULL DEFAULT 0"); } catch (e) {}
 
-    // --- Receipts Table (MODIFIED) ---
+    // --- Receipts Table ---
     db.exec(`
         CREATE TABLE IF NOT EXISTS receipts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -179,7 +173,6 @@ try {
             FOREIGN KEY (lab_id) REFERENCES labs (id) ON DELETE SET NULL
         );
     `);
-    try { db.exec("ALTER TABLE receipts ADD COLUMN lab_id INTEGER REFERENCES labs(id) ON DELETE SET NULL"); } catch (e) {}
 
     db.exec(`
         CREATE TABLE IF NOT EXISTS receipt_items (
@@ -192,7 +185,6 @@ try {
             FOREIGN KEY (receipt_id) REFERENCES receipts (id) ON DELETE CASCADE
         );
     `);
-    try { db.exec("ALTER TABLE receipt_items ADD COLUMN b2b_price REAL NOT NULL DEFAULT 0"); } catch (e) {}
 
     console.log("All tables checked/created.");
 
@@ -200,87 +192,66 @@ try {
     // --- Seed Data ---
     // ===================================================================
 
-    // Branches
-    const branchCount = db.prepare("SELECT COUNT(*) as count FROM branches").get().count;
-    let defaultBranchId = 1;
-    if (branchCount === 0) {
-        const info = db
-            .prepare("INSERT INTO branches (name, address, phone) VALUES (?, ?, ?)")
-            .run("Main Branch", "123 Test Street, Kolkata\nNear Example Landmark", "999-888-7777 / 111-222-3333");
-        defaultBranchId = info.lastInsertRowid;
-        console.log(`Created default branch ID: ${defaultBranchId}`);
-    } else {
-        const firstBranch = db.prepare("SELECT id FROM branches ORDER BY id LIMIT 1").get();
-        if (firstBranch) {
-            defaultBranchId = firstBranch.id;
-        } else {
-            console.error("FATAL: Branches table is not empty but failed to retrieve an ID.");
-            process.exit(1);
+    // Use a transaction for seeding to ensure it's all or nothing
+    db.transaction(() => {
+        try {
+            // Branches
+            const branchCount = db.prepare("SELECT COUNT(*) as count FROM branches").get().count;
+            let defaultBranchId = 1;
+            if (branchCount === 0) {
+                const info = db.prepare("INSERT INTO branches (name, address, phone) VALUES (?, ?, ?)").    run("Main Branch", "123 Test Street, Kolkata", "999-888-7777");
+                defaultBranchId = info.lastInsertRowid;
+                console.log(`Seeded default branch.`);
+            } else {
+                defaultBranchId = db.prepare("SELECT id FROM branches ORDER BY id LIMIT 1").get().id;
+            }
+        
+            // Users
+            let adminId = 1, testUserId = 2;
+            if (db.prepare("SELECT COUNT(*) as count FROM users").get().count === 0) {
+                const adminHash = bcrypt.hashSync("password", 10);
+                adminId = db.prepare("INSERT INTO users (username, password_hash, branch_id, role)  VALUES (?, ?, ?, ?)").run("admin", adminHash, defaultBranchId, "ADMIN").lastInsertRowid;
+                
+                const testUserHash = bcrypt.hashSync("test", 10);
+                testUserId = db.prepare("INSERT INTO users (username, password_hash, branch_id, role)   VALUES (?, ?, ?, ?)").run("testuser", testUserHash, defaultBranchId,  "GENERAL_EMPLOYEE").lastInsertRowid;
+                console.log(`Seeded default users.`);
+            }
+        
+            // Package Lists, Packages, and Labs
+            if (db.prepare("SELECT COUNT(*) as count FROM package_lists").get().count === 0) {
+                // Create Lists
+                const retailListId = db.prepare("INSERT INTO package_lists (name) VALUES (?)").run  ("Retail Rates (Walk-in)").lastInsertRowid;
+                const corpListId = db.prepare("INSERT INTO package_lists (name) VALUES (?)").run    ("Corporate Rates (B2B)").lastInsertRowid;
+            
+                // Create Packages for those Lists
+                db.prepare("INSERT INTO packages (name, mrp, b2b_price, package_list_id) VALUES     (?, ?, ?, ?)").run("Basic Health Check", 1200.0, 900.0, retailListId);
+                db.prepare("INSERT INTO packages (name, mrp, b2b_price, package_list_id) VALUES     (?, ?, ?, ?)").run("Advanced Health Check", 2500.0, 1800.0, retailListId);
+                db.prepare("INSERT INTO packages (name, mrp, b2b_price, package_list_id) VALUES     (?, ?, ?, ?)").run("Corporate Wellness Package", 1000.0, 750.0, corpListId);
+                db.prepare("INSERT INTO packages (name, mrp, b2b_price, package_list_id) VALUES     (?, ?, ?, ?)").run("Pre-employment Screening", 1500.0, 1100.0, corpListId);
+                
+                // Create Labs
+                const apolloId = db.prepare("INSERT INTO labs (name) VALUES (?)").run("Apollo   Diagnostic").lastInsertRowid;
+                const lalPathId = db.prepare("INSERT INTO labs (name) VALUES (?)").run("Dr. Lal     PathLabs").lastInsertRowid;
+            
+                // Link Labs <-> Package Lists
+                db.prepare("INSERT INTO lab_package_lists (lab_id, package_list_id) VALUES (?, ?)").run (apolloId, retailListId);
+                db.prepare("INSERT INTO lab_package_lists (lab_id, package_list_id) VALUES (?, ?)").run (lalPathId, retailListId);
+                db.prepare("INSERT INTO lab_package_lists (lab_id, package_list_id) VALUES (?, ?)").run (lalPathId, corpListId);
+            
+                // Link Users <-> Package Lists
+                db.prepare("INSERT INTO user_package_list_access (user_id, package_list_id) VALUES  (?, ?)").run(testUserId, retailListId);
+                db.prepare("INSERT INTO user_package_list_access (user_id, package_list_id) VALUES  (?, ?)").run(testUserId, corpListId);
+                
+                console.log(`Seeded lists, packages, labs, and permissions.`);
+            }
+        } catch (e) {
+            console.error("❌ Seed transaction failed:", e);
+            throw e; // rethrow to make sure the transaction rolls back
         }
-    }
-
-    // Package Lists
-    const packageListCount = db.prepare("SELECT COUNT(*) as count FROM package_lists").get().count;
-    let defaultPackageListId = 1;
-    if (packageListCount === 0) {
-        const info = db.prepare("INSERT INTO package_lists (name) VALUES (?)").run("Default Retail Rates");
-        defaultPackageListId = info.lastInsertRowid;
-        db.prepare("INSERT INTO package_lists (name) VALUES (?)").run("Corporate Client Rates");
-        console.log("Seeded package lists.");
-    } else {
-        const firstList = db.prepare("SELECT id FROM package_lists ORDER BY id LIMIT 1").get();
-        if (firstList) defaultPackageListId = firstList.id;
-    }
-
-    // Users
-    const adminUserCount = db.prepare("SELECT COUNT(*) as count FROM users WHERE username = 'admin'").get().count;
-    if (adminUserCount === 0) {
-        const h = bcrypt.hashSync("password", 10);
-        db.prepare(
-            "INSERT INTO users (username, password_hash, branch_id, role, package_list_id) VALUES (?, ?, ?, ?, ?)"
-        ).run("admin", h, defaultBranchId, "ADMIN", defaultPackageListId);
-        console.log(`Created admin user "admin". CHANGE PW!`);
-    }
-
-    const testUserCount = db.prepare("SELECT COUNT(*) as count FROM users WHERE username = 'testuser'").get().count;
-    if (testUserCount === 0) {
-        const h = bcrypt.hashSync("test", 10);
-        db.prepare(
-            "INSERT INTO users (username, password_hash, branch_id, role, package_list_id) VALUES (?, ?, ?, ?, ?)"
-        ).run("testuser", h, defaultBranchId, "GENERAL_EMPLOYEE", defaultPackageListId);
-        console.log(`Created test user "testuser".`);
-    }
-
-    // Packages
-    const packageCount = db.prepare("SELECT COUNT(*) as count FROM packages").get().count;
-    if (packageCount === 0) {
-        db.prepare(
-            "INSERT INTO packages (name, mrp, b2b_price, package_list_id) VALUES (?, ?, ?, ?)"
-        ).run("Basic Health Check", 1200.0, 900.0, defaultPackageListId);
-
-        db.prepare(
-            "INSERT INTO packages (name, mrp, b2b_price, package_list_id) VALUES (?, ?, ?, ?)"
-        ).run("Blood Sugar Fasting", 150.0, 100.0, defaultPackageListId);
-
-        db.prepare(
-            "INSERT INTO packages (name, mrp, b2b_price, package_list_id) VALUES (?, ?, ?, ?)"
-        ).run("Lipid Profile", 800.0, 650.0, defaultPackageListId);
-
-        console.log("Seeded packages.");
-    }
-
-    // Labs
-    const labCount = db.prepare("SELECT COUNT(*) as count FROM labs").get().count;
-    if (labCount === 0) {
-        console.log("Seeding labs...");
-        const insertLab = db.prepare("INSERT INTO labs (name) VALUES (?)");
-        insertLab.run("Apollo Diagnostic");
-        insertLab.run("Labcorp Diagnostic");
-        insertLab.run("RB Diagnostic");
-        console.log("Seeded labs.");
-    }
+    })(); // Immediately invoke the transaction
 
     console.log("Database initialization complete.");
+
 } catch (err) {
     console.error("FATAL DB ERROR:", err.message);
     console.error(err.stack);
