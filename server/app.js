@@ -96,7 +96,18 @@ app.get("/dashboard", isAuthenticated, (req, res) => {
   if (req.session.user.role === "ADMIN") {
     return res.redirect("/admin-dashboard");
   }
-  res.render("user_dashboard");
+  
+  let walletBalance = 0;
+  if (req.session.user.role === "CLIENT") {
+    try {
+      const walletData = db.prepare("SELECT wallet_balance FROM users WHERE id = ?").get(req.session.user.id);
+      walletBalance = walletData ? walletData.wallet_balance : 0;
+    } catch (err) {
+      console.error("Error fetching wallet balance:", err);
+    }
+  }
+  
+  res.render("user_dashboard", { walletBalance });
 });
 
 // --- Customers (accessible to logged-in users) ---
@@ -220,6 +231,10 @@ app.post("/admin/users/add", isAuthenticated, isAdmin, adminController.createUse
 app.post("/admin/users/delete/:id", isAuthenticated, isAdmin, adminController.deleteUser);
 app.get("/admin/users/edit/:id", isAuthenticated, isAdmin, adminController.showEditUserPage);
 app.post("/admin/users/edit/:id", isAuthenticated, isAdmin, adminController.updateUser);
+
+// Manage Wallets
+app.get("/admin/wallet", isAuthenticated, isAdmin, adminController.showManageWalletsPage);
+app.post("/admin/wallet/adjust", isAuthenticated, isAdmin, adminController.adjustWallet);
 
 // --- Central Error Handler ---
 app.use((err, req, res, next) => {

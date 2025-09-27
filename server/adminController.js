@@ -204,7 +204,7 @@ exports.showManageUsersPage = (req, res) => {
 };
 
 exports.createUser = (req, res) => {
-    const { username, password, branch_id, role, package_list_id } = req.body;
+    const { username, password, branch_id, role, package_list_ids } = req.body;
     if (!username || !password || !branch_id || !role) {
         return res.status(400).send("Username, Password, Branch, and Role are required.");
     }
@@ -212,10 +212,27 @@ exports.createUser = (req, res) => {
         const bcrypt = require("bcrypt");
         const password_hash = bcrypt.hashSync(password, 10);
 
-        db.prepare(
-            "INSERT INTO users (username, password_hash, branch_id, role, package_list_id) VALUES (?, ?, ?, ?, ?)"
-        ).run(username, password_hash, branch_id, role, package_list_id || null);
-
+        const createUserTransaction = db.transaction(() => {
+            // Insert the user
+            const userInfo = db.prepare(
+                "INSERT INTO users (username, password_hash, branch_id, role) VALUES (?, ?, ?, ?)"
+            ).run(username, password_hash, branch_id, role);
+            
+            const newUserId = userInfo.lastInsertRowid;
+            
+            // Insert package list access if provided
+            if (package_list_ids && package_list_ids.length > 0) {
+                const insertAccess = db.prepare("INSERT INTO user_package_list_access (user_id, package_list_id) VALUES (?, ?)");
+                const ids = Array.isArray(package_list_ids) ? package_list_ids : [package_list_ids];
+                ids.forEach(listId => {
+                    insertAccess.run(newUserId, listId);
+                });
+            }
+            
+            return newUserId;
+        });
+        
+        createUserTransaction();
         res.redirect("/admin/users");
     } catch (err) {
         if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
@@ -333,5 +350,120 @@ exports.updateCustomer = (req, res) => {
     } catch (err) {
         console.error(`Error updating customer ${id}:`, err);
         res.status(500).send("Error updating customer: " + err.message);
+    }
+};
+
+// === WALLET MANAGEMENT ===
+
+exports.showManageWalletsPage = (req, res) => {
+    try {
+        const clients = db.prepare(`
+            SELECT u.id, u.username, u.wallet_balance, u.allow_negative_balance, 
+                   u.negative_balance_allowed_until, b.name as branch_name
+            FROM users u
+            JOIN branches b ON u.branch_id = b.id
+            WHERE u.role = 'CLIENT'
+            ORDER BY u.username
+        `).all();
+        
+        res.render("admin/manage_wallets", { clients });
+    } catch (err) {
+        console.error("Error fetching client wallets:", err);
+        res.status(500).send("Error loading wallet management page.");
+    }
+};
+
+exports.adjustWallet = (req, res) => {
+    const { userId, action, amount, allowNegative, negativeUntil, notes } = req.body;
+    const adminId = req.session.user.id;
+    
+    try {
+        const adjustWalletTransaction = db.transaction(() => {
+            // Get current user data
+            const user = db.prepare("SELECT username, wallet_balance FROM users WHERE id = ? AND role = 'CLIENT'").get(userId);
+            if (!user) {
+                throw new Error("Client user not found");
+            }
+            
+            let newBalance = user.wallet_balance;
+            let adjustmentAmount = 0;
+            let transactionType = '';
+            let transactionNotes = notes || '';
+            
+            if (action === 'add') {
+                adjustmentAmount = parseFloat(amount) || 0;
+                if (adjustmentAmount <= 0) {
+                    throw new Error("Amount must be greater than zero");
+                }
+                newBalance += adjustmentAmount;
+                transactionType = 'ADD';
+                transactionNotes = `Added ₹${adjustmentAmount.toFixed(2)}. ${notes || ''}`.trim();
+            } 
+            else if (action === 'deduct') {
+                adjustmentAmount = parseFloat(amount) || 0;
+                if (adjustmentAmount <= 0) {
+                    throw new Error("Amount must be greater than zero");
+                }
+                newBalance -= adjustmentAmount;
+                transactionType = 'DEDUCT';
+                transactionNotes = `Deducted ₹${adjustmentAmount.toFixed(2)}. ${notes || ''}`.trim();
+                
+                // Handle negative balance settings
+                if (newBalance < 0) {
+                    if (allowNegative && negativeUntil) {
+                        const allowUntilDate = new Date(negativeUntil);
+                        if (allowUntilDate <= new Date()) {
+                            throw new Error("Negative balance end date must be in the future");
+                        }
+                        // Update negative balance permissions
+                        db.prepare(`
+                            UPDATE users 
+                            SET allow_negative_balance = 1, negative_balance_allowed_until = ? 
+                            WHERE id = ?
+                        `).run(allowUntilDate.toISOString(), userId);
+                        
+                        transactionNotes += ` (Negative balance allowed until ${allowUntilDate.toLocaleDateString()})`;
+                    } else {
+                        throw new Error("Transaction would result in negative balance, but negative balance is not allowed");
+                    }
+                }
+            } 
+            else if (action === 'settle') {
+                adjustmentAmount = -user.wallet_balance; // This will zero out the balance
+                newBalance = 0;
+                transactionType = user.wallet_balance >= 0 ? 'SETTLE_POSITIVE' : 'SETTLE_NEGATIVE';
+                transactionNotes = `Wallet settled. Previous balance: ₹${user.wallet_balance.toFixed(2)}. ${notes || ''}`.trim();
+                
+                // Reset negative balance permissions when settling
+                db.prepare(`
+                    UPDATE users 
+                    SET allow_negative_balance = 0, negative_balance_allowed_until = NULL 
+                    WHERE id = ?
+                `).run(userId);
+            } 
+            else {
+                throw new Error("Invalid action");
+            }
+            
+            // Update wallet balance
+            db.prepare("UPDATE users SET wallet_balance = ? WHERE id = ?").run(newBalance, userId);
+            
+            // Log the transaction (you might want to create a transactions table for this)
+            console.log(`WALLET TRANSACTION: User ${user.username} (ID: ${userId}) - ${transactionType} - Amount: ${adjustmentAmount} - New Balance: ${newBalance} - Admin: ${adminId} - Notes: ${transactionNotes}`);
+            
+            return { user: user.username, newBalance, transactionType };
+        });
+        
+        const result = adjustWalletTransaction();
+        console.log(`Wallet adjustment completed: ${result.user} - ${result.transactionType} - New balance: ₹${result.newBalance.toFixed(2)}`);
+        res.redirect("/admin/wallet");
+        
+    } catch (err) {
+        console.error("Error adjusting wallet:", err);
+        res.status(400).send(`
+            <h1>Wallet Adjustment Failed</h1>
+            <p><strong>Error:</strong> ${err.message}</p>
+            <a href="/admin/wallet">Back to Wallet Management</a>
+        `);
     }
 };

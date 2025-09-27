@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Wallets - Admin</title>
+    <link rel="stylesheet" href="/admin_management.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .wallet-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .wallet-card {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .wallet-card.client {
+            border-left: 4px solid #007bff;
+        }
+        
+        .wallet-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .wallet-user {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1.1em;
+        }
+        
+        .wallet-balance {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+        
+        .wallet-balance.positive {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .wallet-balance.negative {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .wallet-balance.zero {
+            background-color: #f8f9fa;
+            color: #6c757d;
+            border: 1px solid #dee2e6;
+        }
+        
+        .wallet-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .wallet-actions button {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-add {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .btn-add:hover {
+            background-color: #218838;
+        }
+        
+        .btn-deduct {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .btn-deduct:hover {
+            background-color: #c82333;
+        }
+        
+        .btn-settle {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .btn-settle:hover {
+            background-color: #545b62;
+        }
+        
+        .wallet-info {
+            font-size: 0.85em;
+            color: #6c757d;
+            margin-top: 10px;
+            line-height: 1.4;
+        }
+        
+        .negative-balance-info {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 0.85em;
+        }
+        
+        .no-clients {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: #fff;
+            margin: 10% auto;
+            padding: 30px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            position: relative;
+        }
+        
+        .close {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #aaa;
+        }
+        
+        .close:hover {
+            color: #000;
+        }
+        
+        .modal form {
+            box-shadow: none;
+            padding: 0;
+            margin: 0;
+            max-width: none;
+            width: 100%;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 15px;
+            align-items: end;
+        }
+        
+        .form-row > div {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="management-container">
+        <div class="management-header">
+            <h1><i class="fa-solid fa-wallet"></i> Manage Client Wallets</h1>
+            <a href="/admin-dashboard" class="back-link">
+                <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+
+        <% if (clients && clients.length > 0) { %>
+            <div class="wallet-cards">
+                <% clients.forEach(client => { %>
+                    <div class="wallet-card client">
+                        <div class="wallet-header">
+                            <div class="wallet-user">
+                                <i class="fa-solid fa-user-tag"></i> <%= client.username %>
+                            </div>
+                            <div class="wallet-balance <%= client.wallet_balance > 0 ? 'positive' : (client.wallet_balance < 0 ? 'negative' : 'zero') %>">
+                                ₹<%= client.wallet_balance.toFixed(2) %>
+                            </div>
+                        </div>
+                        
+                        <div class="wallet-info">
+                            <strong>Branch:</strong> <%= client.branch_name %><br>
+                            <strong>Negative Balance:</strong> <%= client.allow_negative_balance ? 'Allowed' : 'Not Allowed' %>
+                            <% if (client.allow_negative_balance && client.negative_balance_allowed_until) { %>
+                                <br><strong>Until:</strong> <%= new Date(client.negative_balance_allowed_until).toLocaleDateString() %>
+                            <% } %>
+                        </div>
+                        
+                        <% if (client.wallet_balance < 0 && client.allow_negative_balance) { %>
+                            <div class="negative-balance-info">
+                                <i class="fa-solid fa-exclamation-triangle"></i>
+                                This client has a negative balance and can continue operating until the specified date.
+                            </div>
+                        <% } %>
+                        
+                        <div class="wallet-actions">
+                            <button class="btn-add" onclick="openModal('add', <%= client.id %>, '<%= client.username %>')">
+                                <i class="fa-solid fa-plus"></i> Add Money
+                            </button>
+                            <button class="btn-deduct" onclick="openModal('deduct', <%= client.id %>, '<%= client.username %>')">
+                                <i class="fa-solid fa-minus"></i> Deduct
+                            </button>
+                            <button class="btn-settle" onclick="openModal('settle', <%= client.id %>, '<%= client.username %>')">
+                                <i class="fa-solid fa-handshake"></i> Settle
+                            </button>
+                        </div>
+                    </div>
+                <% }); %>
+            </div>
+        <% } else { %>
+            <div class="no-clients">
+                <i class="fa-solid fa-users-slash" style="font-size: 3em; margin-bottom: 15px; opacity: 0.5;"></i>
+                <h3>No Client Users Found</h3>
+                <p>There are currently no users with the "CLIENT" role in the system.</p>
+                <a href="/admin/users" style="color: #007bff; text-decoration: none;">
+                    <i class="fa-solid fa-user-plus"></i> Manage Users
+                </a>
+            </div>
+        <% } %>
+    </div>
+
+    <!-- Wallet Action Modal -->
+    <div id="walletModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 id="modalTitle">Wallet Action</h2>
+            <form id="walletForm" method="POST" action="/admin/wallet/adjust">
+                <input type="hidden" id="userId" name="userId">
+                <input type="hidden" id="action" name="action">
+                
+                <div>
+                    <label for="amount"><strong>Amount (₹)</strong></label>
+                    <input type="number" id="amount" name="amount" step="0.01" min="0" required>
+                </div>
+                
+                <div id="negativeBalanceSection" style="display: none;">
+                    <label>
+                        <input type="checkbox" id="allowNegative" name="allowNegative"> 
+                        Allow negative balance after this transaction
+                    </label>
+                    
+                    <div id="negativeUntilSection" style="display: none; margin-top: 10px;">
+                        <label for="negativeUntil"><strong>Allow negative balance until:</strong></label>
+                        <input type="date" id="negativeUntil" name="negativeUntil">
+                    </div>
+                </div>
+                
+                <div>
+                    <label for="notes"><strong>Notes/Reason</strong></label>
+                    <textarea id="notes" name="notes" rows="3" placeholder="Optional notes about this transaction..."></textarea>
+                </div>
+                
+                <div class="form-row">
+                    <button type="button" onclick="closeModal()" style="background-color: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">
+                        Cancel
+                    </button>
+                    <button type="submit" id="submitBtn" style="background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">
+                        Confirm
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openModal(action, userId, username) {
+            const modal = document.getElementById('walletModal');
+            const title = document.getElementById('modalTitle');
+            const actionInput = document.getElementById('action');
+            const userIdInput = document.getElementById('userId');
+            const submitBtn = document.getElementById('submitBtn');
+            const negativeSection = document.getElementById('negativeBalanceSection');
+            const allowNegativeCheckbox = document.getElementById('allowNegative');
+            const negativeUntilSection = document.getElementById('negativeUntilSection');
+            
+            userIdInput.value = userId;
+            actionInput.value = action;
+            
+            if (action === 'add') {
+                title.textContent = `Add Money to ${username}'s Wallet`;
+                submitBtn.style.backgroundColor = '#28a745';
+                submitBtn.textContent = 'Add Money';
+                negativeSection.style.display = 'none';
+            } else if (action === 'deduct') {
+                title.textContent = `Deduct Money from ${username}'s Wallet`;
+                submitBtn.style.backgroundColor = '#dc3545';
+                submitBtn.textContent = 'Deduct Money';
+                negativeSection.style.display = 'block';
+            } else if (action === 'settle') {
+                title.textContent = `Settle ${username}'s Wallet`;
+                submitBtn.style.backgroundColor = '#6c757d';
+                submitBtn.textContent = 'Settle to Zero';
+                negativeSection.style.display = 'none';
+                document.getElementById('amount').value = '';
+                document.getElementById('amount').style.display = 'none';
+                document.querySelector('label[for="amount"]').style.display = 'none';
+            }
+            
+            // Reset form
+            document.getElementById('walletForm').reset();
+            userIdInput.value = userId;
+            actionInput.value = action;
+            
+            modal.style.display = 'block';
+        }
+        
+        function closeModal() {
+            document.getElementById('walletModal').style.display = 'none';
+        }
+        
+        // Handle negative balance checkbox
+        document.getElementById('allowNegative').addEventListener('change', function() {
+            const negativeUntilSection = document.getElementById('negativeUntilSection');
+            if (this.checked) {
+                negativeUntilSection.style.display = 'block';
+                // Set default date to 30 days from now
+                const future = new Date();
+                future.setDate(future.getDate() + 30);
+                document.getElementById('negativeUntil').value = future.toISOString().split('T')[0];
+            } else {
+                negativeUntilSection.style.display = 'none';
+            }
+        });
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('walletModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>
