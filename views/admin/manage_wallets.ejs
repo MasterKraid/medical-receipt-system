@@ -236,6 +236,21 @@
                                 <i class="fa-solid fa-handshake"></i> Settle
                             </button>
                         </div>
+                        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                        <form action="/admin/wallet/permissions" method="POST" class="permissions-form">
+                            <input type="hidden" name="userId" value="<%= client.id %>">
+                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                                <label for="allowNegative_<%= client.id %>" style="font-weight: 500; font-size: 0.9em; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" name="allowNegative" id="allowNegative_<%= client.id %>" <%= client.allow_negative_balance ? 'checked' : '' %> onchange="toggleDateInput(this, '<%= client.id %>')">
+                                    Allow Negative
+                                </label>
+                                <button type="submit" class="action-btn" style="background-color: #ffc107; color: #212529; padding: 5px 10px; font-size: 0.8em; border: none;">Save</button>
+                            </div>
+                            <div id="date-wrapper-<%= client.id %>" style="margin-top: 10px; <%= client.allow_negative_balance ? '' : 'display: none;' %>">
+                                <label for="negativeUntil_<%= client.id %>" style="font-size: 0.85em; display: block; margin-bottom: 5px;">Until Date:</label>
+                                <input type="date" name="negativeUntil" id="negativeUntil_<%= client.id %>" value="<%= client.negative_balance_allowed_until ? new Date(client.negative_balance_allowed_until).toISOString().split('T')[0] : '' %>" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
+                            </div>
+                        </form>
                     </div>
                 <% }); %>
             </div>
@@ -359,6 +374,22 @@
             const modal = document.getElementById('walletModal');
             if (event.target === modal) {
                 closeModal();
+            }
+        }
+
+        function toggleDateInput(checkbox, clientId) {
+            const dateWrapper = document.getElementById(`date-wrapper-${clientId}`);
+            const dateInput = document.getElementById(`negativeUntil_${clientId}`);
+            if (checkbox.checked) {
+                dateWrapper.style.display = 'block';
+                if (!dateInput.value) {
+                    // Set a default date if one isn't already set
+                    const future = new Date();
+                    future.setDate(future.getDate() + 30); // Default to 30 days from now
+                    dateInput.value = future.toISOString().split('T')[0];
+                }
+            } else {
+                dateWrapper.style.display = 'none';
             }
         }
     </script>

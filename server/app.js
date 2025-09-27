@@ -211,7 +211,6 @@ app.post("/admin/labs/add", isAuthenticated, isAdmin, labController.createLab);
 app.post("/admin/labs/upload-logo", isAuthenticated, isAdmin, upload.single('logo_file'), labController.uploadLogo);
 app.post("/admin/labs/update-lists", isAuthenticated, isAdmin, labController.updateLabLists);
 app.get("/admin/package-lists", isAuthenticated, isAdmin, packageListController.showManageListsPage);
-app.get("/admin/package-lists/:id", isAuthenticated, isAdmin, packageListController.showListPageDetails); 
 app.post("/admin/package-lists/add", isAuthenticated, isAdmin, packageListController.createList);
 app.post("/admin/packages/upload", isAuthenticated, isAdmin, upload.single('package_file'), packageListController.uploadPackages);
 app.post("/admin/packages/add-to-list", isAuthenticated, isAdmin, packageListController.addPackageToList); 
@@ -235,6 +234,7 @@ app.post("/admin/users/edit/:id", isAuthenticated, isAdmin, adminController.upda
 // Manage Wallets
 app.get("/admin/wallet", isAuthenticated, isAdmin, adminController.showManageWalletsPage);
 app.post("/admin/wallet/adjust", isAuthenticated, isAdmin, adminController.adjustWallet);
+app.post("/admin/wallet/permissions", isAuthenticated, isAdmin, adminController.updateWalletPermissions);
 
 // --- Central Error Handler ---
 app.use((err, req, res, next) => {

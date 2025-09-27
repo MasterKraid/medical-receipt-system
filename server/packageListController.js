@@ -36,21 +36,6 @@ exports.createList = (req, res) => {
     }
 };
 
-exports.showListPageDetails = (req, res) => {
-    const listId = req.params.id;
-    try {
-        const list = db.prepare("SELECT * FROM package_lists WHERE id = ?").get(listId);
-        if (!list) return res.status(404).send("Package list not found.");
-
-        const packages = db.prepare("SELECT * FROM packages WHERE package_list_id = ? ORDER BY name").all(listId);
-        
-        res.render("admin/edit_package_list", { list, packages });
-    } catch (err) {
-        console.error("Error fetching package list details:", err);
-        res.status(500).send("Error loading page.");
-    }
-};
-
 exports.addPackageToList = (req, res) => {
     const { package_list_id, name, mrp, b2b_price } = req.body;
     // Basic validation
@@ -140,7 +125,7 @@ exports.uploadPackages = (req, res) => {
         if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || err.message.includes('UNIQUE constraint failed: packages.name')) {
             userMessage = `A package name in the Excel file already exists in this specific list. If you are sure it doesn't, your database might have an old schema. Please ensure the package names are unique per list.`;
         }
-        res.status(500).send(`<h1>Import Failed</h1><p><strong>Error:</strong> ${userMessage}</p><a href="/admin/package-lists">Go Back</a>`);
+        res.redirect(`/admin/package-lists?error=${encodeURIComponent(userMessage)}`);
     } finally {
         fs.unlinkSync(req.file.path);
     }

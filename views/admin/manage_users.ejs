@@ -14,6 +14,16 @@
             <a href="/admin-dashboard" class="back-link">Back to Dashboard</a>
         </header>
 
+        <section class="section">
+            <form method="GET" action="/admin/users">
+                <div class="search-container">
+                    <input type="search" name="q" placeholder="Search by Username or Role..." value="<%= typeof query !== 'undefined' ? query : '' %>">
+                    <button type="submit">Search</button>
+                    <a href="/admin/users" class="action-link" style="text-align: center;">Clear</a>
+                </div>
+            </form>
+        </section>
+
         <!-- Add New User Form -->
         <section class="section">
             <h2>Add New User</h2>
@@ -46,14 +56,20 @@
                         </select>
                     </div>
                     <div class="full-width">
-                        <label for="package_list_id">Rate Database (Package List)</label>
-                        <select id="package_list_id" name="package_list_id">
-                            <option value="">-- Use Default Rates --</option>
-                            <% packageLists.forEach(list => { %>
-                                <option value="<%= list.id %>"><%= list.name %></option>
-                            <% }) %>
-                        </select>
-                        <small>Assign a specific rate list for this user. Especially important for 'Client' type users.</small>
+                        <label>Rate Database Access</label>
+                        <div class="checkbox-list" style="max-height: 150px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; border-radius: 5px; display: grid; grid-template-columns: repeat(3, 1fr);">
+                           <% if (packageLists.length > 0) { %>
+                               <% packageLists.forEach(list => { %>
+                                   <div>
+                                       <input type="checkbox" name="package_list_ids" value="<%= list.id %>" id="add_list_<%= list.id %>">
+                                        <label for="add_list_<%= list.id %>" style="display: inline; font-weight: normal;"><%= list.name %></label>
+                                    </div>
+                                <% }) %>
+                            <% } else { %>
+                                <p>No rate databases found.</p>
+                            <% } %>
+                        </div>
+                        <small>Select which rate lists this user can access. Admins get access to all lists automatically.</small>
                     </div>
                 </div>
                 <button type="submit">Create User</button>

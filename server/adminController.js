@@ -176,12 +176,11 @@ exports.updateBranch = (req, res) => {
 // --- Manage Users ---
 exports.showManageUsersPage = (req, res) => {
     try {
-        const users = db.prepare(`
+        const { q: query } = req.query;
+        let params = [];
+        let sql = `
             SELECT
-                u.id,
-                u.username,
-                u.role,
-                b.name as branch_name,
+                u.id, u.username, u.role, b.name as branch_name,
                 (
                     SELECT GROUP_CONCAT(pl.name, ', ')
                     FROM package_lists pl
@@ -190,19 +189,26 @@ exports.showManageUsersPage = (req, res) => {
                 ) as assigned_lists
             FROM users u
             LEFT JOIN branches b ON u.branch_id = b.id
-            ORDER BY u.username
-        `).all();
+        `;
+
+        if (query) {
+            sql += ` WHERE u.username LIKE ? OR u.role LIKE ?`;
+            const searchTerm = `%${query}%`;
+            params.push(searchTerm, searchTerm);
+        }
+
+        sql += ` ORDER BY u.username`;
+
+        const users = db.prepare(sql).all(params);
         const branches = db.prepare("SELECT id, name FROM branches ORDER BY name").all();
-        // This is needed for the "Add New User" form's dropdown menu
         const packageLists = db.prepare("SELECT id, name FROM package_lists ORDER BY name").all();
 
-        res.render("admin/manage_users", { users, branches, packageLists });
+        res.render("admin/manage_users", { users, branches, packageLists, query: query || '' });
     } catch (err) {
         console.error("Error loading manage users page:", err);
         res.status(500).send("Could not load page.");
     }
 };
-
 exports.createUser = (req, res) => {
     const { username, password, branch_id, role, package_list_ids } = req.body;
     if (!username || !password || !branch_id || !role) {
@@ -465,5 +471,47 @@ exports.adjustWallet = (req, res) => {
             <p><strong>Error:</strong> ${err.message}</p>
             <a href="/admin/wallet">Back to Wallet Management</a>
         `);
+    }
+};
+
+exports.updateWalletPermissions = (req, res) => {
+    const { userId, allowNegative, negativeUntil } = req.body;
+    const adminId = req.session.user.id;
+
+    if (!userId) {
+        return res.status(400).send("User ID is missing.");
+    }
+
+    try {
+        const allow = allowNegative === 'on' ? 1 : 0;
+        let until = null;
+
+        if (allow) {
+            if (!negativeUntil) {
+                // Default to 30 days in the future if no date is provided
+                const futureDate = new Date();
+                futureDate.setDate(futureDate.getDate() + 30);
+                until = futureDate.toISOString();
+            } else {
+                const untilDate = new Date(negativeUntil);
+                if (isNaN(untilDate.getTime()) || untilDate < new Date()) {
+                    throw new Error("The 'allow until' date must be a valid date in the future.");
+                }
+                until = untilDate.toISOString();
+            }
+        }
+
+        db.prepare(
+            `UPDATE users 
+             SET allow_negative_balance = ?, negative_balance_allowed_until = ? 
+             WHERE id = ? AND role = 'CLIENT'`
+        ).run(allow, until, userId);
+
+        console.log(`WALLET PERMISSIONS: User ID ${userId} updated by Admin ${adminId}. Allow Negative: ${allow}, Until: ${until || 'N/A'}`);
+        res.redirect("/admin/wallet");
+
+    } catch (err) {
+        console.error("Error updating wallet permissions:", err);
+        res.status(400).send(`<h1>Update Failed</h1><p><strong>Error:</strong> ${err.message}</p><a href="/admin/wallet">Go Back</a>`);
     }
 };

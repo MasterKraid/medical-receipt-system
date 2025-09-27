@@ -17,14 +17,16 @@
 .header-top {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start; /* CHANGE: Aligns items to the top */
     margin-bottom: 15px;
+    gap: 20px; /* ADD: Ensures spacing on smaller screens */
 }
 
 .dashboard-header h1 {
     margin: 0;
     font-size: 2em;
     color: #2c3e50;
+    padding-top: 5px; /* ADD: A small tweak to visually align the text better */
 }
 
 .user-badge {

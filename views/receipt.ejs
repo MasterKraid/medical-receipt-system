@@ -153,7 +153,7 @@
     <div class="action-buttons no-print">
         <button onclick="window.print()" class="print-btn">Print Receipt</button>
         <a href="/receipt-form" class="back-btn">New Receipt Form</a>
-        <% if (sessionUser && sessionUser.isAdmin) { %>
+        <% if (sessionUser && sessionUser.role === 'ADMIN') { %>
             <a href="/admin-dashboard" class="back-btn" style="background-color: #6c757d;">Dashboard</a>
         <% } else { %>
             <a href="/dashboard" class="back-btn" style="background-color: #6c757d;">Dashboard</a>
