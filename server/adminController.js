@@ -363,16 +363,26 @@ exports.updateCustomer = (req, res) => {
 
 exports.showManageWalletsPage = (req, res) => {
     try {
-        const clients = db.prepare(`
+        const { q: query } = req.query;
+        let sql = `
             SELECT u.id, u.username, u.wallet_balance, u.allow_negative_balance, 
                    u.negative_balance_allowed_until, b.name as branch_name
             FROM users u
             JOIN branches b ON u.branch_id = b.id
             WHERE u.role = 'CLIENT'
-            ORDER BY u.username
-        `).all();
+        `;
+        const params = [];
+
+        if (query) {
+            sql += ` AND u.username LIKE ?`;
+            params.push(`%${query}%`);
+        }
+
+        sql += ` ORDER BY u.username`;
+
+        const clients = db.prepare(sql).all(params);
         
-        res.render("admin/manage_wallets", { clients });
+        res.render("admin/manage_wallets", { clients, query: query || '' });
     } catch (err) {
         console.error("Error fetching client wallets:", err);
         res.status(500).send("Error loading wallet management page.");

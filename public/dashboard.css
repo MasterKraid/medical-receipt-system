@@ -40,7 +40,8 @@
     font-size: 0.85em;
     color: #555;
     line-height: 1.4;
-    min-width: 200px;
+    min-width: auto;
+    flex-shrink: 0;
 }
 
 .user-badge .user-name {
@@ -156,6 +157,10 @@
 .logout-link:hover {
     background-color: #f1c6cb;
     text-decoration: none;
+}
+
+.header-top .spacer {
+    flex-grow: 2;
 }
 
 /* Responsive design */

@@ -6,6 +6,13 @@ function findOrCreateCustomer(customerData, createdByUserId = null) {
   const { id, name, mobile, dob, age, gender } = customerData;
   const nowISO = new Date().toISOString();
 
+  // --- Mobile Number Validation ---
+  if (mobile && String(mobile).trim() !== "") { // Only validate if mobile is not empty
+    if (!/^\d{10}$/.test(String(mobile).trim())) {
+        throw new Error("Invalid Mobile Number. It must be exactly 10 digits.");
+    }
+  }
+
   // --- Validation ---
   if (!id && (!name || name.trim() === "")) {
     // Name required only for NEW customers

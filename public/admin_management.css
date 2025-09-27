@@ -282,3 +282,11 @@
     font-size: 1rem;   /* Standardize font size */
     font-weight: 500;  /* Standardize font weight */
 }
+
+.management-header .spacer {
+    flex-grow: 1;
+}
+
+.management-container.wide-layout {
+    max-width: 1200px;
+}
