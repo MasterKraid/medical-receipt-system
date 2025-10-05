@@ -37,6 +37,11 @@ function initializeFormLogic(formType, userRole) {
     setCustomerMode('new');
 
     if (currentUserRole === 'CLIENT') {
+        // Apply client-specific classes to initial elements on page load
+        document.querySelector('.item-header')?.classList.add('client-view');
+        document.querySelector('.item-row')?.classList.add('client-view');
+        
+        // Set up the toggle switch listener
         const toggle = document.getElementById('b2b-visibility-toggle');
         if (toggle) {
             toggle.addEventListener('change', handleB2BToggle);
@@ -142,22 +147,14 @@ function handleB2BToggle() {
     const toggle = document.getElementById('b2b-visibility-toggle');
     const isVisible = toggle.checked;
     
-    document.querySelectorAll('.b2b-col').forEach(el => {
-        if (isVisible) {
-            el.style.display = '';
-        } else {
-            el.style.display = 'none';
-        }
-    });
-
     const itemHeader = document.querySelector('.item-header');
     const itemRows = document.querySelectorAll('.item-row');
 
     if (isVisible) {
-        itemHeader.classList.remove('b2b-hidden');
+        itemHeader?.classList.remove('b2b-hidden');
         itemRows.forEach(row => row.classList.remove('b2b-hidden'));
     } else {
-        itemHeader.classList.add('b2b-hidden');
+        itemHeader?.classList.add('b2b-hidden');
         itemRows.forEach(row => row.classList.add('b2b-hidden'));
     }
 }

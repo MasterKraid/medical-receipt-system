@@ -354,6 +354,9 @@
             <div id="items-container">
                 <div class="item-row">
                     <input type="text" name="package_names[]" placeholder="Select or Type Package" list="package-list" required class="package-name-input item-calc-trigger">
+                    <% if (sessionUser.role === 'CLIENT') { %>
+                        <input type="number" name="b2b_prices[]" placeholder="B2B" step="0.01" min="0" readonly class="b2b-input b2b-col">
+                    <% } %>
                     <input type="number" name="mrps[]" placeholder="MRP" step="0.01" min="0" required class="mrp-input item-calc-trigger">
                     <input type="number" name="item_discounts[]" placeholder="Disc %" step="0.1" min="0" max="100" value="0" class="discount-input item-calc-trigger">
                     <span class="discount-amount-display">0.00</span>
