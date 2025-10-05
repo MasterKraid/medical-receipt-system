@@ -124,13 +124,13 @@ app.get("/estimate/:id", isAuthenticated, estimateController.showEstimate);
 app.get(
   "/receipt-form",
   isAuthenticated,
-  hasPermission(["ADMIN", "GENERAL_EMPLOYEE"]),
+  hasPermission(["ADMIN", "GENERAL_EMPLOYEE", "CLIENT"]),
   receiptController.showReceiptForm
 );
 app.post(
   "/receipt-submit",
   isAuthenticated,
-  hasPermission(["ADMIN", "GENERAL_EMPLOYEE"]),
+  hasPermission(["ADMIN", "GENERAL_EMPLOYEE", "CLIENT"]),
   receiptController.createReceipt
 );
 app.get("/receipt/:id", isAuthenticated, receiptController.showReceipt);

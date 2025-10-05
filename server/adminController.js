@@ -100,22 +100,35 @@ exports.viewEstimates = (req, res) => {
 
 // --- View Customers ---
 exports.viewCustomers = (req, res) => {
+    const userRole = req.session.user.role;
+    const userId = req.session.user.id;
     try {
         const { q: query } = req.query;
         let customers;
         let params = [];
 
         let sql = `SELECT id, name, mobile, dob, age, gender, created_at FROM customers`;
+        
+        const whereClauses = [];
+
+        if (userRole === 'CLIENT') {
+            whereClauses.push(`created_by_user_id = ?`);
+            params.push(userId);
+        }
 
         if (query) {
-            sql += ` WHERE name LIKE ? OR mobile LIKE ? OR CAST(id AS TEXT) LIKE ?`;
+            whereClauses.push(`(name LIKE ? OR mobile LIKE ? OR CAST(id AS TEXT) LIKE ?)`);
             const searchTerm = `%${query}%`;
-            params = [searchTerm, searchTerm, searchTerm];
+            params.push(searchTerm, searchTerm, searchTerm);
+        }
+
+        if (whereClauses.length > 0) {
+            sql += ` WHERE ` + whereClauses.join(' AND ');
         }
 
         sql += ` ORDER BY id DESC LIMIT 200`;
         
-        customers = db.prepare(sql).all(params);
+        customers = db.prepare(sql).all(...params);
         
         const formattedCustomers = customers.map(cust => ({
             ...cust,

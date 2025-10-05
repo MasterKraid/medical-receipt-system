@@ -59,24 +59,6 @@ exports.createEstimate = (req, res) => {
 
     // --- Database Transaction ---
     const saveEstimate = db.transaction(() => {
-        // --- VIRTUAL WALLET CHECK (CLIENTS ONLY) ---
-        if (role === 'CLIENT') {
-            const client = db.prepare("SELECT wallet_balance, allow_negative_balance, negative_balance_allowed_until FROM users WHERE id = ?").get(userId);
-            
-            if (totalB2BPrice > client.wallet_balance) {
-                const now = new Date();
-                const allowedUntil = client.negative_balance_allowed_until ? new Date(client.negative_balance_allowed_until) : null;
-                
-                // Check if negative balance is allowed and if the time limit has not expired
-                if (!client.allow_negative_balance || !allowedUntil || now > allowedUntil) {
-                    // This will rollback the transaction
-                    throw new Error(`Insufficient wallet balance. Required: ${totalB2BPrice.toFixed(2)}, Available: ${client.wallet_balance.toFixed(2)}.`);
-                }
-            }
-            // If check passes, deduct from wallet
-            db.prepare("UPDATE users SET wallet_balance = wallet_balance - ? WHERE id = ?").run(totalB2BPrice, userId);
-            console.log(`Deducted ${totalB2BPrice} from wallet of Client ID ${userId}.`);
-        }
 
         const estimateSql = `INSERT INTO estimates (branch_id, user_id, customer_id, estimate_date, referred_by, discount_percentage, amount_after_discount, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         const estimateInfo = db.prepare(estimateSql).run(branchId, userId, finalCustomerId, formatDateForDatabase(estimate_date), referred_by, 0, totalB2BPrice, notes, createdAtISO);

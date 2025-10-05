@@ -18,6 +18,8 @@ function calculateAge(dobString) {
 exports.searchCustomers = (req, res) => {
     const query = req.query.q;
     const limit = parseInt(req.query.limit) || 10;
+    const userRole = req.session.user.role;
+    const userId = req.session.user.id;
     
     // Prevent overly long queries which could be used for DoS attacks
     if (query && query.length > 100) {
@@ -32,38 +34,41 @@ exports.searchCustomers = (req, res) => {
     const exactTerm = query.trim();
 
     try {
-        let customers;
-        const sql = `
+        let sql = `
             SELECT id, name, mobile, dob, age, gender
             FROM customers
-            WHERE (id = ? AND ?) -- Placeholder for numeric check (bind 1 or 0)
-               OR name LIKE ?
-               OR (mobile IS NOT NULL AND mobile LIKE ?)
+        `;
+        let params = [];
+        const whereClauses = [];
+
+        if (userRole === 'CLIENT') {
+            whereClauses.push(`created_by_user_id = ?`);
+            params.push(userId);
+        }
+        
+        const isNumericQuery = /^\d+$/.test(exactTerm);
+        whereClauses.push(`( (id = ? AND ?) OR name LIKE ? OR (mobile IS NOT NULL AND mobile LIKE ?) )`);
+        params.push(isNumericQuery ? exactTerm : -1, isNumericQuery ? 1 : 0, searchTerm, searchTerm);
+        
+        sql += ` WHERE ` + whereClauses.join(' AND ');
+
+        sql += `
             ORDER BY
                 CASE
-                    WHEN id = ? AND ? THEN 1 -- Placeholder for numeric check (bind 1 or 0)
+                    WHEN id = ? AND ? THEN 1
                     WHEN name LIKE ? THEN 2
                     WHEN mobile LIKE ? THEN 3
                     ELSE 4
                 END
             LIMIT ?`;
 
-        const isNumericQuery = /^\d+$/.test(exactTerm);
-        const idQueryParam = isNumericQuery ? exactTerm : -1; // Use -1 if not numeric
-
-        // *** FIX: Bind 1 for true, 0 for false instead of boolean ***
-        const isNumericBindValue = isNumericQuery ? 1 : 0;
-
-        customers = db.prepare(sql).all(
-            idQueryParam,         // Param 1 (for ID = ?)
-            isNumericBindValue,   // Param 2 (for AND ?) - NOW 1 or 0
-            searchTerm,           // Param 3 (for name LIKE ?)
-            searchTerm,           // Param 4 (for mobile LIKE ?)
-            idQueryParam,         // Param 5 (for ORDER BY ID = ?)
-            isNumericBindValue,   // Param 6 (for ORDER BY AND ?) - NOW 1 or 0
-            searchTerm,           // Param 7 (for ORDER BY name LIKE ?)
-            searchTerm,           // Param 8 (for ORDER BY mobile LIKE ?)
-            limit                 // Param 9 (for LIMIT ?)
+        const customers = db.prepare(sql).all(
+            ...params,                     // Params for the dynamically built WHERE clause
+            isNumericQuery ? exactTerm : -1, // Param for ORDER BY ID
+            isNumericQuery ? 1 : 0,        // Param for ORDER BY AND
+            searchTerm,                    // Param for ORDER BY name
+            searchTerm,                    // Param for ORDER BY mobile
+            limit                          // Param for LIMIT
         );
 
         // Format results AFTER fetching
