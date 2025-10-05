@@ -2,6 +2,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const session = require("express-session");
+const FileStore = require('session-file-store')(session);
 const path = require("path");
 const multer = require('multer');
 const os = require('os');
@@ -32,9 +33,18 @@ app.set("views", path.join(__dirname, "..", "views"));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use('/lab_logos', express.static(path.join(__dirname, '..', 'public', 'lab_logos')));
+
+// This line initializes the session store.
+const fileStoreOptions = {
+    path: path.join(__dirname, '..', 'sessions'), // Creates a /sessions folder
+    logFn: function() {}, // Disables verbose logging to keep the console clean
+    reapInterval: 3600 // Clean up expired sessions every hour
+};
+
 app.use(
   session({
-    secret: process.env.SESSION_SECRET, // Use secret from .env
+    store: new FileStore(fileStoreOptions),
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {

@@ -35,6 +35,14 @@ function initializeFormLogic(formType, userRole) {
     updateCalculations();
 
     setCustomerMode('new');
+
+    if (currentUserRole === 'CLIENT') {
+        const toggle = document.getElementById('b2b-visibility-toggle');
+        if (toggle) {
+            toggle.addEventListener('change', handleB2BToggle);
+            handleB2BToggle(); // Set initial state
+        }
+    }
 }
 
 /**
@@ -128,6 +136,33 @@ function populateDatalist() {
 }
 
 /**
+ * Toggles the visibility of the B2B price column for CLIENT users.
+ */
+function handleB2BToggle() {
+    const toggle = document.getElementById('b2b-visibility-toggle');
+    const isVisible = toggle.checked;
+    
+    document.querySelectorAll('.b2b-col').forEach(el => {
+        if (isVisible) {
+            el.style.display = '';
+        } else {
+            el.style.display = 'none';
+        }
+    });
+
+    const itemHeader = document.querySelector('.item-header');
+    const itemRows = document.querySelectorAll('.item-row');
+
+    if (isVisible) {
+        itemHeader.classList.remove('b2b-hidden');
+        itemRows.forEach(row => row.classList.remove('b2b-hidden'));
+    } else {
+        itemHeader.classList.add('b2b-hidden');
+        itemRows.forEach(row => row.classList.add('b2b-hidden'));
+    }
+}
+
+/**
  * Sets up global event listeners for the form.
  */
 function addGlobalEventListeners() {
@@ -201,13 +236,24 @@ function addItem() {
     const container = document.getElementById('items-container');
     const newItemRow = document.createElement('div');
     newItemRow.classList.add('item-row');
+    const b2bInputHTML = currentUserRole === 'CLIENT'
+        ? `<input type="number" name="b2b_prices[]" placeholder="B2B" step="0.01" min="0" readonly class="b2b-input b2b-col">`
+        : '';
+
     newItemRow.innerHTML = `
         <input type="text" name="package_names[]" placeholder="Select or Type Package" list="package-list" required class="package-name-input item-calc-trigger">
+        ${b2bInputHTML}
         <input type="number" name="mrps[]" placeholder="MRP" step="0.01" min="0" required class="mrp-input item-calc-trigger">
         <input type="number" name="item_discounts[]" placeholder="Disc %" step="0.1" min="0" max="100" value="0" class="discount-input item-calc-trigger">
         <span class="discount-amount-display">0.00</span>
         <button type="button" class="remove-item-btn" onclick="removeItem(this)">X</button>
     `;
+    // Adjust grid for clients
+    if (currentUserRole === 'CLIENT') {
+        const itemHeader = document.querySelector('.item-header');
+        itemHeader.classList.add('client-view');
+        newItemRow.classList.add('client-view');
+    }
     container.appendChild(newItemRow);
     addEventListenersToRow(newItemRow); // Add listeners to the new row
     updateCalculations();
@@ -240,14 +286,25 @@ function addEventListenersToRow(row) {
     nameInput.addEventListener('input', (e) => {
         const selectedName = e.target.value;
         const option = document.querySelector(`#package-list option[value="${selectedName}"]`);
-
+        const b2bInput = row.querySelector('.b2b-input');
+            
         if (option) {
-            // DECIDE WHICH PRICE TO USE BASED ON USER ROLE
-            const priceToUse = currentUserRole === 'CLIENT' ? option.dataset.b2bPrice : option.dataset.mrp;
-            mrpInput.value = parseFloat(priceToUse || 0).toFixed(2);
-            mrpInput.readOnly = true; // Lock price for predefined packages
+            mrpInput.value = parseFloat(option.dataset.mrp || 0).toFixed(2);
+            mrpInput.readOnly = true;
+            if (currentUserRole === 'CLIENT' && b2bInput) {
+                b2bInput.value = parseFloat(option.dataset.b2bPrice || 0).toFixed(2);
+            }
         } else {
-            mrpInput.readOnly = false; // Unlock for custom entries
+            // For custom items
+            if (currentUserRole !== 'CLIENT') {
+                mrpInput.readOnly = false; // Allow non-clients to enter custom items
+                if (b2bInput) b2bInput.value = '';
+            } else {
+                // Prevent clients from entering custom items
+                mrpInput.readOnly = true;
+                mrpInput.value = '';
+                if (b2bInput) b2bInput.value = '';
+            }
         }
         updateCalculations();
     });
@@ -255,13 +312,26 @@ function addEventListenersToRow(row) {
     // This listener handles DUPLICATE CHECKS when the user finishes entering a package name.
     nameInput.addEventListener('change', (e) => {
         const finalName = e.target.value.trim();
-        if (!finalName) return; // Ignore if empty
+        const b2bInput = row.querySelector('.b2b-input');
+        if (!finalName) return;
 
         if (isDuplicatePackage(finalName, row)) {
-            alert(`'${finalName}' has already been added. Please choose a different test or remove the other entry.`);
-            e.target.value = ''; // Clear the invalid input
-            mrpInput.value = ''; // Clear the associated price
-            mrpInput.readOnly = false;
+            alert(`'${finalName}' has already been added.`);
+            e.target.value = '';
+            mrpInput.value = '';
+            if (b2bInput) b2bInput.value = '';
+            mrpInput.readOnly = (currentUserRole === 'CLIENT');
+            updateCalculations();
+            return;
+        }
+
+        // Check for custom items for clients
+        const option = document.querySelector(`#package-list option[value="${finalName}"]`);
+        if (currentUserRole === 'CLIENT' && !option) {
+            alert("Custom items cannot be added. Please select an existing test from the list.");
+            e.target.value = '';
+            mrpInput.value = '';
+            if (b2bInput) b2bInput.value = '';
             updateCalculations();
         }
     });
@@ -436,6 +506,53 @@ function selectCustomer(customerData) {
 }
 
 /**
+ * Intercepts the receipt form submission to handle server responses via Fetch,
+ * allowing for custom alerts on failure (e.g., insufficient balance).
+ */
+function initializeReceiptFormSubmitListener() {
+    const form = document.getElementById('receipt-form');
+    if (!form) return;
+
+    form.addEventListener('submit', async (event) => {
+        // Prevent the default browser form submission
+        event.preventDefault();
+
+        const submitButton = form.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        submitButton.textContent = 'Processing...';
+
+        try {
+            const formData = new FormData(form);
+            const response = await fetch(form.action, {
+                method: form.method,
+                body: new URLSearchParams(formData) // Standard form encoding
+            });
+
+            // If the server responds with a redirect (status 200-299), it was successful.
+            if (response.ok) {
+                // The server handled the redirect, so we follow it.
+                window.location.href = response.url;
+            } else {
+                // If the server responds with an error (like 400 or 500)
+                const errorMessage = await response.text();
+                
+                // Show the specific error from the server in a pop-up
+                alert(`Error: ${errorMessage}\n\nPlease check the details and contact an administrator if the issue persists.`);
+                
+                submitButton.disabled = false;
+                submitButton.textContent = 'Generate & Save Receipt';
+            }
+        } catch (error) {
+            // Handle network errors
+            console.error('Network or submission error:', error);
+            alert('A network error occurred. Please check your connection and try again.');
+            submitButton.disabled = false;
+            submitButton.textContent = 'Generate & Save Receipt';
+        }
+    });
+}
+
+/**
  * Basic validation logic for DOB/Age fields.
  */
 function validateAgeDob() {
@@ -451,6 +568,7 @@ function validateAgeDob() {
 function updateCalculations() {
     let totalMrp = 0;
     let subtotalAfterItemDiscounts = 0;
+    let totalB2B = 0;
 
     // 1. Loop through each item row and calculate subtotals
     document.querySelectorAll('.item-row').forEach(row => {
@@ -466,6 +584,10 @@ function updateCalculations() {
         const itemPriceAfterDiscount = mrp * (1 - (itemDiscPerc / 100));
         totalMrp += mrp;
         subtotalAfterItemDiscounts += itemPriceAfterDiscount;
+        if (currentUserRole === 'CLIENT') {
+            const b2b = parseFloat(row.querySelector('.b2b-input').value) || 0;
+            totalB2B += b2b;
+        }
 
         const itemDiscAmount = mrp * (itemDiscPerc / 100);
         row.querySelector('.discount-amount-display').textContent = itemDiscAmount.toFixed(2);
@@ -512,5 +634,15 @@ function updateCalculations() {
 
     } else { // 'estimate' form
         document.getElementById('calculated-total').textContent = finalTotal.toFixed(2);
+    }
+    // Update B2B and Profit fields if they exist (for CLIENT role)
+    if (currentUserRole === 'CLIENT') {
+        const totalB2BEl = document.getElementById('calculated-total-b2b');
+        const profitEl = document.getElementById('calculated-profit');
+        if (totalB2BEl && profitEl) {
+            const profit = finalTotal - totalB2B;
+            totalB2BEl.textContent = totalB2B.toFixed(2);
+            profitEl.textContent = profit.toFixed(2);
+        }
     }
 }

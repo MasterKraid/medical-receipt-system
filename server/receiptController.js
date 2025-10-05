@@ -10,9 +10,11 @@ exports.showReceiptForm = (req, res) => {
 
 // Create receipt
 exports.createReceipt = (req, res) => {
+    // --- Session and User Details ---
     if (!req.session.user) {
         return res.status(401).send("Unauthorized");
     }
+    const userRole = req.session.user.role;
     const userId = req.session.user.id;
     const branchId = req.session.user.branchId;
 
@@ -34,8 +36,11 @@ exports.createReceipt = (req, res) => {
         package_names,
         mrps,
         item_discounts,
+        package_list_id,
+        lab_id
     } = req.body;
 
+    // --- Initial Validation ---
     try {
         // --- Duplicate test check ---
         if (package_names && new Set(package_names).size !== package_names.length) {
@@ -105,60 +110,78 @@ exports.createReceipt = (req, res) => {
         return res.status(400).send(err.message || "Error processing customer information.");
     }
 
-    // --- Item Validation & Calculation ---
-    if (
-        !Array.isArray(package_names) ||
-        !Array.isArray(mrps) ||
-        !Array.isArray(item_discounts) ||
-        package_names.length === 0 ||
-        package_names.length !== mrps.length ||
-        package_names.length !== item_discounts.length
-    ) {
-        return res.status(400).send("Invalid item data.");
+    // --- Secure & Hybrid Item Calculation ---
+    if (!package_list_id) {
+        return res.status(400).send("A Rate Database must be selected to determine item prices.");
+    }
+    if (!Array.isArray(item_discounts) || package_names.length !== item_discounts.length) {
+        return res.status(400).send("Invalid item discount data.");
+    }
+    if (userRole !== 'CLIENT' && (!Array.isArray(mrps) || package_names.length !== mrps.length)) {
+        return res.status(400).send("Invalid item data. MRPs are missing or inconsistent.");
     }
 
-    if (
-        amount_received === undefined ||
-        amount_received === null ||
-        String(amount_received).trim() === "" ||
-        isNaN(parseFloat(amount_received))
-    ) {
-        return res.status(400).send("Received Amount is required and must be a number.");
-    }
-
-    const amountReceivedValue = parseFloat(amount_received);
-    if (amountReceivedValue < 0) {
-        return res.status(400).send("Received Amount cannot be negative.");
-    }
-
-    const overallDiscountPerc = parseFloat(discount_percentage) || 0;
-    if (overallDiscountPerc < 0 || overallDiscountPerc > 100) {
-        return res.status(400).send("Invalid Overall Discount.");
-    }
+    // Fetch details for all packages found in the selected list for security.
+    const packageDetailsFromDb = db.prepare(`SELECT name, mrp, b2b_price FROM packages WHERE package_list_id = ? AND name IN (${package_names.map(() => '?').join(',')})`).all(package_list_id, ...package_names);
+    const packageMap = new Map(packageDetailsFromDb.map(p => [p.name, { mrp: p.mrp, b2b_price: p.b2b_price }]));
 
     let totalMrp = 0;
     let subtotalAfterItemDiscounts = 0;
     const receiptItemsData = [];
+    let totalB2BForDeduction = 0;
+
     for (let i = 0; i < package_names.length; i++) {
         const name = package_names[i] ? String(package_names[i]).trim() : "";
-        const mrp = parseFloat(mrps[i]) || 0;
         const itemDiscountPerc = parseFloat(item_discounts[i]) || 0;
-
-        if (!name || mrp <= 0) continue;
+        
+        if (!name) continue;
         if (itemDiscountPerc < 0 || itemDiscountPerc > 100) {
             return res.status(400).send(`Invalid item discount for ${name}.`);
         }
 
+        const dbPackage = packageMap.get(name);
+        let mrp;
+        let b2b_price;
+
+        if (userRole === 'CLIENT') {
+            // --- PATH 1: Secure flow for CLIENT Roles ---
+            // Clients are not allowed to submit custom items.
+            if (!dbPackage) {
+                return res.status(400).send(`Item '${name}' not found in the assigned rate database.`);
+            }
+            mrp = dbPackage.mrp;
+            b2b_price = dbPackage.b2b_price ?? mrp; // Fallback to MRP if b2b_price is NULL
+
+        } else {
+            // --- PATH 2: Flexible flow for ADMIN and GENERAL Roles ---
+            // Prefer database price if package exists, otherwise use form input for custom items.
+            if (dbPackage) {
+                mrp = dbPackage.mrp;
+                b2b_price = dbPackage.b2b_price ?? mrp;
+            } else {
+                mrp = parseFloat(mrps[i]) || 0;
+                b2b_price = mrp; // For custom items, B2B price equals MRP.
+            }
+        }
+        
+        if (mrp <= 0) continue; // Skip any item that resolves to an invalid price
+
+        // Accumulate totals
         totalMrp += mrp;
         subtotalAfterItemDiscounts += mrp * (1 - itemDiscountPerc / 100);
-        receiptItemsData.push({ package_name: name, mrp, discount_percentage: itemDiscountPerc });
+        totalB2BForDeduction += b2b_price;
+        receiptItemsData.push({ package_name: name, mrp: mrp, b2b_price: b2b_price, discount_percentage: itemDiscountPerc });
     }
 
     if (receiptItemsData.length === 0) {
-        return res.status(400).send("No valid items found.");
+        return res.status(400).send("No valid items were found to create a receipt.");
     }
 
+    // --- Final Calculation ---
+    const amountReceivedValue = parseFloat(amount_received);
+    const overallDiscountPerc = parseFloat(discount_percentage) || 0;
     const amountFinalValue = subtotalAfterItemDiscounts * (1 - overallDiscountPerc / 100);
+    
     let amountDueValue;
     const manualDueInput = due_amount_manual !== undefined ? String(due_amount_manual).trim() : "";
     const manualDue = parseFloat(manualDueInput);
@@ -171,49 +194,56 @@ exports.createReceipt = (req, res) => {
     const createdAtISO = new Date().toISOString();
     const numTestsValue = num_tests && String(num_tests).trim() !== "" ? parseInt(num_tests, 10) : null;
 
-    // --- Database Transaction ---
+    // --- Database Transaction: Wallet Deduction & Receipt Creation ---
     const saveReceipt = db.transaction(() => {
+        // Step 1: Wallet Deduction for Clients (uses B2B Price, occurs first)
+        if (userRole === 'CLIENT') {
+            const client = db.prepare("SELECT wallet_balance, allow_negative_balance, negative_balance_allowed_until FROM users WHERE id = ?").get(userId);
+            
+            if (totalB2BForDeduction > client.wallet_balance) {
+                const now = new Date();
+                const allowedUntil = client.negative_balance_allowed_until ? new Date(client.negative_balance_allowed_until) : null;
+                
+                if (!client.allow_negative_balance || !allowedUntil || now > allowedUntil) {
+                    // This error will cause the entire transaction to roll back automatically
+                    throw new Error(`Insufficient wallet balance. Required: ${totalB2BForDeduction.toFixed(2)}, Available: ${client.wallet_balance.toFixed(2)}.`);
+                }
+            }
+            db.prepare("UPDATE users SET wallet_balance = wallet_balance - ? WHERE id = ?").run(totalB2BForDeduction, userId);
+            console.log(`Deducted ${totalB2BForDeduction.toFixed(2)} from wallet of Client ID ${userId}.`);
+        }
+
+        // Step 2: Insert the Main Receipt Record
         const receiptSql = `INSERT INTO receipts 
             (branch_id, user_id, customer_id, referred_by, total_mrp, discount_percentage, amount_final, amount_received, amount_due, payment_method, num_tests, conducted_at, notes, created_at, lab_id) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-
         const receiptStmt = db.prepare(receiptSql);
         const receiptInfo = receiptStmt.run(
-            branchId,
-            userId,
-            finalCustomerId,
-            referred_by,
-            totalMrp,
-            overallDiscountPerc,
-            amountFinalValue,
-            amountReceivedValue,
-            amountDueValue,
-            payment_method,
+            branchId, userId, finalCustomerId, referred_by, totalMrp, overallDiscountPerc,
+            amountFinalValue, amountReceivedValue, amountDueValue, payment_method,
             numTestsValue !== null ? numTestsValue : receiptItemsData.length,
-            conducted_at,
-            notes,
-            createdAtISO,
-            req.body.lab_id // The added lab_id
+            conducted_at, notes, createdAtISO, lab_id
         );
         const newReceiptId = receiptInfo.lastInsertRowid;
 
-       const itemSql = `INSERT INTO receipt_items (receipt_id, package_name, mrp, discount_percentage) VALUES (?, ?, ?, ?)`;
+        // Step 3: Insert Each Receipt Item (Now includes B2B price for records)
+        const itemSql = `INSERT INTO receipt_items (receipt_id, package_name, mrp, b2b_price, discount_percentage) VALUES (?, ?, ?, ?, ?)`;
         const itemStmt = db.prepare(itemSql);
         for (const item of receiptItemsData) {
-            if (!item.package_name) continue;
-            itemStmt.run(newReceiptId, item.package_name, item.mrp, item.discount_percentage);
-        }
+            itemStmt.run(newReceiptId, item.package_name, item.mrp, item.b2b_price, item.discount_percentage);
+        }       
         return newReceiptId;
     });
 
-    // --- Execute and Respond ---
+    // --- Execute Transaction and Respond ---
     try {
         const newReceiptId = saveReceipt();
         console.log(`Receipt (ID: ${newReceiptId}) saved for Customer ID: ${finalCustomerId}`);
         res.redirect(`/receipt/${newReceiptId}`);
     } catch (err) {
-        console.error(`Error saving receipt for Customer ${finalCustomerId}: ${err.message}\n${err.stack}`);
-        res.status(500).send("An error occurred while saving the receipt.");
+        console.error(`Transaction failed for Customer ${finalCustomerId}: ${err.message}\n${err.stack}`);
+        // Send the specific error message from the transaction (e.g., "Insufficient wallet balance.") to the user.
+        res.status(400).send(err.message || "An error occurred while saving the receipt.");
     }
 };
 

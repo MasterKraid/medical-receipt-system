@@ -1,6 +1,7 @@
 // server/packageListController.js
 const db = require("./db");
-const xlsx = require("xlsx");
+//const xlsx = require("xlsx");
+const ExcelJS = require('exceljs');
 const fs =require("fs");
 
 exports.showManageListsPage = (req, res) => {
@@ -63,8 +64,7 @@ exports.updatePackageInList = (req, res) => {
     }
 };
 
-// --- REPLACE the old uploadPackages function with this one ---
-exports.uploadPackages = (req, res) => {
+exports.uploadPackages = async (req, res) => {
     const { list_id } = req.body;
     if (!req.file) {
         return res.status(400).send("No Excel file was uploaded.");
@@ -75,20 +75,40 @@ exports.uploadPackages = (req, res) => {
     }
 
     try {
-        const workbook = xlsx.readFile(req.file.path);
-        const sheetName = workbook.SheetNames[0];
-        const data = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.readFile(req.file.path);
+        
+        const worksheet = workbook.getWorksheet(1); // Get the first sheet
+        if (!worksheet || worksheet.rowCount === 0) {
+            throw new Error("Excel sheet is empty or could not be read.");
+        }
 
-        if (data.length === 0) throw new Error("Excel sheet is empty.");
+        const data = [];
+        const headerRow = worksheet.getRow(1).values;
+        // Normalize headers to lowercase strings
+        const headers = headerRow.map(h => String(h).trim().toLowerCase());
 
         // Validate headers
         const requiredHeaders = ['name', 'mrp', 'b2b_price'];
-        const actualHeaders = Object.keys(data[0]).map(h => h.trim().toLowerCase());
-        if (!requiredHeaders.every(h => actualHeaders.includes(h))) {
-            throw new Error(`Missing required columns. Headers must be exactly: ${requiredHeaders.join(', ')}.`);
+        if (!requiredHeaders.every(h => headers.includes(h))) {
+            throw new Error(`Missing required columns. Headers must include: ${requiredHeaders.join(', ')}.`);
         }
-        
-        // --- DATABASE-AGNOSTIC IMPORT LOGIC ---
+
+        // Convert rows to JSON objects
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber > 1) { // Skip header row
+                const rowData = {};
+                row.values.forEach((value, index) => {
+                    const header = headers[index];
+                    if (header) {
+                        rowData[header] = value;
+                    }
+                });
+                data.push(rowData);
+            }
+        });
+
+        // --- Database transaction logic (this part remains the same) ---
         const findStmt = db.prepare("SELECT id FROM packages WHERE name = ? AND package_list_id = ?");
         const insertStmt = db.prepare("INSERT INTO packages (name, mrp, b2b_price, package_list_id) VALUES (?, ?, ?, ?)");
         const updateStmt = db.prepare("UPDATE packages SET mrp = ?, b2b_price = ? WHERE id = ?");
@@ -96,9 +116,10 @@ exports.uploadPackages = (req, res) => {
         const importTransaction = db.transaction((packages) => {
             let updated = 0, inserted = 0;
             for (const pkg of packages) {
-                const name = String(pkg.name || pkg.Name || '').trim();
-                const mrp = parseFloat(pkg.mrp || pkg.MRP);
-                const b2b_price = parseFloat(pkg.b2b_price || pkg['b2b_price']);
+                // Use || to handle different possible header capitalizations
+                const name = String(pkg.name || '').trim();
+                const mrp = parseFloat(pkg.mrp);
+                const b2b_price = parseFloat(pkg.b2b_price);
 
                 if (name && !isNaN(mrp) && !isNaN(b2b_price)) {
                     const existing = findStmt.get(name, list_id);
@@ -116,16 +137,11 @@ exports.uploadPackages = (req, res) => {
 
         const result = importTransaction(data);
         console.log(`Import for list ID ${list_id} complete. Inserted: ${result.inserted}, Updated: ${result.updated}.`);
-        res.redirect(`/admin/package-lists/${list_id}`); // Redirect to the details page
+        res.redirect(`/admin/package-lists`);
 
     } catch (err) {
         console.error("Excel import error:", err);
-        let userMessage = err.message;
-        // Provide a more specific error message for this common issue.
-        if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || err.message.includes('UNIQUE constraint failed: packages.name')) {
-            userMessage = `A package name in the Excel file already exists in this specific list. If you are sure it doesn't, your database might have an old schema. Please ensure the package names are unique per list.`;
-        }
-        res.redirect(`/admin/package-lists?error=${encodeURIComponent(userMessage)}`);
+        res.redirect(`/admin/package-lists?error=${encodeURIComponent(err.message)}`);
     } finally {
         fs.unlinkSync(req.file.path);
     }
