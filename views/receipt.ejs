@@ -120,7 +120,7 @@
                     <td class="label-col highlight" style="width: 20%; vertical-align: top; text-align: right;">
                         TOTAL MRP<br>
                         SUBTOTAL<br>
-                        OVERALL DISC (<%= receiptData.overallDiscountPercentageFormatted %>%)<br>
+                        
                         <strong style="font-size: 1.1em;">NET PAYABLE</strong><br>
                         RECEIVED<br>
                         <strong style="font-size: 1.1em;">DUE</strong>
@@ -128,7 +128,7 @@
                     <td class="value-col highlight" style="width: 20%; vertical-align: top;">
                         ₹<%= receiptData.totalMrpFormatted %><br>
                         ₹<%= receiptData.subtotalAfterItemDiscountsFormatted %><br>
-                        (-) ₹<%= receiptData.overallDiscountAmountFormatted %><br>
+                        
                         <strong style="font-size: 1.1em;">₹<%= receiptData.finalAmountFormatted %></strong><br>
                         ₹<%= receiptData.amountReceivedFormatted %><br>
                         <strong style="font-size: 1.1em;">₹<%= receiptData.amountDueFormatted %></strong>

@@ -590,17 +590,9 @@ function updateCalculations() {
         row.querySelector('.discount-amount-display').textContent = itemDiscAmount.toFixed(2);
     });
 
-    // 2. Calculate overall discount
-    const overallDiscountInput = document.getElementById('discount_percentage');
-    let overallDiscountPercent = parseFloat(overallDiscountInput.value) || 0;
-
-    // Clamp overall discount between 0 and 100
-    if (overallDiscountPercent < 0) overallDiscountPercent = 0;
-    if (overallDiscountPercent > 100) overallDiscountPercent = 100;
-    overallDiscountInput.value = overallDiscountPercent;
-    
-    const overallDiscountAmount = subtotalAfterItemDiscounts * (overallDiscountPercent / 100);
-    const finalTotal = subtotalAfterItemDiscounts - overallDiscountAmount;
+    // 2. Final total is calculated without overall discount
+    const overallDiscountAmount = 0;
+    const finalTotal = subtotalAfterItemDiscounts;
 
     // 3. Update the shared UI elements
     document.getElementById('calculated-mrp').textContent = totalMrp.toFixed(2);

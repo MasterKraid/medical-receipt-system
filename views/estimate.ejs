@@ -112,10 +112,7 @@
                     <td colspan="3" style="text-align: right;">SUBTOTAL (After Item Discounts)</td>
                     <td class="amount-col">₹<%= estimateData.subtotalAfterItemDiscountsFormatted %></td>
                 </tr>
-                <tr class="summary-row">
-                    <td colspan="3" style="text-align: right;">OVERALL DISCOUNT (<%= estimateData.overallDiscountPercentageFormatted %>%)</td>
-                    <td class="amount-col">(-) ₹<%= estimateData.overallDiscountAmountFormatted %></td>
-                </tr>
+                
                 <tr class="summary-row highlight">
                     <td colspan="3" style="text-align: right; font-weight: bold;">ESTIMATED PAYABLE</td>
                     <td class="amount-col" style="font-weight: bold;">₹<%= estimateData.finalAmountFormatted %></td>

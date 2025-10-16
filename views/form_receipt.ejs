@@ -252,18 +252,7 @@
         <fieldset>
             <legend>Payment & Other Details</legend>
             <div class="form-grid">
-                <% if (sessionUser.role !== 'CLIENT') { %>
-                <div>
-                    <label for="discount_percentage">Overall Discount (%):</label>
-                    <input type="number" id="discount_percentage" name="discount_percentage"
-                            step="0.1" min="0" max="100" value="0" class="item-calc-trigger">
-                </div>
-                <% } else { %>
-                <div>
-                    <!-- For clients, send a zero value but hide the input -->
-                    <input type="hidden" id="discount_percentage" name="discount_percentage" value="0">
-                </div>
-                <% } %>
+                
                 <div>
                     <label for="amount_received">Received Amount:</label>
                     <input type="number" id="amount_received" name="amount_received"
@@ -312,10 +301,7 @@
                     <span class="label">Subtotal (After Item Disc):</span>
                     ₹<span id="calculated-subtotal">0.00</span>
                 </div>
-                <div class="overall-discount-display">
-                    <span class="label">Overall Disc Amount:</span>
-                    ₹<span id="calculated-overall-discount-amount">0.00</span>
-                </div>
+                
                 <div class="total">
                     <span class="label">Net Payable:</span>
                     ₹<span id="calculated-total-receipt">0.00</span>

@@ -372,20 +372,11 @@
         <fieldset>
             <legend>Totals & Notes</legend>
             <div class="form-grid">
-                <% if (sessionUser.role !== 'CLIENT') { %>
-                <div>
-                    <label for="discount_percentage">Overall Discount (%):</label>
-                    <input type="number" id="discount_percentage" name="discount_percentage" step="0.1" min="0" max="100" value="0" class="item-calc-trigger">
-                </div>
-                <% } else { %>
-                <div>
-                    <input type="hidden" id="discount_percentage" name="discount_percentage" value="0">
-                </div>
-                <% } %>
+                
                 <div id="live-preview">
                     <div><span class="label">Total MRP:</span> ₹<span id="calculated-mrp">0.00</span></div>
                     <div class="subtotal"><span class="label">Subtotal (After Item Disc):</span> ₹<span id="calculated-subtotal">0.00</span></div>
-                    <div class="overall-discount-display"><span class="label">Overall Disc Amount:</span> ₹<span id="calculated-overall-discount-amount">0.00</span></div>
+
                     <div class="total"><span class="label">Estimated Payable:</span> ₹<span id="calculated-total">0.00</span></div>
                     <% if (sessionUser.role === 'CLIENT') { %>
                     <div class="b2b-live-calc" style="border-top: 1px dashed #ccc; padding-top: 5px; margin-top: 5px;">
