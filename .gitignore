@@ -1,3 +1,44 @@
+# Dependencies
+**/node_modules
+
+# Build Artifacts, Cache & Logs
+server/dist/
+client/dist/
+client/.vite/
+client/dist-ssr/
+client/dev-dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Sensitive Information
+*.env
+.env.*
+!.env.example
+
+# Server Data
+server/data/
+
+# OS & Editor Specific
+.DS_Store
+Thumbs.db
+desktop.ini
+*~
+*.swp
+*.swo
+
+# IDE Configuration
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+.atom/
+
+#extra
 node_modules/
 data/
 .env
@@ -6,4 +47,3 @@ data/database.sqlite-wal
 data/database.sqlite-shm
 folder-structure/project.md
 sessions/
-public/lab_logos

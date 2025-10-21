@@ -1,0 +1,5 @@
+{
+  "name": "Medical Receipt System",
+  "description": "A comprehensive system for generating and managing medical receipts and estimates for diagnostic labs and clinics. Features include customer management, package and rate list administration, and user role-based access control.",
+  "requestFramePermissions": []
+}

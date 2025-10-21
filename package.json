@@ -1,16 +1,19 @@
+
 {
-  "dependencies": {
-    "bcrypt": "^5.1.1",
-    "better-sqlite3": "^11.8.1",
-    "body-parser": "^1.20.3",
-    "dotenv": "^17.2.1",
-    "ejs": "^3.1.10",
-    "exceljs": "^4.4.0",
-    "express": "^4.21.2",
-    "express-rate-limit": "^8.0.1",
-    "express-session": "^1.18.1",
-    "flatpickr": "^4.6.13",
-    "multer": "^2.0.2",
-    "session-file-store": "^1.5.0"
+  "name": "medical-receipt-system-fullstack",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:server": "cd server && npm install",
+    "install:client": "cd client && npm install",
+    "postinstall": "npm run install:server && npm run install:client",
+    "build:client": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "dev": "concurrently \"npm:dev:server\" \"npm:dev:client\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   }
 }
