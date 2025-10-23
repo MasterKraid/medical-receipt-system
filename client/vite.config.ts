@@ -13,8 +13,8 @@ export default defineConfig({
         enabled: true
       },
       manifest: {
-        name: 'Medical Receipt System',
-        short_name: 'ReceiptSys',
+        name: 'Treat & Cure:Medical Receipt System',
+        short_name: 'T&C LIS',
         description: 'A comprehensive system for generating and managing medical receipts and estimates.',
         theme_color: '#ffffff',
         background_color: '#f0f2f5',
@@ -25,18 +25,33 @@ export default defineConfig({
           {
             src: 'pwa-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any'
           },
           {
             src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
+          },
+          {
+            src: 'pwa-maskable-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
+          }
+        ],
+        screenshots: [
+          {
+            src: 'screenshots/wide.png',
+            sizes: '1280x720',
+            type: 'image/png',
+            form_factor: 'wide'
+          },
+          {
+            src: 'screenshots/mobile.png',
+            sizes: '360x640',
+            type: 'image/png'
           }
         ]
       }
@@ -50,9 +65,8 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // Proxy API requests to the backend server
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'https://localhost:3001',
         changeOrigin: true,
       }
     }
