@@ -11,7 +11,8 @@ const TransactionHistoryPage: React.FC = () => {
 
     useEffect(() => {
         if (user) {
-            apiService.getTransactionsForUser(user.id)
+            // Fixed: Removed user.id argument
+            apiService.getTransactionsForUser()
                 .then(setTransactions)
                 .catch(err => console.error("Failed to fetch transactions", err))
                 .finally(() => setIsLoading(false));

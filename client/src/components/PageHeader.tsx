@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const PageHeader: React.FC<{ title: string, showBackLink?: boolean, backLink?: string, backText?: string }> = ({ title, showBackLink = true, backLink, backText }) => {
-    const { user, branch } = useAuth();
+    // Fixed: Removed unused 'branch' variable
+    const { user } = useAuth();
 
     const getDashboardLink = () => {
         if (!user) return "/";

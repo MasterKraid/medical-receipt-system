@@ -7,7 +7,7 @@ import { Customer } from '../../types';
 const prefixOptions = ['Mr.', 'Mrs.', 'Miss.', 'Baby.', 'Master.', 'Dr.', 'B/O', 'Ms.', 'C/O', 'S/O'];
 
 const EditCustomer: React.FC = () => {
-    const { id } = useParams<{ id: string }>();
+    const { id } = useParams() as { id: string };
     const navigate = useNavigate();
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [isLoading, setIsLoading] = useState(true);

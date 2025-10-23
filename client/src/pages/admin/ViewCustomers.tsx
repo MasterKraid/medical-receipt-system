@@ -14,7 +14,8 @@ const ViewCustomers: React.FC = () => {
     useEffect(() => {
         if (user) {
             setIsLoading(true);
-            apiService.getAllCustomers(user)
+            // Fixed: Removed 'user' argument
+            apiService.getAllCustomers()
                 .then(data => {
                     setCustomers(data);
                     setIsLoading(false);

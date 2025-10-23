@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo} from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
@@ -62,7 +62,7 @@ const ReceiptForm: React.FC = () => {
         setSelectedListId('');
         if (selectedLabId && user) {
             // Fix: Call the correct API method 'getPackageListsForLab' which was missing.
-            apiService.getPackageListsForLab(parseInt(selectedLabId), user).then(setPackageLists);
+            apiService.getPackageListsForLab(parseInt(selectedLabId)).then(setPackageLists);
         }
     }, [selectedLabId, user]);
 

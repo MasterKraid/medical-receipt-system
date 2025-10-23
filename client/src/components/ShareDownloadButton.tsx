@@ -19,11 +19,13 @@ const ShareDownloadButton: React.FC<ShareDownloadButtonProps> = ({ elementIdToCa
             return;
         }
 
-        const canvas = await html2canvas(element, { scale: 2 }); // Increase scale for better quality
+        const canvas = await html2canvas(element, { scale: 2 });
 
         // --- Mobile Share Logic ---
-        if (navigator.share && navigator.canShare) {
-            canvas.toBlob(async (blob) => {
+        // Fixed: navigator.canShare is a function that needs to be called
+        if (navigator.share && navigator.canShare()) {
+            // Fixed: Added type 'Blob | null' to the blob parameter
+            canvas.toBlob(async (blob: Blob | null) => {
                 if (blob) {
                     const file = new File([blob], fileName.replace('.pdf', '.png'), { type: 'image/png' });
                     try {
@@ -33,7 +35,6 @@ const ShareDownloadButton: React.FC<ShareDownloadButtonProps> = ({ elementIdToCa
                         });
                     } catch (error) {
                         console.error('Error sharing:', error);
-                        // Fallback to download if sharing fails
                         downloadPdf(canvas);
                     }
                 }

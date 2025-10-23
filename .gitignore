@@ -47,3 +47,5 @@ data/database.sqlite-wal
 data/database.sqlite-shm
 folder-structure/project.md
 sessions/
+private.md
+installation.md

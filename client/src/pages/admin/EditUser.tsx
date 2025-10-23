@@ -5,7 +5,7 @@ import { apiService } from '../../services/api';
 import { User, Branch, PackageList } from '../../types';
 
 const EditUser: React.FC = () => {
-    const { id } = useParams<{ id: string }>();
+    const { id } = useParams() as { id: string };
     const navigate = useNavigate();
     
     const [user, setUser] = useState<User | null>(null);
