@@ -1,28 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const { login, user } = useAuth();
+  
+  // CHANGED: We now get the error and a way to clear it directly from the context
+  const { login, user, authError, clearAuthError } = useAuth();
   const navigate = useNavigate();
+
+  // NEW: When the component unmounts (e.g., we navigate away), clear any old errors.
+  useEffect(() => {
+    return () => {
+      clearAuthError();
+    };
+  }, [clearAuthError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
     if (!username || !password) {
-      setError('Username and Password are required.');
-      return;
+      // We can still handle simple validation locally if we want
+      return; 
     }
-    try {
-      await login(username, password);
-      // After login, the user object will be updated in the context.
-      // We can then navigate based on the role.
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred.');
-    }
+    // The login function now handles all its own state updates.
+    await login(username, password);
   };
   
   React.useEffect(() => {
@@ -43,9 +45,10 @@ const LoginPage: React.FC = () => {
           <img src="/company-logo.png" alt="Company Logo" className="h-16" />
         </div>
 
-        {error && (
+        {/* CHANGED: We now display the error directly from the AuthContext */}
+        {authError && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-4 text-sm" role="alert">
-            <span className="block sm:inline">{error}</span>
+            <span className="block sm:inline">{authError}</span>
           </div>
         )}
 

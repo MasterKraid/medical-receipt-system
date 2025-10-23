@@ -5,10 +5,12 @@ import { apiService } from '../services/api';
 interface AuthContextType {
   user: User | null;
   branch: Branch | null;
-  login: (username: string, password: string) => Promise<void>;
-  logout: () => void;
   loading: boolean;
+  authError: string | null; // NEW: The error state now lives here
+  login: (username: string, password: string) => Promise<void>; // CHANGED: Login no longer returns anything
+  logout: () => void;
   updateUser: (updatedUser: User) => void;
+  clearAuthError: () => void; // NEW: A function to clear the error message
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,6 +19,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [branch, setBranch] = useState<Branch | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null); // NEW: The error state variable
 
   useEffect(() => {
     // Check for a saved user session on initial load
@@ -29,8 +32,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setLoading(false);
   }, []);
 
-  const login = async (username: string, password: string) => {
+  const clearAuthError = () => setAuthError(null);
+
+  const login = async (username: string, password: string): Promise<void> => {
     setLoading(true);
+    setAuthError(null); // Clear any previous errors on a new attempt
     try {
         const { user: loggedInUser, branch: userBranch } = await apiService.login(username, password);
         setUser(loggedInUser);
@@ -38,7 +44,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         sessionStorage.setItem('user', JSON.stringify(loggedInUser));
         sessionStorage.setItem('branch', JSON.stringify(userBranch));
     } catch (error) {
-        throw error;
+        // On failure, set the error state directly in the context.
+        setAuthError((error as Error).message);
     } finally {
         setLoading(false);
     }
@@ -47,6 +54,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = () => {
     setUser(null);
     setBranch(null);
+    setAuthError(null); // Clear errors on logout
     sessionStorage.removeItem('user');
     sessionStorage.removeItem('branch');
   };
@@ -56,9 +64,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     sessionStorage.setItem('user', JSON.stringify(updatedUser));
   };
 
+  const value = { user, branch, loading, authError, login, logout, updateUser, clearAuthError };
 
   return (
-    <AuthContext.Provider value={{ user, branch, login, logout, loading, updateUser }}>
+    <AuthContext.Provider value={value}>
       {!loading && children}
     </AuthContext.Provider>
   );

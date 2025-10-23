@@ -1,4 +1,3 @@
-
 import express from 'express';
 import session from 'express-session';
 import FileStore from 'session-file-store';
@@ -7,12 +6,8 @@ import dotenv from 'dotenv';
 import path from 'path';
 import rateLimit from 'express-rate-limit';
 import { initDb } from './database';
-// Fix: Import the apiRoutes from './routes' to resolve the 'Cannot find name' error.
 import apiRoutes from './routes';
 import { User } from './types';
-
-// Fix: Removed module augmentation for express-session due to missing type definitions.
-// Session properties will be accessed using type assertion `(req.session as any)`.
 
 dotenv.config();
 
@@ -21,11 +16,11 @@ try {
     initDb();
 } catch (e) {
     console.error("CRITICAL: Database initialization failed.", e);
-    // Fix: Cast process to any to access exit method when type definitions are missing.
-    (process as any).exit(1);
+    process.exit(1);
 }
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
 const SessionStore = FileStore(session);
 
@@ -36,27 +31,52 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Enable CORS
 app.use(cors({
-    origin: 'http://localhost:5173', // Adjust for your client's port
+    origin: 'http://localhost:5173', 
     credentials: true
 }));
 
-// Rate Limiting
-const limiter = rateLimit({
-	windowMs: 15 * 60 * 1000, // 15 minutes
-	max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
-	standardHeaders: true,
-	legacyHeaders: false,
-});
-app.use(limiter);
-
-// Body Parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session Management
+// ---Session Management DEFINE TWO RATE LIMITERS ---
+
+// 1. A strict limiter for the login page ONLY.
+const loginLimiter = rateLimit({
+    windowMs: 3 * 60 * 1000, // 3 minutes, as requested
+    max: 5, // Allow 5 failed login attempts per IP per 3 minutes
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: 'Too many login attempts. Please wait 3 minutes before trying again.',
+});
+
+// 2. A lenient, session-based limiter for all other API calls.
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 500, // A high limit to prevent legitimate users from being blocked
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req, res) => {
+        // Rate limit by session ID for logged-in users
+        if ((req as any).session && (req as any).session.id) {
+            return (req as any).session.id;
+        }
+        // Fallback to IP address if no session
+        return req.ip;
+    },
+});
+
+// --- APPLY THE RATE LIMITERS TO THE CORRECT ROUTES ---
+
+// Apply the strict limiter ONLY to the login route
+app.use('/api/auth/login', loginLimiter);
+
+// Apply the lenient limiter to all other API routes
+app.use('/api', apiLimiter);
+
+
+// --- Session Management (must come AFTER rate limiters) ---
 app.use(session({
     store: new SessionStore({
-        // Corrected path to the new 'data' directory
         path: path.join(__dirname, '..', 'data', 'sessions'),
         ttl: 86400, // 1 day
         retries: 0
@@ -74,19 +94,15 @@ app.use(session({
 // --- API Routes ---
 app.use('/api', apiRoutes);
 
-
 // --- Serve React App in Production ---
 if (process.env.NODE_ENV === 'production') {
-    // Fix: Use process.cwd() as a workaround for __dirname not being defined in the TypeScript environment.
-    // Fix: Cast `process` to `any` to resolve TypeScript error `Property 'cwd' does not exist on type 'Process'`.
-    const clientBuildPath = path.join((process as any).cwd(), 'client', 'dist');
+    const clientBuildPath = path.resolve(__dirname, '..', '..', 'client', 'dist');
     app.use(express.static(clientBuildPath));
 
     app.get('*', (req, res) => {
         res.sendFile(path.join(clientBuildPath, 'index.html'));
     });
 }
-
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
