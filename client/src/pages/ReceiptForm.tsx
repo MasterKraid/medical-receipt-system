@@ -313,7 +313,7 @@ const ReceiptForm: React.FC = () => {
                     <legend className="px-2 font-semibold text-lg text-gray-700">Tests / Packages</legend>
                     {/* Item Headers */}
                     <div className="hidden md:grid md:grid-cols-12 gap-2 text-sm font-bold text-gray-600 mb-2 px-1">
-                        <div className={`${user?.role === 'CLIENT' ? 'col-span-4' : 'col-span-5'}`}>Package Name</div>
+                        <div className={`${user?.role === 'CLIENT' ? 'col-span-4' : 'col-span-5'}`}>Test Name</div>
                         {user?.role === 'CLIENT' && <div className="col-span-2 text-right">B2B (₹)</div>}
                         <div className="col-span-2 text-right">MRP (₹)</div>
                         <div className="col-span-2 text-right">Disc (%)</div>
