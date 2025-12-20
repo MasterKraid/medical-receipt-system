@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo} from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
@@ -19,16 +19,16 @@ const prefixOptions = ['Mr.', 'Mrs.', 'Miss.', 'Baby.', 'Master.', 'Dr.', 'B/O',
 const EstimateForm: React.FC = () => {
     const { user, branch } = useAuth();
     const navigate = useNavigate();
-    
+
     // Data states
     const [labs, setLabs] = useState<Lab[]>([]);
     const [packageLists, setPackageLists] = useState<PackageList[]>([]);
     const [packages, setPackages] = useState<Package[]>([]);
-    
+
     // Form states
     const [selectedLabId, setSelectedLabId] = useState('');
     const [selectedListId, setSelectedListId] = useState('');
-    
+
     const [customerMode, setCustomerMode] = useState<'new' | 'search'>('new');
     const [customerSearch, setCustomerSearch] = useState('');
     const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
@@ -38,7 +38,7 @@ const EstimateForm: React.FC = () => {
     const [isGenderDisabled, setIsGenderDisabled] = useState(true);
 
     const [items, setItems] = useState<ItemRow[]>([{ id: Date.now(), name: '', mrp: 0, b2b_price: 0, discount: 0, isFromDb: false }]);
-    
+
     const [applyDiscount, setApplyDiscount] = useState('');
 
     const [details, setDetails] = useState({
@@ -81,7 +81,7 @@ const EstimateForm: React.FC = () => {
             setCustomerSuggestions([]);
         }
     }, [customerSearch]);
-    
+
     const handleSelectCustomer = (customer: Customer) => {
         setSelectedCustomer(customer);
         const prefix = customer.prefix || 'Mr.';
@@ -94,21 +94,21 @@ const EstimateForm: React.FC = () => {
             age: customer.age?.toString() || '',
             gender
         });
-        
+
         const isLocked = ['Mr.', 'Master.', 'B/O', 'S/O', 'Mrs.', 'Miss.', 'Ms.'].includes(prefix);
         setIsGenderDisabled(isLocked);
 
         setCustomerSearch('');
         setCustomerSuggestions([]);
     };
-    
+
     const clearCustomer = () => {
         setSelectedCustomer(null);
         setNewCustomer({ prefix: 'Mr.', name: '', mobile: '', dob: '', age: '', gender: 'Male' });
         setIsGenderDisabled(true);
         setCustomerMode('new');
     }
-    
+
     const handleCustomerChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         let customerData = { ...newCustomer };
@@ -151,7 +151,7 @@ const EstimateForm: React.FC = () => {
     const handleItemChange = (id: number, field: keyof ItemRow, value: string | number) => {
         setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
     };
-    
+
     const handlePackageSelect = (id: number, name: string) => {
         const pkg = packages.find(p => p.name === name);
         if (pkg) {
@@ -166,12 +166,12 @@ const EstimateForm: React.FC = () => {
 
     const handleApplyDiscountToAll = () => {
         const disc = parseFloat(applyDiscount);
-        if(!isNaN(disc) && disc >= 0 && disc <= 100) {
+        if (!isNaN(disc) && disc >= 0 && disc <= 100) {
             setItems(items.map(item => ({ ...item, discount: disc })));
             setApplyDiscount('');
         }
     };
-    
+
     const calculations = useMemo(() => {
         let totalMrp = 0;
         let totalDiscountAmount = 0;
@@ -201,7 +201,7 @@ const EstimateForm: React.FC = () => {
             alert("User or branch information is missing. Please log in again.");
             return;
         }
-        
+
         const payload = {
             customer_data: { id: selectedCustomer?.id, ...newCustomer },
             lab_id: parseInt(selectedLabId),
@@ -261,28 +261,32 @@ const EstimateForm: React.FC = () => {
                     {selectedCustomer && (
                         <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg mb-2 text-sm">
                             <div className="flex justify-between items-center">
-                                <span><strong>Selected:</strong> {selectedCustomer.name} (ID: CUST-{String(selectedCustomer.id).padStart(10,'0')})</span>
+                                <span><strong>Selected:</strong> {selectedCustomer.name} (ID: CUST-{String(selectedCustomer.id).padStart(10, '0')})</span>
                                 <button type="button" onClick={clearCustomer} className="text-red-600 text-xs">Clear</button>
                             </div>
                         </div>
                     )}
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="flex items-center gap-2 md:col-span-2">
                             <select name="prefix" value={newCustomer.prefix} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border rounded disabled:bg-gray-100 w-1/4">
                                 {prefixOptions.map(p => <option key={p} value={p}>{p}</option>)}
                             </select>
-                            <input type="text" name="name" placeholder="Customer Name" value={newCustomer.name} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required className="p-2 border rounded disabled:bg-gray-100 w-3/4"/>
+                            <input type="text" name="name" placeholder="Customer Name" value={newCustomer.name} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required className="p-2 border rounded disabled:bg-gray-100 w-3/4" />
                         </div>
-                        <input type="tel" name="mobile" placeholder="10-digit Mobile" value={newCustomer.mobile} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required pattern="\d{10}" title="Must be 10 digits" className="p-2 border rounded disabled:bg-gray-100"/>
-                        <input type="date" name="dob" placeholder="DOB" value={newCustomer.dob} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border rounded disabled:bg-gray-100"/>
-                        <input type="number" name="age" placeholder="Age" value={newCustomer.age} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border rounded disabled:bg-gray-100"/>
+                        <input type="tel" name="mobile" placeholder="10-digit Mobile" value={newCustomer.mobile} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required pattern="\d{10}" title="Must be 10 digits" className="p-2 border rounded disabled:bg-gray-100" />
+                        <input type="date" name="dob" placeholder="DOB" value={newCustomer.dob} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border rounded disabled:bg-gray-100" />
+                        <input type="number" name="age" placeholder="Age" value={newCustomer.age} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border rounded disabled:bg-gray-100" />
                         <select name="gender" value={newCustomer.gender} onChange={handleCustomerChange} disabled={isGenderDisabled || selectedCustomer !== null} className="p-2 border rounded disabled:bg-gray-100">
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
                         </select>
+                        <div className="md:col-span-2">
+                            <label className="text-sm font-medium">Referred By Dr.</label>
+                            <input type="text" value={details.referred_by} onChange={e => setDetails({ ...details, referred_by: e.target.value })} className="w-full p-2 border rounded" placeholder="Doctor Name or 'Self'" />
+                        </div>
                     </div>
                 </fieldset>
-                
+
                 <fieldset className="border-2 border-gray-300 p-4 rounded-lg">
                     <legend className="px-2 font-semibold text-lg text-gray-700">Estimate Details</legend>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -296,7 +300,7 @@ const EstimateForm: React.FC = () => {
                         </select>
                     </div>
                 </fieldset>
-                
+
                 <fieldset className="border-2 border-gray-300 p-4 rounded-lg">
                     <legend className="px-2 font-semibold text-lg text-gray-700">Tests / Packages</legend>
                     {/* Item Headers */}
@@ -335,9 +339,9 @@ const EstimateForm: React.FC = () => {
                             );
                         })}
                     </div>
-                     <button type="button" onClick={addItem} disabled={!selectedListId} className="mt-4 px-3 py-1 bg-green-500 text-white rounded text-sm disabled:bg-gray-300">Add Item</button>
+                    <button type="button" onClick={addItem} disabled={!selectedListId} className="mt-4 px-3 py-1 bg-green-500 text-white rounded text-sm disabled:bg-gray-300">Add Item</button>
                 </fieldset>
-                
+
                 <fieldset className="border-2 border-gray-300 p-4 rounded-lg">
                     <legend className="px-2 font-semibold text-lg text-gray-700">Totals & Details</legend>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
@@ -345,20 +349,17 @@ const EstimateForm: React.FC = () => {
                             <input type="number" placeholder="Apply Disc to All (%)" value={applyDiscount} onChange={e => setApplyDiscount(e.target.value)} className="w-full p-2 border rounded" />
                             <button type="button" onClick={handleApplyDiscountToAll} className="p-2 bg-blue-500 text-white rounded"><i className="fa-solid fa-check"></i></button>
                         </div>
-                         <div className="md:col-span-2">
-                            <label className="text-sm font-medium">Referred By Dr.</label>
-                            <input type="text" value={details.referred_by} onChange={e => setDetails({...details, referred_by: e.target.value})} className="w-full p-2 border rounded"/>
-                        </div>
+
                         <div className="md:col-span-2">
                             <label className="text-sm font-medium">Notes</label>
-                            <textarea value={details.notes} onChange={e => setDetails({...details, notes: e.target.value})} rows={2} className="w-full p-2 border rounded"/>
+                            <textarea value={details.notes} onChange={e => setDetails({ ...details, notes: e.target.value })} rows={2} className="w-full p-2 border rounded" />
                         </div>
 
                         {/* Live Calculation */}
                         <div className="md:col-span-2 mt-4 p-4 bg-gray-50 rounded-lg text-right space-y-1 text-sm font-medium">
                             <div className="flex justify-between"><span>Total MRP:</span> <span className="font-mono">₹{calculations.totalMrp.toFixed(2)}</span></div>
                             <div className="flex justify-between text-red-600"><span>Total Discount:</span> <span className="font-mono">- ₹{calculations.totalDiscountAmount.toFixed(2)}</span></div>
-                            <hr/>
+                            <hr />
                             <div className="flex justify-between font-bold text-base"><span>Estimated Payable:</span> <span className="font-mono">₹{calculations.netPayable.toFixed(2)}</span></div>
                             {user?.role === 'CLIENT' && (
                                 <div className="pt-2 border-t mt-2">

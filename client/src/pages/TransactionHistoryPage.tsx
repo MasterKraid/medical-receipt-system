@@ -57,15 +57,15 @@ const TransactionHistoryPage: React.FC = () => {
         <div className="p-4 sm:p-8 max-w-4xl mx-auto">
             <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg">
                 <PageHeader title="Transaction History" />
-                
-                 {user && (
+
+                {user && (
                     <div className="bg-blue-50 p-4 rounded-lg mb-6 text-center border border-blue-200">
                         <p className="text-sm font-medium text-blue-700">Current Wallet Balance</p>
                         <p className={`text-3xl font-bold ${user.wallet_balance < 0 ? 'text-red-600' : 'text-blue-900'}`}>
                             ₹{user?.wallet_balance.toFixed(2)}
                         </p>
                     </div>
-                 )}
+                )}
 
                 {isLoading ? (
                     <p>Loading history...</p>
@@ -89,14 +89,17 @@ const TransactionHistoryPage: React.FC = () => {
                                                 </div>
                                                 <div className="text-right">
                                                     <p className={`font-bold text-lg ${tx.amount_deducted >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                                    {tx.amount_deducted >= 0 ? `- ₹${tx.amount_deducted.toFixed(2)}` : `+ ₹${(-tx.amount_deducted).toFixed(2)}`}
+                                                        {tx.amount_deducted >= 0 ? `- ₹${tx.amount_deducted.toFixed(2)}` : `+ ₹${(-tx.amount_deducted).toFixed(2)}`}
                                                     </p>
+                                                    {tx.balance_snapshot !== undefined && tx.balance_snapshot !== null && (
+                                                        <p className="text-xs font-semibold text-gray-500 mt-1">Balance: ₹{Number(tx.balance_snapshot).toFixed(2)}</p>
+                                                    )}
                                                     {tx.type === 'RECEIPT_DEDUCTION' && typeof tx.total_profit !== 'undefined' && (
-                                                         <p className="text-xs font-semibold text-green-700">Your Profit: ₹{tx.total_profit.toFixed(2)}</p>
+                                                        <p className="text-xs font-semibold text-gray-500">T-MRP: ₹{(tx.amount_deducted + tx.total_profit).toFixed(2)}</p>
                                                     )}
                                                 </div>
                                             </div>
-                                             {tx.items && tx.items.length > 0 && (
+                                            {tx.items && tx.items.length > 0 && (
                                                 <details className="text-sm mt-2">
                                                     <summary className="cursor-pointer text-blue-600 font-medium">View Breakdown</summary>
                                                     <div className="mt-2 overflow-x-auto">
@@ -106,18 +109,15 @@ const TransactionHistoryPage: React.FC = () => {
                                                                     <th className="p-2 text-left font-medium text-gray-600">Test / Package</th>
                                                                     <th className="p-2 text-right font-medium text-gray-600">MRP</th>
                                                                     <th className="p-2 text-right font-medium text-gray-600">B2B</th>
-                                                                    <th className="p-2 text-right font-medium text-gray-600">Profit</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody className="divide-y divide-gray-200">
-                                                                {tx.items.map((item, index) => {
-                                                                    const profit = item.mrp - item.b2b_price;
+                                                                {tx.items && Array.isArray(tx.items) && tx.items.map((item, index) => {
                                                                     return (
                                                                         <tr key={index}>
                                                                             <td className="p-2">{item.name}</td>
                                                                             <td className="p-2 text-right font-mono">₹{item.mrp.toFixed(2)}</td>
                                                                             <td className="p-2 text-right font-mono">₹{item.b2b_price.toFixed(2)}</td>
-                                                                            <td className={`p-2 text-right font-mono font-semibold ${profit >= 0 ? 'text-green-700' : 'text-red-600'}`}>₹{profit.toFixed(2)}</td>
                                                                         </tr>
                                                                     );
                                                                 })}

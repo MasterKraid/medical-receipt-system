@@ -10,7 +10,8 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>; // CHANGED: Login no longer returns anything
   logout: () => void;
   updateUser: (updatedUser: User) => void;
-  clearAuthError: () => void; // NEW: A function to clear the error message
+  refreshUser: () => Promise<void>; // NEW
+  clearAuthError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,7 +20,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [branch, setBranch] = useState<Branch | null>(null);
   const [loading, setLoading] = useState(true);
-  const [authError, setAuthError] = useState<string | null>(null); // NEW: The error state variable
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const refreshUser = async () => {
+    try {
+      const data = await apiService.getCurrentUser();
+      if (data && data.user) {
+        setUser(data.user);
+        setBranch(data.branch);
+        sessionStorage.setItem('user', JSON.stringify(data.user));
+        sessionStorage.setItem('branch', JSON.stringify(data.branch));
+      }
+    } catch (e) {
+      console.warn("Failed to refresh user session", e);
+    }
+  };
 
   useEffect(() => {
     // Check for a saved user session on initial load
@@ -27,9 +42,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const savedBranch = sessionStorage.getItem('branch');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
-      if(savedBranch) setBranch(JSON.parse(savedBranch));
+      if (savedBranch) setBranch(JSON.parse(savedBranch));
+
+      // CRITICAL: Fetch fresh data from server to ensure wallet balance is live
+      refreshUser().finally(() => setLoading(false));
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   const clearAuthError = () => setAuthError(null);
@@ -38,16 +57,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setLoading(true);
     setAuthError(null); // Clear any previous errors on a new attempt
     try {
-        const { user: loggedInUser, branch: userBranch } = await apiService.login(username, password);
-        setUser(loggedInUser);
-        setBranch(userBranch);
-        sessionStorage.setItem('user', JSON.stringify(loggedInUser));
-        sessionStorage.setItem('branch', JSON.stringify(userBranch));
+      const { user: loggedInUser, branch: userBranch } = await apiService.login(username, password);
+      setUser(loggedInUser);
+      setBranch(userBranch);
+      sessionStorage.setItem('user', JSON.stringify(loggedInUser));
+      sessionStorage.setItem('branch', JSON.stringify(userBranch));
     } catch (error) {
-        // On failure, set the error state directly in the context.
-        setAuthError((error as Error).message);
+      // On failure, set the error state directly in the context.
+      setAuthError((error as Error).message);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -64,7 +83,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     sessionStorage.setItem('user', JSON.stringify(updatedUser));
   };
 
-  const value = { user, branch, loading, authError, login, logout, updateUser, clearAuthError };
+  const value = { user, branch, loading, authError, login, logout, updateUser, refreshUser, clearAuthError };
 
   return (
     <AuthContext.Provider value={value}>

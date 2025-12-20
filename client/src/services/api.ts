@@ -2,55 +2,59 @@ import { User, Branch, PackageList, Package, Lab, Customer, Receipt, Estimate, D
 
 // Helper for all API calls to the backend
 async function apiFetch(url: string, options: RequestInit = {}) {
-    // Default headers, can be overridden
-    options.headers = {
-        'Content-Type': 'application/json',
-        ...options.headers,
-    };
+  // Default headers, can be overridden
+  options.headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
 
-    const response = await fetch(`/api${url}`, options); // Prepends /api to use the Vite proxy
+  const response = await fetch(`/api${url}`, options); // Prepends /api to use the Vite proxy
 
-    if (!response.ok) {
-        let errorMessage = `HTTP error! status: ${response.status}`;
-        try {
-            // Try to parse a JSON error message from the backend
-            const errorBody = await response.json();
-            errorMessage = errorBody.message || errorMessage;
-        } catch (e) {
-            // Response was not JSON or failed to parse
-        }
-        throw new Error(errorMessage);
+  if (!response.ok) {
+    let errorMessage = `HTTP error! status: ${response.status}`;
+    try {
+      // Try to parse a JSON error message from the backend
+      const errorBody = await response.json();
+      errorMessage = errorBody.message || errorMessage;
+    } catch (e) {
+      // Response was not JSON or failed to parse
     }
-    
-    // Handle responses that have no body (e.g., 204 No Content for DELETE/PUT)
-    if (response.status === 204) {
-      return null;
-    }
-    
-    return response.json();
+    throw new Error(errorMessage);
+  }
+
+  // Handle responses that have no body (e.g., 204 No Content for DELETE/PUT)
+  if (response.status === 204) {
+    return null;
+  }
+
+  return response.json();
 }
 
 export const apiService = {
   // --- Auth ---
   login: (username: string, password: string): Promise<{ user: User; branch: Branch }> => {
     return apiFetch('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ username, password }),
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
     });
+  },
+
+  getCurrentUser: (): Promise<{ user: User; branch: Branch }> => {
+    return apiFetch('/auth/me');
   },
 
   // --- Document Creation ---
   createReceipt: (payload: any, user: User, branch: Branch): Promise<{ newReceipt: Receipt; updatedUser: User | null }> => {
     return apiFetch('/receipts', {
-        method: 'POST',
-        body: JSON.stringify({ payload, context: { user, branch } }),
+      method: 'POST',
+      body: JSON.stringify({ payload, context: { user, branch } }),
     });
   },
 
   createEstimate: (payload: any, user: User, branch: Branch): Promise<Estimate> => {
-     return apiFetch('/estimates', {
-        method: 'POST',
-        body: JSON.stringify({ payload, context: { user, branch } }),
+    return apiFetch('/estimates', {
+      method: 'POST',
+      body: JSON.stringify({ payload, context: { user, branch } }),
     });
   },
 
@@ -74,7 +78,7 @@ export const apiService = {
   getCustomerById: (id: number): Promise<Customer> => apiFetch(`/customers/${id}`),
   getReceipts: (): Promise<Document[]> => apiFetch('/admin/receipts'),
   getEstimates: (): Promise<Document[]> => apiFetch('/admin/estimates'),
-  
+
   // --- Admin: User Management ---
   createUser: (userData: any): Promise<User> => apiFetch('/users', { method: 'POST', body: JSON.stringify(userData) }),
   updateUser: (userData: any): Promise<void> => apiFetch(`/users/${userData.id}`, { method: 'PUT', body: JSON.stringify(userData) }),
@@ -95,11 +99,11 @@ export const apiService = {
   uploadPackages: (listId: number, packages: any[]): Promise<{ inserted: number; updated: number }> => apiFetch(`/package-lists/${listId}/upload`, { method: 'POST', body: JSON.stringify({ packages }) }),
   addPackageToList: (pkgData: Omit<Package, 'id'>): Promise<Package> => apiFetch('/packages', { method: 'POST', body: JSON.stringify(pkgData) }),
   updatePackageInList: (pkgData: Package): Promise<void> => apiFetch(`/packages/${pkgData.id}`, { method: 'PUT', body: JSON.stringify(pkgData) }),
-  
+
   // --- Admin: Wallet Management ---
   updateWallet: (clientId: number, action: 'add' | 'deduct' | 'settle', amount?: number, notes?: string): Promise<void> => apiFetch('/wallets/update', { method: 'PUT', body: JSON.stringify({ clientId, action, amount, notes }) }),
   updateWalletPermissions: (clientId: number, allow: boolean, until?: string): Promise<void> => apiFetch('/wallets/permissions', { method: 'PUT', body: JSON.stringify({ clientId, allow, until }) }),
-  
+
   // --- Admin: Customer Management ---
   updateCustomer: (customerData: Customer): Promise<void> => apiFetch(`/customers/${customerData.id}`, { method: 'PUT', body: JSON.stringify(customerData) }),
 };

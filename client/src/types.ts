@@ -65,6 +65,7 @@ export interface Transaction {
     date: string;
     type: 'RECEIPT_DEDUCTION' | 'ADMIN_CREDIT' | 'ADMIN_DEBIT' | 'SETTLEMENT';
     amount_deducted: number;
+    balance_snapshot?: number;
     notes?: string;
     receipt_id?: number;
     items?: TransactionItem[];

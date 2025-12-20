@@ -16,6 +16,19 @@ export const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
+// MIGRATION: Check if 'transactions' table has 'balance_snapshot'
+try {
+    const tableInfo = db.prepare("PRAGMA table_info(transactions)").all() as any[];
+    const hasBalanceSnapshot = tableInfo.some(col => col.name === 'balance_snapshot');
+
+    if (tableInfo.length > 0 && !hasBalanceSnapshot) {
+        console.log("Migrating database: Adding balance_snapshot column to transactions...");
+        db.prepare("ALTER TABLE transactions ADD COLUMN balance_snapshot REAL").run();
+    }
+} catch (error) {
+    console.error("Migration check failed:", error);
+}
+
 console.log('Database connected at', dbPath);
 
 const schema = `
@@ -133,6 +146,7 @@ const schema = `
         date TEXT NOT NULL,
         type TEXT NOT NULL CHECK(type IN ('RECEIPT_DEDUCTION', 'ADMIN_CREDIT', 'ADMIN_DEBIT', 'SETTLEMENT')),
         amount_deducted REAL NOT NULL,
+        balance_snapshot REAL,
         notes TEXT,
         receipt_id INTEGER,
         FOREIGN KEY (user_id) REFERENCES users(id)
@@ -168,7 +182,7 @@ export function initDb() {
         }
 
         console.log('Seeding database...');
-        
+
         // Branches
         const mainBranchId = db.prepare('INSERT INTO branches (name, address, phone) VALUES (?, ?, ?)').run('Main Branch', '123 Test Street, Kolkata', '999-888-7777').lastInsertRowid;
 
@@ -181,7 +195,7 @@ export function initDb() {
         const adminId = db.prepare('INSERT INTO users (username, password_hash, branchId, role) VALUES (?, ?, ?, ?)').run('admin', adminPass, mainBranchId, 'ADMIN').lastInsertRowid;
         const testUserId = db.prepare('INSERT INTO users (username, password_hash, branchId, role) VALUES (?, ?, ?, ?)').run('testuser', testPass, mainBranchId, 'GENERAL_EMPLOYEE').lastInsertRowid;
         const clientId = db.prepare('INSERT INTO users (username, alias, password_hash, branchId, role, wallet_balance) VALUES (?, ?, ?, ?, ?, ?)').run('client@b2b.com', 'B2B Corporate Client', clientPass, mainBranchId, 'CLIENT', 5000).lastInsertRowid;
-        
+
         // Package Lists
         const retailListId = db.prepare('INSERT INTO package_lists (name) VALUES (?)').run('Retail Rates (Walk-in)').lastInsertRowid;
         const corpListId = db.prepare('INSERT INTO package_lists (name) VALUES (?)').run('Corporate Rates (B2B)').lastInsertRowid;

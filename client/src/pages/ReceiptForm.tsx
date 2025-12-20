@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo} from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
@@ -19,16 +19,16 @@ const prefixOptions = ['Mr.', 'Mrs.', 'Miss.', 'Baby.', 'Master.', 'Dr.', 'B/O',
 const ReceiptForm: React.FC = () => {
     const { user, branch, updateUser } = useAuth();
     const navigate = useNavigate();
-    
+
     // Data states
     const [labs, setLabs] = useState<Lab[]>([]);
     const [packageLists, setPackageLists] = useState<PackageList[]>([]);
     const [packages, setPackages] = useState<Package[]>([]);
-    
+
     // Form states
     const [selectedLabId, setSelectedLabId] = useState('');
     const [selectedListId, setSelectedListId] = useState('');
-    
+
     const [customerMode, setCustomerMode] = useState<'new' | 'search'>('new');
     const [customerSearch, setCustomerSearch] = useState('');
     const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
@@ -38,7 +38,7 @@ const ReceiptForm: React.FC = () => {
     const [isGenderDisabled, setIsGenderDisabled] = useState(true);
 
     const [items, setItems] = useState<ItemRow[]>([{ id: Date.now(), name: '', mrp: 0, b2b_price: 0, discount: 0, isFromDb: false }]);
-    
+
     const [applyDiscount, setApplyDiscount] = useState('');
 
     const [details, setDetails] = useState({
@@ -85,27 +85,27 @@ const ReceiptForm: React.FC = () => {
             setCustomerSuggestions([]);
         }
     }, [customerSearch]);
-    
+
     const handleSelectCustomer = (customer: Customer) => {
         setSelectedCustomer(customer);
         const prefix = customer.prefix || 'Mr.';
         const gender = customer.gender || 'Male';
-        setNewCustomer({ 
+        setNewCustomer({
             prefix,
-            name: customer.name, 
-            mobile: customer.mobile || '', 
-            dob: customer.dob || '', 
-            age: customer.age?.toString() || '', 
+            name: customer.name,
+            mobile: customer.mobile || '',
+            dob: customer.dob || '',
+            age: customer.age?.toString() || '',
             gender
         });
-        
+
         const isLocked = ['Mr.', 'Master.', 'B/O', 'S/O', 'Mrs.', 'Miss.', 'Ms.'].includes(prefix);
         setIsGenderDisabled(isLocked);
 
         setCustomerSearch('');
         setCustomerSuggestions([]);
     };
-    
+
     const clearCustomer = () => {
         setSelectedCustomer(null);
         setNewCustomer({ prefix: 'Mr.', name: '', mobile: '', dob: '', age: '', gender: 'Male' });
@@ -155,7 +155,7 @@ const ReceiptForm: React.FC = () => {
     const handleItemChange = (id: number, field: keyof ItemRow, value: string | number) => {
         setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
     };
-    
+
     const handlePackageSelect = (id: number, name: string) => {
         const pkg = packages.find(p => p.name === name);
         if (pkg) {
@@ -170,12 +170,20 @@ const ReceiptForm: React.FC = () => {
 
     const handleApplyDiscountToAll = () => {
         const disc = parseFloat(applyDiscount);
-        if(!isNaN(disc) && disc >= 0 && disc <= 100) {
+        if (!isNaN(disc) && disc >= 0 && disc <= 100) {
             setItems(items.map(item => ({ ...item, discount: disc })));
             setApplyDiscount('');
         }
     };
-    
+
+    // Add safety check for age
+    const validateAge = (age: string) => {
+        const num = parseInt(age);
+        return !isNaN(num) && num >= 0 && num <= 100;
+    }
+
+
+
     const calculations = useMemo(() => {
         let totalMrp = 0;
         let totalDiscountAmount = 0;
@@ -192,7 +200,10 @@ const ReceiptForm: React.FC = () => {
         });
 
         const subtotal = totalMrp - totalDiscountAmount;
-        const netPayable = subtotal; // No overall discount anymore
+
+        // ROUNDING LOGIC: < 0.50 -> floor, >= 0.50 -> ceil
+        let netPayable = Math.round(subtotal);
+
         const received = parseFloat(details.amount_received) || 0;
         const dueOverride = parseFloat(details.due_amount_manual);
         const amountDue = !isNaN(dueOverride) ? dueOverride : Math.max(0, netPayable - received);
@@ -208,12 +219,34 @@ const ReceiptForm: React.FC = () => {
             alert("User or branch information is missing. Please log in again.");
             return;
         }
-        
+
+        if (newCustomer.age && !validateAge(newCustomer.age)) {
+            alert("Age must be between 0 and 100.");
+            return;
+        }
+
+        if (calculations.amountDue < 0) {
+            alert("Received amount cannot be more than the final amount (unless allowing credit, which is not standard here).");
+            return;
+        }
+
+        // Filter empty rows
+        const validItems = items.filter(i => i.name && i.name.trim() !== '');
+        if (validItems.length === 0) {
+            alert("Please add at least one test/package.");
+            return;
+        }
+
+
+
         const payload = {
             customer_data: { id: selectedCustomer?.id, ...newCustomer },
             lab_id: parseInt(selectedLabId),
             package_list_id: parseInt(selectedListId),
-            items: items.map(({ id, isFromDb, ...rest }) => rest), // remove frontend-only IDs
+            items: validItems.map(({ id, isFromDb, ...rest }) => ({
+                ...rest,
+                discount: isNaN(rest.discount) ? 0 : rest.discount // Fix 2.5: Ensure discount is never NaN
+            })),
             ...details,
             referred_by: details.referred_by || 'Self',
             amount_final: calculations.netPayable,
@@ -273,28 +306,32 @@ const ReceiptForm: React.FC = () => {
                     {selectedCustomer && (
                         <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg mb-2 text-sm">
                             <div className="flex justify-between items-center">
-                                <span><strong>Selected:</strong> {selectedCustomer.name} (ID: CUST-{String(selectedCustomer.id).padStart(10,'0')})</span>
+                                <span><strong>Selected:</strong> {selectedCustomer.name} (ID: CUST-{String(selectedCustomer.id).padStart(10, '0')})</span>
                                 <button type="button" onClick={clearCustomer} className="text-red-600 text-xs">Clear</button>
                             </div>
                         </div>
                     )}
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="flex items-center gap-2 md:col-span-2">
                             <select name="prefix" value={newCustomer.prefix} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border rounded disabled:bg-gray-100 w-1/4">
                                 {prefixOptions.map(p => <option key={p} value={p}>{p}</option>)}
                             </select>
-                            <input type="text" name="name" placeholder="Customer Name" value={newCustomer.name} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required className="p-2 border rounded disabled:bg-gray-100 w-3/4"/>
+                            <input type="text" name="name" placeholder="Customer Name" value={newCustomer.name} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required className="p-2 border rounded disabled:bg-gray-100 w-3/4" />
                         </div>
-                        <input type="tel" name="mobile" placeholder="10-digit Mobile" value={newCustomer.mobile} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required pattern="\d{10}" title="Must be 10 digits" className="p-2 border rounded disabled:bg-gray-100"/>
-                        <input type="date" name="dob" placeholder="DOB" value={newCustomer.dob} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border rounded disabled:bg-gray-100"/>
-                        <input type="number" name="age" placeholder="Age" value={newCustomer.age} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border rounded disabled:bg-gray-100"/>
+                        <input type="tel" name="mobile" placeholder="10-digit Mobile (Optional)" value={newCustomer.mobile} onChange={handleCustomerChange} disabled={selectedCustomer !== null} pattern="\d{10}" title="Must be 10 digits" className="p-2 border rounded disabled:bg-gray-100" />
+                        <input type="date" name="dob" placeholder="DOB" value={newCustomer.dob} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border rounded disabled:bg-gray-100" />
+                        <input type="number" name="age" placeholder="Age" max="100" value={newCustomer.age} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border rounded disabled:bg-gray-100" />
                         <select name="gender" value={newCustomer.gender} onChange={handleCustomerChange} disabled={isGenderDisabled || selectedCustomer !== null} className="p-2 border rounded disabled:bg-gray-100">
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
                         </select>
+                        <div className="md:col-span-2">
+                            <label className="text-sm font-medium">Referred By Dr.</label>
+                            <input type="text" value={details.referred_by} onChange={e => setDetails({ ...details, referred_by: e.target.value })} className="w-full p-2 border rounded" placeholder="Doctor Name or 'Self'" />
+                        </div>
                     </div>
                 </fieldset>
-                
+
                 <fieldset className="border-2 border-gray-300 p-4 rounded-lg">
                     <legend className="px-2 font-semibold text-lg text-gray-700">Receipt Details</legend>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -308,7 +345,7 @@ const ReceiptForm: React.FC = () => {
                         </select>
                     </div>
                 </fieldset>
-                
+
                 <fieldset className="border-2 border-gray-300 p-4 rounded-lg">
                     <legend className="px-2 font-semibold text-lg text-gray-700">Tests / Packages</legend>
                     {/* Item Headers */}
@@ -329,7 +366,7 @@ const ReceiptForm: React.FC = () => {
                             const dropdownOptions = packages
                                 .filter(p => !otherSelectedNames.has(p.name))
                                 .map(p => ({ value: p.name, label: p.name }));
-                            
+
                             return (
                                 <div key={item.id} className="grid grid-cols-12 gap-2 items-center border-b pb-2">
                                     <div className={`${user?.role === 'CLIENT' ? 'col-span-12 md:col-span-4' : 'col-span-12 md:col-span-5'}`}>
@@ -347,9 +384,9 @@ const ReceiptForm: React.FC = () => {
                             );
                         })}
                     </div>
-                     <button type="button" onClick={addItem} disabled={!selectedListId} className="mt-4 px-3 py-1 bg-green-500 text-white rounded text-sm disabled:bg-gray-300">Add Item</button>
+                    <button type="button" onClick={addItem} disabled={!selectedListId} className="mt-4 px-3 py-1 bg-green-500 text-white rounded text-sm disabled:bg-gray-300">Add Item</button>
                 </fieldset>
-                
+
                 <fieldset className="border-2 border-gray-300 p-4 rounded-lg">
                     <legend className="px-2 font-semibold text-lg text-gray-700">Payment & Details</legend>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
@@ -357,38 +394,35 @@ const ReceiptForm: React.FC = () => {
                             <input type="number" placeholder="Apply Disc to All (%)" value={applyDiscount} onChange={e => setApplyDiscount(e.target.value)} className="w-full p-2 border rounded" />
                             <button type="button" onClick={handleApplyDiscountToAll} className="p-2 bg-blue-500 text-white rounded"><i className="fa-solid fa-check"></i></button>
                         </div>
-                         <div>
+                        <div>
                             <label className="text-sm font-medium">Received Amount</label>
-                            <input type="number" value={details.amount_received} onChange={e => setDetails({...details, amount_received: e.target.value})} required className="w-full p-2 border rounded"/>
+                            <input type="number" value={details.amount_received} onChange={e => setDetails({ ...details, amount_received: e.target.value })} required className="w-full p-2 border rounded" />
                         </div>
                         <div>
                             <label className="text-sm font-medium">Due Amount Override <span className="text-xs">(Optional)</span></label>
-                            <input type="number" value={details.due_amount_manual} onChange={e => setDetails({...details, due_amount_manual: e.target.value})} placeholder="Auto-calculated" className="w-full p-2 border rounded"/>
-                        </div>
-                         <div>
-                            <label className="text-sm font-medium">No. of Tests <span className="text-xs">(Optional)</span></label>
-                            <input type="number" value={details.num_tests} onChange={e => setDetails({...details, num_tests: e.target.value})} placeholder={`Auto: ${items.length}`} className="w-full p-2 border rounded"/>
-                        </div>
-                         <div>
-                            <label className="text-sm font-medium">Referred By Dr.</label>
-                            <input type="text" value={details.referred_by} onChange={e => setDetails({...details, referred_by: e.target.value})} className="w-full p-2 border rounded"/>
+                            <input type="number" value={details.due_amount_manual} onChange={e => setDetails({ ...details, due_amount_manual: e.target.value })} placeholder="Auto-calculated" className="w-full p-2 border rounded" />
                         </div>
                         <div>
+                            <label className="text-sm font-medium">No. of Tests <span className="text-xs">(Optional)</span></label>
+                            <input type="number" value={details.num_tests} onChange={e => setDetails({ ...details, num_tests: e.target.value })} placeholder={`Auto: ${items.length}`} className="w-full p-2 border rounded" />
+                        </div>
+
+                        <div>
                             <label className="text-sm font-medium">Payment Method</label>
-                            <select value={details.payment_method} onChange={e => setDetails({...details, payment_method: e.target.value})} className="w-full p-2 border rounded">
+                            <select value={details.payment_method} onChange={e => setDetails({ ...details, payment_method: e.target.value })} className="w-full p-2 border rounded">
                                 <option>Cash</option><option>Card</option><option>UPI</option><option>Mixed</option><option>Other</option>
                             </select>
                         </div>
                         <div className="md:col-span-2">
                             <label className="text-sm font-medium">Notes</label>
-                            <textarea value={details.notes} onChange={e => setDetails({...details, notes: e.target.value})} rows={2} className="w-full p-2 border rounded"/>
+                            <textarea value={details.notes} onChange={e => setDetails({ ...details, notes: e.target.value })} rows={2} className="w-full p-2 border rounded" />
                         </div>
 
                         {/* Live Calculation */}
                         <div className="md:col-span-2 mt-4 p-4 bg-gray-50 rounded-lg text-right space-y-1 text-sm font-medium">
                             <div className="flex justify-between"><span>Total MRP:</span> <span className="font-mono">₹{calculations.totalMrp.toFixed(2)}</span></div>
                             <div className="flex justify-between text-red-600"><span>Total Discount:</span> <span className="font-mono">- ₹{calculations.totalDiscountAmount.toFixed(2)}</span></div>
-                            <hr/>
+                            <hr />
                             <div className="flex justify-between font-bold text-base"><span>Net Payable:</span> <span className="font-mono">₹{calculations.netPayable.toFixed(2)}</span></div>
                             <div className="flex justify-between"><span>Received:</span> <span className="font-mono">₹{parseFloat(details.amount_received || '0').toFixed(2)}</span></div>
                             <div className="flex justify-between font-bold text-base text-red-700"><span>Amount Due:</span> <span className="font-mono">₹{calculations.amountDue.toFixed(2)}</span></div>
