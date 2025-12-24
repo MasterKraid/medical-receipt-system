@@ -91,11 +91,11 @@ const TransactionHistoryPage: React.FC = () => {
                                                     <p className={`font-bold text-lg ${tx.amount_deducted >= 0 ? 'text-red-600' : 'text-green-600'}`}>
                                                         {tx.amount_deducted >= 0 ? `- ₹${tx.amount_deducted.toFixed(2)}` : `+ ₹${(-tx.amount_deducted).toFixed(2)}`}
                                                     </p>
+                                                    {tx.type === 'RECEIPT_DEDUCTION' && typeof tx.total_profit !== 'undefined' && (
+                                                        <p className="text-xs font-semibold text-green-600">MRP: ₹{(tx.amount_deducted + tx.total_profit).toFixed(2)}</p>
+                                                    )}
                                                     {tx.balance_snapshot !== undefined && tx.balance_snapshot !== null && (
                                                         <p className="text-xs font-semibold text-gray-500 mt-1">Balance: ₹{Number(tx.balance_snapshot).toFixed(2)}</p>
-                                                    )}
-                                                    {tx.type === 'RECEIPT_DEDUCTION' && typeof tx.total_profit !== 'undefined' && (
-                                                        <p className="text-xs font-semibold text-gray-500">T-MRP: ₹{(tx.amount_deducted + tx.total_profit).toFixed(2)}</p>
                                                     )}
                                                 </div>
                                             </div>
