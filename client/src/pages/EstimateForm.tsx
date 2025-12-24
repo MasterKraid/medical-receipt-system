@@ -45,6 +45,7 @@ const EstimateForm: React.FC = () => {
         referred_by: '',
         notes: '',
     });
+    const [showPreview, setShowPreview] = useState(false);
 
     // Fetch initial data
     useEffect(() => {
@@ -154,14 +155,28 @@ const EstimateForm: React.FC = () => {
 
     const handlePackageSelect = (id: number, name: string) => {
         const pkg = packages.find(p => p.name === name);
-        if (pkg) {
-            setItems(items.map(item => item.id === id ? { ...item, name: pkg.name, mrp: pkg.mrp, b2b_price: pkg.b2b_price, isFromDb: true } : item));
-        } else {
-            setItems(items.map(item => item.id === id ? { ...item, name, isFromDb: false } : item));
-        }
+
+        setItems(prevItems => {
+            const updated = prevItems.map(item =>
+                item.id === id ? {
+                    ...item,
+                    name: pkg ? pkg.name : name,
+                    mrp: pkg ? pkg.mrp : item.mrp,
+                    b2b_price: pkg ? pkg.b2b_price : item.b2b_price,
+                    isFromDb: !!pkg
+                } : item
+            );
+
+            // Auto-add row if this is the last row and name is selected
+            const selectedItemIndex = updated.findIndex(i => i.id === id);
+            if (selectedItemIndex === updated.length - 1 && name.trim() !== '') {
+                return [...updated, { id: Date.now() + 1, name: '', mrp: 0, b2b_price: 0, discount: 0, isFromDb: false }];
+            }
+            return updated;
+        });
     };
 
-    const addItem = () => setItems([...items, { id: Date.now(), name: '', mrp: 0, b2b_price: 0, discount: 0, isFromDb: false }]);
+    const addItem = () => setItems(prev => [...prev, { id: Date.now(), name: '', mrp: 0, b2b_price: 0, discount: 0, isFromDb: false }]);
     const removeItem = (id: number) => items.length > 1 && setItems(items.filter(item => item.id !== id));
 
     const handleApplyDiscountToAll = () => {
@@ -202,24 +217,131 @@ const EstimateForm: React.FC = () => {
             return;
         }
 
+        setShowPreview(true);
+    };
+
+    const handleConfirmSave = async () => {
+        if (!user || !branch) return;
+
+        const validItems = items.filter(i => i.name && i.name.trim() !== '');
         const payload = {
             customer_data: { id: selectedCustomer?.id, ...newCustomer },
             lab_id: parseInt(selectedLabId),
             package_list_id: parseInt(selectedListId),
-            items: items.map(({ id, isFromDb, ...rest }) => rest),
+            items: validItems.map(({ id, isFromDb, ...rest }) => rest),
             ...details,
             referred_by: details.referred_by || 'Self',
             amount_after_discount: calculations.netPayable,
         };
 
         try {
-            // Fix: Call the correct API method 'createEstimate' and pass user/branch context.
             const newEstimate = await apiService.createEstimate(payload, user, branch);
             navigate(`/estimate/${newEstimate.id}`);
         } catch (error) {
             alert(`Failed to create estimate: ${error}`);
         }
     };
+
+    const handleDiscard = () => {
+        if (window.confirm("Are you sure you want to discard this estimate? All entered data will be lost.")) {
+            // Reset everything
+            setItems([{ id: Date.now(), name: '', mrp: 0, b2b_price: 0, discount: 0, isFromDb: false }]);
+            setNewCustomer({ prefix: 'Mr.', name: '', mobile: '', dob: '', age: '', gender: 'Male' });
+            setSelectedCustomer(null);
+            setCustomerSearch('');
+            setCustomerMode('new');
+            setSelectedLabId('');
+            setSelectedListId('');
+            setDetails({
+                referred_by: '',
+                notes: '',
+            });
+            setShowPreview(false);
+        }
+    };
+
+    if (showPreview) {
+        return (
+            <div className="p-4 sm:p-8 max-w-4xl mx-auto">
+                <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg space-y-6">
+                    <header className="border-b pb-4">
+                        <h1 className="text-3xl font-bold text-gray-800">Preview Estimate</h1>
+                        <p className="text-sm text-gray-500">Please review the details before saving.</p>
+                    </header>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Customer Info */}
+                        <section className="space-y-2">
+                            <h3 className="font-bold text-lg text-blue-800 border-b">Customer Information</h3>
+                            <p><strong>Name:</strong> {newCustomer.prefix} {newCustomer.name}</p>
+                            <p><strong>Mobile:</strong> {newCustomer.mobile || 'N/A'}</p>
+                            <p><strong>Age/Gender:</strong> {newCustomer.age || 'N/A'} / {newCustomer.gender}</p>
+                            <p><strong>Referred By:</strong> {details.referred_by || 'Self'}</p>
+                        </section>
+
+                        {/* Lab Info */}
+                        <section className="space-y-2">
+                            <h3 className="font-bold text-lg text-blue-800 border-b">Estimate Details</h3>
+                            <p><strong>Lab:</strong> {labs.find(l => l.id === parseInt(selectedLabId))?.name}</p>
+                            <p><strong>Rate List:</strong> {packageLists.find(p => p.id === parseInt(selectedListId))?.name}</p>
+                        </section>
+                    </div>
+
+                    {/* Items Table */}
+                    <section className="space-y-2">
+                        <h3 className="font-bold text-lg text-blue-800 border-b">Tests / Packages</h3>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full text-sm">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="p-2 text-left">Test Name</th>
+                                        <th className="p-2 text-right">MRP</th>
+                                        <th className="p-2 text-right">Disc %</th>
+                                        <th className="p-2 text-right">Net</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {items.filter(i => i.name).map((item, idx) => (
+                                        <tr key={idx}>
+                                            <td className="p-2">{item.name}</td>
+                                            <td className="p-2 text-right">₹{item.mrp.toFixed(2)}</td>
+                                            <td className="p-2 text-right">{item.discount}%</td>
+                                            <td className="p-2 text-right">₹{(item.mrp * (1 - item.discount / 100)).toFixed(2)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    {/* Totals */}
+                    <section className="bg-gray-50 p-4 rounded-lg space-y-2">
+                        <div className="flex justify-between text-sm"><span>Total MRP:</span> <span>₹{calculations.totalMrp.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-sm text-red-600"><span>Total Discount:</span> <span>- ₹{calculations.totalDiscountAmount.toFixed(2)}</span></div>
+                        <div className="flex justify-between font-bold text-lg border-t pt-2"><span>Estimated Payable:</span> <span>₹{calculations.netPayable.toFixed(2)}</span></div>
+                    </section>
+
+                    {details.notes && (
+                        <div className="text-sm p-3 bg-yellow-50 rounded border border-yellow-200">
+                            <strong>Notes:</strong> {details.notes}
+                        </div>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row gap-4 pt-6 mt-6 border-t">
+                        <button type="button" onClick={handleDiscard} className="flex-1 py-3 px-4 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2">
+                            <i className="fa-solid fa-trash-can"></i> Discard
+                        </button>
+                        <button type="button" onClick={() => setShowPreview(false)} className="flex-1 py-3 px-4 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-600 hover:text-white transition-all flex items-center justify-center gap-2">
+                            <i className="fa-solid fa-pen-to-square"></i> Edit
+                        </button>
+                        <button type="button" onClick={handleConfirmSave} className="flex-[2] py-3 px-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-100 transform active:scale-95 transition-all flex items-center justify-center gap-2">
+                            <i className="fa-solid fa-check-double"></i> Save & Confirm
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-4 sm:p-8 max-w-5xl mx-auto">
@@ -370,7 +492,7 @@ const EstimateForm: React.FC = () => {
                     </div>
                 </fieldset>
 
-                <button type="submit" className="w-full py-3 bg-blue-600 text-white font-bold text-lg rounded-lg hover:bg-blue-700 transition">Generate Estimate</button>
+                <button type="submit" className="w-full py-3 bg-blue-600 text-white font-bold text-lg rounded-lg hover:bg-blue-700 transition">Preview</button>
             </form>
         </div>
     );
