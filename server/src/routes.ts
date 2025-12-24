@@ -257,11 +257,28 @@ router.get('/transactions', isAuthenticated, (req, res) => {
 router.get('/users', isAdmin, (req, res) => res.json(db.prepare('SELECT id, username, alias, branchId, role FROM users').all()));
 router.get('/branches', isAdmin, (req, res) => res.json(db.prepare('SELECT * FROM branches').all()));
 router.get('/labs', isAuthenticated, (req, res) => {
-    const labs = db.prepare('SELECT * FROM labs').all() as Lab[];
-    labs.forEach(lab => {
-        lab.assigned_list_ids = db.prepare('SELECT package_list_id from lab_package_lists WHERE lab_id = ?').all(lab.id).map((r: any) => r.package_list_id);
-    });
-    res.json(labs);
+    const user = (req.session as any).user as User;
+    let labs: Lab[];
+    try {
+        if (user.role === 'ADMIN') {
+            labs = db.prepare('SELECT * FROM labs').all() as Lab[];
+        } else {
+            labs = db.prepare(`
+                SELECT DISTINCT l.* 
+                FROM labs l 
+                JOIN lab_package_lists lpl ON l.id = lpl.lab_id 
+                JOIN user_package_list_access upla ON lpl.package_list_id = upla.package_list_id 
+                WHERE upla.user_id = ?
+            `).all(user.id) as Lab[];
+        }
+
+        labs.forEach(lab => {
+            lab.assigned_list_ids = db.prepare('SELECT package_list_id from lab_package_lists WHERE lab_id = ?').all(lab.id).map((r: any) => r.package_list_id);
+        });
+        res.json(labs);
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
 });
 router.get('/package-lists', isAdmin, (req, res) => res.json(db.prepare('SELECT p.*, (SELECT COUNT(*) FROM packages WHERE package_list_id = p.id) as package_count FROM package_lists p').all()));
 router.get('/client-wallets', isAdmin, (req, res) => {
