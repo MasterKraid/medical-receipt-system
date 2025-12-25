@@ -8,11 +8,12 @@ declare var XLSX: any;
 const ManagePackageLists: React.FC = () => {
     const [lists, setLists] = useState<PackageList[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingList, setEditingList] = useState<PackageList | null>(null);
     const [packages, setPackages] = useState<Package[]>([]);
-    
+
     // Form States
     const [newListName, setNewListName] = useState('');
     const [newPackage, setNewPackage] = useState({ name: '', mrp: '', b2b_price: '' });
@@ -32,7 +33,13 @@ const ManagePackageLists: React.FC = () => {
             setIsLoading(false);
         }
     };
-    
+
+    const filteredLists = React.useMemo(() => {
+        const query = searchTerm.toLowerCase().trim();
+        if (!query) return lists;
+        return lists.filter(l => l.name.toLowerCase().includes(query));
+    }, [lists, searchTerm]);
+
     const handleAddList = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
@@ -45,7 +52,7 @@ const ManagePackageLists: React.FC = () => {
     };
 
     const handleDeleteList = async (listId: number) => {
-        if(window.confirm("Are you sure you want to delete this entire rate list and all its packages? This action cannot be undone.")){
+        if (window.confirm("Are you sure you want to delete this entire rate list and all its packages? This action cannot be undone.")) {
             try {
                 await apiService.deletePackageList(listId);
                 fetchLists();
@@ -70,7 +77,7 @@ const ManagePackageLists: React.FC = () => {
                 const buffer = event.target?.result as ArrayBuffer;
                 const workbook = new ExcelJS.Workbook();
                 await workbook.xlsx.load(buffer);
-                
+
                 const worksheet = workbook.worksheets[0];
                 if (!worksheet) {
                     throw new Error("No worksheets found in the Excel file.");
@@ -88,16 +95,16 @@ const ManagePackageLists: React.FC = () => {
                         let rowData: any = {};
                         // Use the header array to map cell values to keys
                         row.values.forEach((value: any, index: number) => {
-                           if (index > 0 && headers[index-1]) { // Ensure index is valid
-                               rowData[headers[index-1]] = value;
-                           }
+                            if (index > 0 && headers[index - 1]) { // Ensure index is valid
+                                rowData[headers[index - 1]] = value;
+                            }
                         });
                         json.push(rowData);
                     }
                 });
-                
+
                 const requiredHeaders = ['name', 'mrp', 'b2b_price'];
-                 if (headers.length < 1 || !requiredHeaders.every(h => headers.includes(h))) {
+                if (headers.length < 1 || !requiredHeaders.every(h => headers.includes(h))) {
                     throw new Error(`Invalid Excel format. The first row must contain these exact column headers: ${requiredHeaders.join(', ')}`);
                 }
 
@@ -124,11 +131,11 @@ const ManagePackageLists: React.FC = () => {
             console.error("Failed to fetch packages for list", error);
         }
     };
-    
+
     const handlePackageChange = (id: number, field: 'name' | 'mrp' | 'b2b_price', value: string | number) => {
-        setPackages(prev => prev.map(p => p.id === id ? {...p, [field]: value} : p));
+        setPackages(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
     }
-    
+
     const handleSavePackage = async (pkg: Package) => {
         try {
             await apiService.updatePackageInList(pkg);
@@ -137,10 +144,10 @@ const ManagePackageLists: React.FC = () => {
             alert(`Error saving package: ${error}`);
         }
     };
-    
+
     const handleAddNewPackage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if(!editingList) return;
+        if (!editingList) return;
         try {
             const newPkg = await apiService.addPackageToList({
                 name: newPackage.name,
@@ -157,50 +164,92 @@ const ManagePackageLists: React.FC = () => {
 
 
     return (
-        <div className="p-4 sm:p-8 max-w-7xl mx-auto">
-            <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg">
-                <PageHeader title="Manage Rate Databases (Package Lists)" />
-                
-                <section className="mb-8">
-                     <h2 className="text-xl font-semibold mb-4 border-b pb-2">Add New List</h2>
-                     <form onSubmit={handleAddList} className="flex items-end gap-4">
-                         <div className="flex-grow">
-                             <label htmlFor="newListName" className="block text-sm font-medium text-gray-700">List Name</label>
-                             <input id="newListName" type="text" value={newListName} onChange={e => setNewListName(e.target.value)} required className="mt-1 w-full p-2 border rounded"/>
-                         </div>
-                         <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded h-fit">Create List</button>
-                     </form>
+        <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <PageHeader title="Rate Database Management" />
+
+                <section className="mb-10">
+                    <div className="flex items-center gap-2 mb-6 border-b border-gray-300 pb-2">
+                        <div className="w-7 h-7 rounded bg-blue-600 flex items-center justify-center text-white shadow-sm">
+                            <i className="fa-solid fa-database text-xs"></i>
+                        </div>
+                        <h2 className="text-lg font-bold text-gray-800">Add Rate List</h2>
+                    </div>
+
+                    <form onSubmit={handleAddList} className="flex flex-col sm:flex-row items-end gap-4 bg-gray-50/50 p-4 rounded-lg border border-gray-100">
+                        <div className="flex-grow w-full space-y-1">
+                            <label htmlFor="newListName" className="text-[10px] font-bold text-gray-400 uppercase ml-1">Database Name (e.g. B2B 2024)</label>
+                            <div className="relative">
+                                <i className="fa-solid fa-tag absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                                <input id="newListName" type="text" value={newListName} onChange={e => setNewListName(e.target.value)} required className="w-full pl-9 p-2 border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-50 outline-none transition-all text-sm" />
+                            </div>
+                        </div>
+                        <button type="submit" className="w-full sm:w-auto px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-all shadow-sm flex items-center justify-center gap-2 text-sm h-[38px]">
+                            <i className="fa-solid fa-plus-circle"></i> Create List
+                        </button>
+                    </form>
                 </section>
-                
+
+                <hr className="my-10 border-gray-300" />
+
                 <section>
-                    <h2 className="text-xl font-semibold mb-4 border-b pb-2">Existing Lists</h2>
-                     <div className="overflow-x-auto">
-                        <table className="min-w-full bg-white text-sm">
-                            <thead className="bg-gray-100">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-gray-300 pb-4">
+                        <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded bg-gray-800 flex items-center justify-center text-white shadow-sm">
+                                <i className="fa-solid fa-layer-group text-xs"></i>
+                            </div>
+                            <h2 className="text-lg font-bold text-gray-800">Rate Lists</h2>
+                        </div>
+
+                        <div className="relative w-full md:w-64">
+                            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                placeholder="Search databases..."
+                                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-50 focus:bg-white transition-all text-sm"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-lg border border-gray-200">
+                        <table className="min-w-full bg-white divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="py-2 px-4 border-b text-left">List Name</th>
-                                    <th className="py-2 px-4 border-b text-left">Packages</th>
-                                    <th className="py-2 px-4 border-b text-left">Import from Excel</th>
-                                    <th className="py-2 px-4 border-b text-left">Actions</th>
+                                    <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Database Name</th>
+                                    <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Capacity</th>
+                                    <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Excel Import</th>
+                                    <th className="py-3 px-4 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="divide-y divide-gray-100 text-sm">
                                 {isLoading ? (
-                                    <tr><td colSpan={4} className="text-center py-4">Loading...</td></tr>
+                                    <tr><td colSpan={4} className="text-center py-12 text-gray-400 italic text-sm">Accessing database registry...</td></tr>
+                                ) : filteredLists.length === 0 ? (
+                                    <tr><td colSpan={4} className="text-center py-12 text-gray-400 italic text-sm">No rate databases found matching your search.</td></tr>
                                 ) : (
-                                    lists.map(list => (
-                                        <tr key={list.id}>
-                                            <td className="py-2 px-4 border-b font-semibold">{list.name}</td>
-                                            <td className="py-2 px-4 border-b">{list.package_count}</td>
-                                            <td className="py-2 px-4 border-b">
-                                                <label className="px-3 py-1 bg-green-600 text-white rounded text-xs cursor-pointer hover:bg-green-700">
-                                                    <i className="fa-solid fa-file-excel mr-1"></i> Upload
+                                    filteredLists.map(list => (
+                                        <tr key={list.id} className="hover:bg-gray-50/50 transition-colors">
+                                            <td className="py-3 px-4 font-bold text-gray-800 text-sm whitespace-nowrap">{list.name}</td>
+                                            <td className="py-3 px-4">
+                                                <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-100 text-[10px] font-bold">{list.package_count} Packages</span>
+                                            </td>
+                                            <td className="py-3 px-4">
+                                                <label className="flex items-center gap-2 p-1 px-2 bg-green-50 text-green-700 rounded border border-green-100 text-[9px] font-bold cursor-pointer hover:bg-green-600 hover:text-white transition-all w-fit">
+                                                    <i className="fa-solid fa-file-excel"></i> IMPORT XLSX
                                                     <input type="file" accept=".xlsx, .xls" onChange={(e) => handleFileUpload(list.id, e)} className="hidden" />
                                                 </label>
                                             </td>
-                                            <td className="py-2 px-4 border-b space-x-2">
-                                                <button onClick={() => openEditModal(list)} className="px-3 py-1 bg-yellow-500 text-white rounded text-xs">View/Edit</button>
-                                                <button onClick={() => handleDeleteList(list.id)} className="px-3 py-1 bg-red-600 text-white rounded text-xs">Delete</button>
+                                            <td className="py-3 px-4 text-right">
+                                                <div className="flex justify-end gap-1.5">
+                                                    <button onClick={() => openEditModal(list)} className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-yellow-500 hover:text-white rounded border border-gray-100 transition-all" title="View/Edit Packages">
+                                                        <i className="fa-solid fa-pen-to-square text-xs"></i>
+                                                    </button>
+                                                    <button onClick={() => handleDeleteList(list.id)} className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-red-600 hover:text-white rounded border border-gray-100 transition-all" title="Delete Database">
+                                                        <i className="fa-solid fa-trash-can text-xs"></i>
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
@@ -210,43 +259,86 @@ const ManagePackageLists: React.FC = () => {
                     </div>
                 </section>
             </div>
-            
+
             {isModalOpen && editingList && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center p-4">
-                    <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-                        <h2 className="text-xl font-bold mb-4">Editing Packages in: {editingList.name}</h2>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+                    <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col border border-gray-200">
+                        <div className="flex items-center justify-between mb-6 border-b border-gray-300 pb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded bg-yellow-500 flex items-center justify-center text-white shadow-sm">
+                                    <i className="fa-solid fa-cubes text-xs"></i>
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-gray-800">Inventory Management</h2>
+                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{editingList.name}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-red-500 transition-colors">
+                                <i className="fa-solid fa-circle-xmark text-xl"></i>
+                            </button>
+                        </div>
+
                         {/* Add new package form */}
-                        <form onSubmit={handleAddNewPackage} className="grid grid-cols-12 gap-2 items-end mb-4 p-2 border rounded">
-                             <input value={newPackage.name} onChange={e => setNewPackage({...newPackage, name: e.target.value})} placeholder="New Package Name" className="col-span-5 p-2 border rounded" required/>
-                             <input type="number" value={newPackage.mrp} onChange={e => setNewPackage({...newPackage, mrp: e.target.value})} placeholder="MRP" className="col-span-2 p-2 border rounded" required/>
-                             <input type="number" value={newPackage.b2b_price} onChange={e => setNewPackage({...newPackage, b2b_price: e.target.value})} placeholder="B2B Price" className="col-span-2 p-2 border rounded" required/>
-                             <button type="submit" className="col-span-3 h-full px-4 py-2 bg-green-500 text-white rounded">Add Package</button>
+                        <form onSubmit={handleAddNewPackage} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end mb-6 p-4 bg-gray-50/50 rounded-lg border border-gray-100">
+                            <div className="sm:col-span-5 space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Package Label</label>
+                                <input value={newPackage.name} onChange={e => setNewPackage({ ...newPackage, name: e.target.value })} placeholder="e.g. Master Panel" className="w-full p-2 border border-gray-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-yellow-50 text-sm" required />
+                            </div>
+                            <div className="sm:col-span-2 space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">MRP (₹)</label>
+                                <input type="number" value={newPackage.mrp} onChange={e => setNewPackage({ ...newPackage, mrp: e.target.value })} placeholder="0.00" className="w-full p-2 border border-gray-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-yellow-50 text-sm" required />
+                            </div>
+                            <div className="sm:col-span-2 space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">B2B (₹)</label>
+                                <input type="number" value={newPackage.b2b_price} onChange={e => setNewPackage({ ...newPackage, b2b_price: e.target.value })} placeholder="0.00" className="w-full p-2 border border-gray-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-yellow-50 text-sm" required />
+                            </div>
+                            <button type="submit" className="sm:col-span-3 px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-all shadow-sm flex items-center justify-center gap-2 text-sm h-[38px]">
+                                <i className="fa-solid fa-plus-circle"></i> Add Item
+                            </button>
                         </form>
-                        
+
                         {/* Existing packages table */}
-                        <div className="overflow-y-auto">
-                             <table className="w-full text-sm">
-                                <thead className="bg-gray-100 sticky top-0"><tr>
-                                    <th className="p-2 border-b text-left">Package Name</th>
-                                    <th className="p-2 border-b text-left w-24">MRP</th>
-                                    <th className="p-2 border-b text-left w-24">B2B Price</th>
-                                    <th className="p-2 border-b text-left w-20">Action</th>
-                                </tr></thead>
-                                <tbody>
+                        <div className="overflow-y-auto flex-grow rounded-lg border border-gray-200 bg-white shadow-inner custom-scrollbar-minimal">
+                            <table className="w-full text-sm divide-y divide-gray-100">
+                                <thead className="bg-gray-50 sticky top-0 z-10">
+                                    <tr>
+                                        <th className="p-2 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-4 border-b border-gray-200">Package Name</th>
+                                        <th className="p-2 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest w-24 border-b border-gray-200">MRP</th>
+                                        <th className="p-2 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest w-24 border-b border-gray-200">B2B Price</th>
+                                        <th className="p-2 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest pr-4 border-b border-gray-200">Save</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
                                     {packages.map(pkg => (
-                                        <tr key={pkg.id}>
-                                            <td className="p-1"><input value={pkg.name} onChange={e => handlePackageChange(pkg.id, 'name', e.target.value)} className="w-full p-1 border rounded" /></td>
-                                            <td className="p-1"><input type="number" value={pkg.mrp} onChange={e => handlePackageChange(pkg.id, 'mrp', Number(e.target.value))} className="w-full p-1 border rounded" /></td>
-                                            <td className="p-1"><input type="number" value={pkg.b2b_price} onChange={e => handlePackageChange(pkg.id, 'b2b_price', Number(e.target.value))} className="w-full p-1 border rounded" /></td>
-                                            <td className="p-1"><button onClick={() => handleSavePackage(pkg)} className="w-full px-2 py-1 bg-blue-500 text-white rounded text-xs">Save</button></td>
+                                        <tr key={pkg.id} className="hover:bg-gray-50/50 transition-colors group">
+                                            <td className="p-1 pl-4">
+                                                <input value={pkg.name} onChange={e => handlePackageChange(pkg.id, 'name', e.target.value)} className="w-full p-1.5 bg-transparent border-b border-transparent focus:border-yellow-400 outline-none font-medium text-gray-700 text-sm" />
+                                            </td>
+                                            <td className="p-1">
+                                                <div className="relative">
+                                                    <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-gray-300 text-[10px]">₹</span>
+                                                    <input type="number" value={pkg.mrp} onChange={e => handlePackageChange(pkg.id, 'mrp', Number(e.target.value))} className="w-full p-1.5 pl-4 bg-transparent border-b border-transparent focus:border-yellow-400 outline-none text-gray-600 text-sm" />
+                                                </div>
+                                            </td>
+                                            <td className="p-1">
+                                                <div className="relative font-bold">
+                                                    <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-blue-200 text-[10px]">₹</span>
+                                                    <input type="number" value={pkg.b2b_price} onChange={e => handlePackageChange(pkg.id, 'b2b_price', Number(e.target.value))} className="w-full p-1.5 pl-4 bg-transparent border-b border-transparent focus:border-yellow-400 outline-none text-blue-700 font-bold text-sm" />
+                                                </div>
+                                            </td>
+                                            <td className="p-1 text-right pr-4">
+                                                <button onClick={() => handleSavePackage(pkg)} className="w-7 h-7 flex items-center justify-center bg-gray-50 text-gray-400 hover:bg-blue-600 hover:text-white rounded border border-gray-100 transition-all" title="Save Product">
+                                                    <i className="fa-solid fa-floppy-disk text-[10px]"></i>
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
-                             </table>
+                            </table>
                         </div>
 
-                        <div className="flex justify-end mt-6">
-                            <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-300 rounded">Close</button>
+                        <div className="flex justify-end mt-4 pt-4 border-t border-gray-300">
+                            <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2 bg-gray-100 text-gray-600 font-bold rounded-lg hover:bg-gray-200 transition-all border border-gray-200 text-xs">Finish Editing</button>
                         </div>
                     </div>
                 </div>

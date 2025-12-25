@@ -2,15 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
 import { apiService } from '../../services/api';
-import { User, Branch, PackageList } from '../../types';
+import { User, Branch, PackageList, Lab } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import RateListAccessModal from '../../components/RateListAccessModal';
 
 const ManageUsers: React.FC = () => {
     const { user: currentUser } = useAuth();
     const [users, setUsers] = useState<User[]>([]);
     const [branches, setBranches] = useState<Branch[]>([]);
     const [packageLists, setPackageLists] = useState<PackageList[]>([]);
+    const [labs, setLabs] = useState<Lab[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    // Modal State
+    const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
 
     // New User Form State
     const [username, setUsername] = useState('');
@@ -19,29 +24,46 @@ const ManageUsers: React.FC = () => {
     const [branchId, setBranchId] = useState('');
     const [role, setRole] = useState('GENERAL_EMPLOYEE');
     const [assignedLists, setAssignedLists] = useState<Set<number>>(new Set());
-    
+
+    // Search state
+    const [searchTerm, setSearchTerm] = useState('');
+
+
     useEffect(() => {
         fetchData();
     }, []);
-    
+
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const [usersData, branchesData, listsData] = await Promise.all([
+            const [usersData, branchesData, listsData, labsData] = await Promise.all([
                 apiService.getUsers(),
                 apiService.getBranches(),
                 apiService.getPackageLists(),
+                apiService.getLabs()
             ]);
             setUsers(usersData);
             setBranches(branchesData);
             setPackageLists(listsData);
+            setLabs(labsData);
         } catch (error) {
             console.error("Failed to fetch data for user management", error);
         } finally {
             setIsLoading(false);
         }
     };
-    
+
+    const filteredUsers = React.useMemo(() => {
+        const query = searchTerm.toLowerCase().trim();
+        if (!query) return users;
+        return users.filter(u =>
+            u.username.toLowerCase().includes(query) ||
+            (u.alias || '').toLowerCase().includes(query) ||
+            u.id.toString().includes(query)
+        );
+    }, [users, searchTerm]);
+
+
     const handleListToggle = (listId: number) => {
         setAssignedLists(prev => {
             const newSet = new Set(prev);
@@ -50,10 +72,10 @@ const ManageUsers: React.FC = () => {
             return newSet;
         });
     };
-    
+
     const handleAddUser = async (e: React.FormEvent) => {
         e.preventDefault();
-        if(!branchId) {
+        if (!branchId) {
             alert("Please select a branch.");
             return;
         }
@@ -80,73 +102,171 @@ const ManageUsers: React.FC = () => {
 
     const getBranchName = (id: number) => branches.find(b => b.id === id)?.name || 'N/A';
 
+    const getRoleBadge = (role: string) => {
+        const styles: Record<string, string> = {
+            'ADMIN': 'bg-blue-50 text-blue-600 border-blue-100',
+            'CLIENT': 'bg-green-50 text-green-600 border-green-100',
+            'GENERAL_EMPLOYEE': 'bg-gray-50 text-gray-600 border-gray-100'
+        };
+        return <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${styles[role] || styles['GENERAL_EMPLOYEE']}`}>{role.replace('_', ' ')}</span>;
+    };
+
     return (
-        <div className="p-4 sm:p-8 max-w-7xl mx-auto">
-            <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg">
-                <PageHeader title="Manage Users" />
-                
+        <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <PageHeader title="User Management" />
+
                 {/* Add User Form */}
-                <section className="mb-8">
-                    <h2 className="text-xl font-semibold mb-4 border-b pb-2">Add New User</h2>
-                    <form onSubmit={handleAddUser} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Username (e.g., email)" required className="p-2 border rounded" />
-                            <input type="text" value={alias} onChange={e => setAlias(e.target.value)} placeholder="Alias (e.g., friendly name)" className="p-2 border rounded" />
-                            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" required className="p-2 border rounded" />
-                            <select value={branchId} onChange={e => setBranchId(e.target.value)} required className="p-2 border rounded">
-                                <option value="">-- Select Branch --</option>
-                                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                            </select>
-                            <select value={role} onChange={e => setRole(e.target.value)} required className="p-2 border rounded">
-                                <option value="GENERAL_EMPLOYEE">General Employee</option>
-                                <option value="CLIENT">Client</option>
-                                <option value="ADMIN">Admin</option>
-                            </select>
+                <section className="mb-10">
+                    <div className="flex items-center gap-2 mb-6 border-b border-gray-300 pb-2">
+                        <div className="w-7 h-7 rounded bg-blue-600 flex items-center justify-center text-white shadow-sm">
+                            <i className="fa-solid fa-user-plus text-xs"></i>
                         </div>
-                         <div>
-                            <label className="block font-medium mb-2">Rate Database Access</label>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-2 border rounded-md max-h-40 overflow-y-auto">
-                                {packageLists.map(list => (
-                                    <label key={list.id} className="flex items-center space-x-2">
-                                        <input type="checkbox" checked={assignedLists.has(list.id)} onChange={() => handleListToggle(list.id)} />
-                                        <span>{list.name}</span>
-                                    </label>
-                                ))}
+                        <h2 className="text-lg font-bold text-gray-800">Create New Account</h2>
+                    </div>
+
+                    <form onSubmit={handleAddUser} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Account Username</label>
+                                <div className="relative">
+                                    <i className="fa-solid fa-envelope absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                                    <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Email or Username" required className="w-full pl-9 p-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-50 transition-all outline-none text-sm" />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Full Alias / Name</label>
+                                <div className="relative">
+                                    <i className="fa-solid fa-id-card absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                                    <input type="text" value={alias} onChange={e => setAlias(e.target.value)} placeholder="Friendly Name" className="w-full pl-9 p-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-50 transition-all outline-none text-sm" />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Security Password</label>
+                                <div className="relative">
+                                    <i className="fa-solid fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required className="w-full pl-9 p-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-50 transition-all outline-none text-sm" />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Assigned Branch</label>
+                                <div className="relative">
+                                    <i className="fa-solid fa-building absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                                    <select value={branchId} onChange={e => setBranchId(e.target.value)} required className="w-full pl-9 p-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-50 transition-all outline-none appearance-none text-sm">
+                                        <option value="">Select Branch</option>
+                                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">System Role</label>
+                                <div className="relative">
+                                    <i className="fa-solid fa-user-shield absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                                    <select value={role} onChange={e => setRole(e.target.value)} required className="w-full pl-9 p-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-50 transition-all outline-none appearance-none text-sm">
+                                        <option value="GENERAL_EMPLOYEE">General Employee</option>
+                                        <option value="CLIENT">B2B Client</option>
+                                        <option value="ADMIN">Administrator</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="flex items-end">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAccessModalOpen(true)}
+                                    className={`w-full p-2 rounded-lg border border-dashed transition-all flex items-center justify-center gap-2 font-bold text-xs ${assignedLists.size > 0
+                                        ? 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                                        : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'
+                                        }`}
+                                >
+                                    <i className="fa-solid fa-key text-[10px]"></i>
+                                    Rate List Access {assignedLists.size > 0 && <span className="bg-blue-600 text-white px-2 py-0.5 rounded-full text-[9px] ml-1">{assignedLists.size}</span>}
+                                </button>
                             </div>
                         </div>
-                        <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Create User</button>
+
+                        <div className="flex justify-start">
+                            <button type="submit" className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-all shadow-sm flex items-center gap-2 text-sm">
+                                <i className="fa-solid fa-plus-circle"></i> Create User Account
+                            </button>
+                        </div>
                     </form>
                 </section>
-                
-                {/* Existing Users Table */}
+
+                <hr className="my-10 border-gray-300" />
+
+                {/* User Directory */}
                 <section>
-                    <h2 className="text-xl font-semibold mb-4 border-b pb-2">Existing Users</h2>
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full bg-white text-sm">
-                            <thead className="bg-gray-100">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-gray-300 pb-4">
+                        <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded bg-gray-800 flex items-center justify-center text-white shadow-sm">
+                                <i className="fa-solid fa-users text-xs"></i>
+                            </div>
+                            <h2 className="text-lg font-bold text-gray-800">User Directory</h2>
+                        </div>
+
+                        <div className="relative w-full md:w-64">
+                            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                placeholder="Search usernames or alias..."
+                                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-50 focus:bg-white transition-all text-sm"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-lg border border-gray-200">
+                        <table className="min-w-full bg-white divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="py-2 px-4 border-b text-left">Username</th>
-                                    <th className="py-2 px-4 border-b text-left">Alias</th>
-                                    <th className="py-2 px-4 border-b text-left">Branch</th>
-                                    <th className="py-2 px-4 border-b text-left">Role</th>
-                                    <th className="py-2 px-4 border-b text-left">Action</th>
+                                    <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Identify</th>
+                                    <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Profile</th>
+                                    <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Branch</th>
+                                    <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Privileges</th>
+                                    <th className="py-3 px-4 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="divide-y divide-gray-100">
                                 {isLoading ? (
-                                    <tr><td colSpan={5} className="text-center py-4">Loading...</td></tr>
+                                    <tr><td colSpan={5} className="text-center py-12 text-sm text-gray-400 italic">Authenticating and retrieving directory...</td></tr>
+                                ) : filteredUsers.length === 0 ? (
+                                    <tr><td colSpan={5} className="text-center py-12 text-sm text-gray-400 italic">No users matching "{searchTerm}" found.</td></tr>
                                 ) : (
-                                    users.map(user => (
-                                        <tr key={user.id}>
-                                            <td className="py-2 px-4 border-b">{user.username}</td>
-                                            <td className="py-2 px-4 border-b">{user.alias || 'N/A'}</td>
-                                            <td className="py-2 px-4 border-b">{getBranchName(user.branchId)}</td>
-                                            <td className="py-2 px-4 border-b">{user.role}</td>
-                                            <td className="py-2 px-4 border-b space-x-2">
-                                                <Link to={`/admin/users/edit/${user.id}`} className="px-3 py-1 bg-yellow-500 text-white rounded text-xs">Edit</Link>
-                                                {currentUser?.id !== user.id && (
-                                                    <button onClick={() => handleDeleteUser(user.id)} className="px-3 py-1 bg-red-600 text-white rounded text-xs">Delete</button>
-                                                )}
+                                    filteredUsers.map(user => (
+                                        <tr key={user.id} className="hover:bg-gray-50/50 transition-colors group">
+                                            <td className="py-3 px-4">
+                                                <div className="text-sm font-bold text-gray-800">{user.username}</div>
+                                                <div className="text-[10px] text-gray-400 font-mono">UID: #{user.id.toString().padStart(4, '0')}</div>
+                                            </td>
+                                            <td className="py-3 px-4">
+                                                <div className="text-sm text-gray-600">{user.alias || '---'}</div>
+                                            </td>
+                                            <td className="py-3 px-4">
+                                                <div className="flex items-center gap-2 text-xs text-gray-500 italic">
+                                                    <i className="fa-solid fa-location-dot text-[9px] text-gray-300"></i>
+                                                    {getBranchName(user.branchId)}
+                                                </div>
+                                            </td>
+                                            <td className="py-3 px-4">
+                                                {getRoleBadge(user.role)}
+                                            </td>
+                                            <td className="py-3 px-4 text-right">
+                                                <div className="flex justify-end gap-1.5">
+                                                    <Link to={`/admin/users/edit/${user.id}`} className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-blue-600 hover:text-white rounded border border-gray-100 transition-all" title="Edit Profile">
+                                                        <i className="fa-solid fa-pen-to-square text-xs"></i>
+                                                    </Link>
+                                                    {currentUser?.id !== user.id && (
+                                                        <button onClick={() => handleDeleteUser(user.id)} className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-red-600 hover:text-white rounded border border-gray-100 transition-all" title="Revoke Access">
+                                                            <i className="fa-solid fa-user-xmark text-xs"></i>
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
@@ -156,6 +276,15 @@ const ManageUsers: React.FC = () => {
                     </div>
                 </section>
             </div>
+
+            <RateListAccessModal
+                isOpen={isAccessModalOpen}
+                onClose={() => setIsAccessModalOpen(false)}
+                labs={labs}
+                packageLists={packageLists}
+                selectedListIds={assignedLists}
+                onToggle={handleListToggle}
+            />
         </div>
     );
 };

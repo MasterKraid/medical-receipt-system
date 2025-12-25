@@ -2,17 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
 import { apiService } from '../../services/api';
-import { User, Branch, PackageList } from '../../types';
+import { User, Branch, PackageList, Lab } from '../../types';
+import RateListAccessModal from '../../components/RateListAccessModal';
 
 const EditUser: React.FC = () => {
     const { id } = useParams() as { id: string };
     const navigate = useNavigate();
-    
+
     const [user, setUser] = useState<User | null>(null);
     const [branches, setBranches] = useState<Branch[]>([]);
     const [packageLists, setPackageLists] = useState<PackageList[]>([]);
+    const [labs, setLabs] = useState<Lab[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    
+
+    // Modal State
+    const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
+
     // Form state
     const [password, setPassword] = useState('');
     const [assignedLists, setAssignedLists] = useState<Set<number>>(new Set());
@@ -23,21 +28,23 @@ const EditUser: React.FC = () => {
             setIsLoading(false);
             return;
         }
-        
+
         const fetchData = async () => {
             try {
-                const [userData, branchesData, listsData] = await Promise.all([
+                const [userData, branchesData, listsData, labsData] = await Promise.all([
                     apiService.getUserById(userId),
                     apiService.getBranches(),
-                    apiService.getPackageLists()
+                    apiService.getPackageLists(),
+                    apiService.getLabs()
                 ]);
 
-                if(userData) {
+                if (userData) {
                     setUser(userData);
                     setAssignedLists(new Set(userData.assigned_list_ids || []));
                 }
                 setBranches(branchesData);
                 setPackageLists(listsData);
+                setLabs(labsData);
             } catch (error) {
                 console.error("Failed to fetch data for editing user", error);
             } finally {
@@ -51,8 +58,8 @@ const EditUser: React.FC = () => {
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         if (user) {
-             let parsedValue: string | number = value;
-             if (name === 'branchId') parsedValue = parseInt(value, 10);
+            let parsedValue: string | number = value;
+            if (name === 'branchId') parsedValue = parseInt(value, 10);
             setUser({ ...user, [name]: parsedValue });
         }
     };
@@ -65,15 +72,15 @@ const EditUser: React.FC = () => {
             return newSet;
         });
     };
-    
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user) return;
-        
+
         const updatedUserData = { ...user, assigned_list_ids: Array.from(assignedLists) };
-        
+
         if (password) {
-            (updatedUserData as any).password_hash = password; 
+            (updatedUserData as any).password_hash = password;
         }
 
         try {
@@ -83,67 +90,107 @@ const EditUser: React.FC = () => {
             alert(`Failed to update user: ${error}`);
         }
     };
-    
-    if (isLoading) return <div className="p-8">Loading...</div>;
-    if (!user) return <div className="p-8">User not found.</div>;
+
+    if (isLoading) return <div className="p-8 text-center italic text-gray-400 font-medium">Authenticating credentials and retrieving profile...</div>;
+    if (!user) return <div className="p-8 text-center text-red-500 font-bold bg-red-50 rounded-xl m-8 border border-red-100 italic">User profile not found in active directory.</div>;
 
     return (
-        <div className="p-4 sm:p-8 max-w-4xl mx-auto">
-            <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg">
-                <PageHeader title={`Edit User: ${user.username}`} backLink="/admin/users" backText="Back to Users" />
-                
-                <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-                    {/* User Details */}
-                    <section>
-                        <h2 className="text-lg font-semibold mb-2">User Details</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label>Username</label>
-                                <input type="text" name="username" value={user.username} onChange={handleInputChange} className="w-full p-2 border rounded" />
-                            </div>
-                            <div>
-                                <label>Alias</label>
-                                <input type="text" name="alias" value={user.alias || ''} onChange={handleInputChange} className="w-full p-2 border rounded" />
-                            </div>
-                            <div>
-                                <label>New Password</label>
-                                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Leave blank to keep unchanged" className="w-full p-2 border rounded" />
-                            </div>
-                            <div>
-                                <label>Branch</label>
-                                <select name="branchId" value={user.branchId} onChange={handleInputChange} className="w-full p-2 border rounded">
-                                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                </select>
-                            </div>
-                             <div>
-                                <label>Role</label>
-                                <select name="role" value={user.role} onChange={handleInputChange} className="w-full p-2 border rounded">
-                                     <option value="GENERAL_EMPLOYEE">General Employee</option>
-                                    <option value="CLIENT">Client</option>
-                                    <option value="ADMIN">Admin</option>
-                                </select>
-                            </div>
-                        </div>
-                    </section>
+        <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-8">
+            <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-100">
+                <PageHeader title={`Modify Access: ${user.alias || user.username}`} backLink="/admin/users" backText="Return to Directory" />
 
-                    {/* Rate Database Access */}
-                    <section>
-                        <h2 className="text-lg font-semibold mb-2">Rate Database Access</h2>
-                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-2 border rounded-md max-h-40 overflow-y-auto">
-                            {packageLists.map(list => (
-                                <label key={list.id} className="flex items-center space-x-2">
-                                    <input type="checkbox" checked={assignedLists.has(list.id)} onChange={() => handleListToggle(list.id)} />
-                                    <span>{list.name}</span>
-                                </label>
-                            ))}
+                <form onSubmit={handleSubmit} className="mt-8 space-y-8">
+                    {/* User Details Section */}
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-2 border-b pb-2">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-100">
+                                <i className="fa-solid fa-user-gear text-sm"></i>
+                            </div>
+                            <h2 className="text-xl font-bold text-gray-800">Account Credentials</h2>
                         </div>
-                    </section>
-                    
-                    <div className="flex justify-end">
-                        <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Changes</button>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Username / ID</label>
+                                <div className="relative">
+                                    <i className="fa-solid fa-at absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                    <input type="text" name="username" value={user.username} onChange={handleInputChange} className="w-full pl-10 p-3 border rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none" />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Display Alias</label>
+                                <div className="relative">
+                                    <i className="fa-solid fa-address-card absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                    <input type="text" name="alias" value={user.alias || ''} onChange={handleInputChange} className="w-full pl-10 p-3 border rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none" />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Update Password</label>
+                                <div className="relative">
+                                    <i className="fa-solid fa-shield-halved absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Leave blank to maintain current" className="w-full pl-10 p-3 border rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none" />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Work Location</label>
+                                <div className="relative">
+                                    <i className="fa-solid fa-house-medical absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                    <select name="branchId" value={user.branchId} onChange={handleInputChange} className="w-full pl-10 p-3 border rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none appearance-none">
+                                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Authorization Tier</label>
+                                <div className="relative">
+                                    <i className="fa-solid fa-crown absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                    <select name="role" value={user.role} onChange={handleInputChange} className="w-full pl-10 p-3 border rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none appearance-none">
+                                        <option value="GENERAL_EMPLOYEE">General Employee</option>
+                                        <option value="CLIENT">B2B Client</option>
+                                        <option value="ADMIN">Administrator</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="flex items-end">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAccessModalOpen(true)}
+                                    className={`w-full p-3 rounded-xl border-2 border-dashed transition-all flex items-center justify-center gap-2 font-bold ${assignedLists.size > 0
+                                        ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                                        : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'
+                                        }`}
+                                >
+                                    <i className="fa-solid fa-key-skeleton"></i>
+                                    Modify Rate List Access {assignedLists.size > 0 && <span className="bg-indigo-600 text-white px-2 py-0.5 rounded-full text-[10px] ml-1">{assignedLists.size}</span>}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="pt-6 border-t flex justify-end gap-3">
+                        <button type="button" onClick={() => navigate('/admin/users')} className="px-6 py-2.5 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition-all">
+                            Cancel Changes
+                        </button>
+                        <button type="submit" className="px-10 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center gap-2">
+                            Update Account Details <i className="fa-solid fa-circle-check"></i>
+                        </button>
                     </div>
                 </form>
             </div>
+
+            <RateListAccessModal
+                isOpen={isAccessModalOpen}
+                onClose={() => setIsAccessModalOpen(false)}
+                labs={labs}
+                packageLists={packageLists}
+                selectedListIds={assignedLists}
+                onToggle={handleListToggle}
+            />
         </div>
     );
 };
