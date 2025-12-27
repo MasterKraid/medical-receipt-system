@@ -1,5 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcrypt';
+import path from 'path';
+import fs from 'fs';
 import { db } from './database';
 import { User, Lab, Receipt, Estimate, Customer, Branch, PackageList, FormattedCustomer, Document, Transaction, Package } from './types';
 
@@ -454,6 +456,41 @@ router.put('/labs/:id/lists', isAdmin, (req, res) => {
         transaction();
         res.status(204).send();
     } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.put('/labs/:id/logo', isAdmin, (req, res) => {
+    const labId = req.params.id;
+    const { logoBase64 } = req.body;
+
+    if (!logoBase64) return res.status(400).json({ message: "Logo data is required" });
+
+    try {
+        // Extract base64 content
+        const matches = logoBase64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (!matches || matches.length !== 3) {
+            return res.status(400).json({ message: "Invalid base64 string" });
+        }
+
+        const extension = matches[1].split('/')[1] === 'jpeg' ? 'jpg' : matches[1].split('/')[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+        const fileName = `lab_${labId}_${Date.now()}.${extension}`;
+        const relativePath = `/lab_logos/${fileName}`;
+        const absolutePath = path.join(__dirname, '..', 'public', 'lab_logos', fileName);
+
+        // Ensure directory exists
+        const dir = path.dirname(absolutePath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+        fs.writeFileSync(absolutePath, buffer);
+
+        // Update database
+        db.prepare('UPDATE labs SET logo_path = ? WHERE id = ?').run(relativePath, labId);
+
+        res.json({ logoPath: relativePath });
+    } catch (error: any) {
+        console.error("Upload failed:", error);
+        res.status(500).json({ message: "Failed to upload logo: " + error.message });
+    }
 });
 
 // Package List & Package Management

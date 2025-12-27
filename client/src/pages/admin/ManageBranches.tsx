@@ -65,109 +65,137 @@ const ManageBranches: React.FC = () => {
         }
     }
 
+    const handleDeleteBranch = async (id: number) => {
+        if (window.confirm("Are you sure you want to delete this branch?")) {
+            try {
+                await apiService.deleteBranch(id);
+                fetchBranches();
+            } catch (error) {
+                alert(`Error deleting branch: ${error}`);
+            }
+        }
+    };
+
     return (
         <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                 <PageHeader title="Branch Management" />
 
                 {/* Add New Branch Form */}
-                <section className="mb-10">
-                    <div className="flex items-center gap-2 mb-6 border-b border-gray-300 pb-2">
+                <fieldset className="border-2 border-gray-300 p-6 rounded-xl mb-10">
+                    <legend className="px-3 flex items-center gap-2">
                         <div className="w-7 h-7 rounded bg-blue-600 flex items-center justify-center text-white shadow-sm">
-                            <i className="fa-solid fa-plus-circle text-xs"></i>
+                            <i className="fa-solid fa-code-branch text-xs"></i>
                         </div>
-                        <h2 className="text-lg font-bold text-gray-800">Add New Branch</h2>
-                    </div>
+                        <span className="text-lg font-bold text-gray-800">Add New Branch</span>
+                    </legend>
 
                     <form onSubmit={handleAddBranch} className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Branch Name</label>
+                                <label htmlFor="newName" className="text-[10px] font-bold text-gray-400 uppercase ml-1">Branch Name</label>
                                 <div className="relative">
                                     <i className="fa-solid fa-building absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
-                                    <input type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Downtown Center" required className="w-full pl-9 p-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-50 transition-all outline-none text-sm" />
+                                    <input id="newName" type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Downtown Center" required className="w-full pl-9 p-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-50 transition-all outline-none text-sm" />
                                 </div>
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Contact Phone</label>
+                                <label htmlFor="newPhone" className="text-[10px] font-bold text-gray-400 uppercase ml-1">Contact Phone</label>
                                 <div className="relative">
                                     <i className="fa-solid fa-phone absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
-                                    <input type="text" value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="Phone Number(s)" required className="w-full pl-9 p-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-50 transition-all outline-none text-sm" />
+                                    <input id="newPhone" type="text" value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="Phone Number(s)" required className="w-full pl-9 p-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-50 transition-all outline-none text-sm" />
                                 </div>
                             </div>
                         </div>
 
                         <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Physical Address</label>
+                            <label htmlFor="newAddress" className="text-[10px] font-bold text-gray-400 uppercase ml-1">Physical Address</label>
                             <div className="relative">
                                 <i className="fa-solid fa-map-location-dot absolute left-3 top-3 text-gray-400 text-xs"></i>
-                                <textarea value={newAddress} onChange={e => setNewAddress(e.target.value)} placeholder="Complete Street Address" className="w-full pl-9 p-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-50 transition-all outline-none text-sm" rows={2} required></textarea>
+                                <textarea id="newAddress" value={newAddress} onChange={e => setNewAddress(e.target.value)} placeholder="Complete Street Address" className="w-full pl-9 p-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-50 transition-all outline-none text-sm" rows={2} required></textarea>
                             </div>
                         </div>
 
-                        <button type="submit" className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-all shadow-sm flex items-center gap-2 text-sm">
-                            <i className="fa-solid fa-plus"></i> Add Branch
+                        <button type="submit" className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-all shadow-sm flex items-center gap-2 text-sm w-full sm:w-auto">
+                            <i className="fa-solid fa-plus-circle"></i> Create Branch Account
                         </button>
                     </form>
-                </section>
+                </fieldset>
 
-                <hr className="my-10 border-gray-300" />
 
                 {/* Existing Branches Table */}
-                <section>
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-gray-300 pb-4">
-                        <div className="flex items-center gap-2">
+                <div className="relative">
+                    <fieldset className="border-2 border-gray-300 p-6 rounded-xl">
+                        <legend className="px-3 flex items-center gap-2">
                             <div className="w-7 h-7 rounded bg-gray-800 flex items-center justify-center text-white shadow-sm">
-                                <i className="fa-solid fa-network-wired text-xs"></i>
+                                <i className="fa-solid fa-code-branch text-xs"></i>
                             </div>
-                            <h2 className="text-lg font-bold text-gray-800">Branch Directory</h2>
-                        </div>
+                            <span className="text-lg font-bold text-gray-800">Branch Directory</span>
+                        </legend>
 
-                        <div className="relative w-full md:w-64">
-                            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                        <div className="overflow-x-auto rounded-lg border border-gray-200">
+                            <table className="min-w-full bg-white divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Identity</th>
+                                        <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Location</th>
+                                        <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Contact</th>
+                                        <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Status</th>
+                                        <th className="py-3 px-4 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {isLoading ? (
+                                        <tr><td colSpan={5} className="text-center py-12 text-sm text-gray-400 italic">Syncing branch database...</td></tr>
+                                    ) : filteredBranches.length === 0 ? (
+                                        <tr><td colSpan={5} className="text-center py-12 text-sm text-gray-400 italic">No branches matching your search.</td></tr>
+                                    ) : (
+                                        filteredBranches.map(branchItem => (
+                                            <tr key={branchItem.id} className="hover:bg-gray-50/50 transition-colors group">
+                                                <td className="py-3 px-4">
+                                                    <div className="text-sm font-bold text-gray-800">{branchItem.name}</div>
+                                                    <div className="text-[10px] text-gray-400 font-mono italic">REF: #{branchItem.id.toString().padStart(3, '0')}</div>
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    <div className="text-xs text-gray-600 max-w-[200px] truncate" title={branchItem.address}>{branchItem.address}</div>
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    <div className="text-xs text-gray-600 font-mono">{branchItem.phone}</div>
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold border bg-green-50 text-green-600 border-green-100 uppercase tracking-tighter">Operational</span>
+                                                </td>
+                                                <td className="py-3 px-4 text-right">
+                                                    <div className="flex justify-end gap-1.5 transition-opacity">
+                                                        <button onClick={() => setEditingBranch(branchItem)} className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-blue-600 hover:text-white rounded border border-gray-100 transition-all shadow-sm" title="Edit Metadata">
+                                                            <i className="fa-solid fa-pen-to-square text-xs"></i>
+                                                        </button>
+                                                        <button onClick={() => handleDeleteBranch(branchItem.id)} className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-red-600 hover:text-white rounded border border-gray-100 transition-all shadow-sm" title="Remove Branch">
+                                                            <i className="fa-solid fa-trash-can text-xs"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </fieldset>
+
+                    <div className="absolute top-0 right-6 -translate-y-[5px]">
+                        <div className="search-container md:w-64 bg-white">
+                            <i className="fa-solid fa-magnifying-glass text-gray-700 text-xs mr-2"></i>
                             <input
                                 type="text"
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
-                                placeholder="Search branch info..."
-                                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-50 focus:bg-white transition-all text-sm"
+                                placeholder="Search by name..."
+                                className="search-input"
                             />
                         </div>
                     </div>
-
-                    <div className="overflow-x-auto rounded-lg border border-gray-200">
-                        <table className="min-w-full bg-white divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Branch Name</th>
-                                    <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Location</th>
-                                    <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Contact</th>
-                                    <th className="py-3 px-4 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 text-sm">
-                                {isLoading ? (
-                                    <tr><td colSpan={4} className="text-center py-12 text-gray-400 italic text-sm">Fetching branches...</td></tr>
-                                ) : filteredBranches.length === 0 ? (
-                                    <tr><td colSpan={4} className="text-center py-12 text-gray-400 italic text-sm">No branches found matching your search.</td></tr>
-                                ) : (
-                                    filteredBranches.map(branch => (
-                                        <tr key={branch.id} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="py-3 px-4 font-bold text-blue-900">{branch.name}</td>
-                                            <td className="py-3 px-4 text-gray-600 whitespace-pre-wrap max-w-xs">{branch.address}</td>
-                                            <td className="py-3 px-4 text-gray-600 italic text-xs">{branch.phone}</td>
-                                            <td className="py-3 px-4 text-right">
-                                                <button onClick={() => setEditingBranch(branch)} className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-yellow-500 hover:text-white rounded border border-gray-100 transition-all" title="Edit Information">
-                                                    <i className="fa-solid fa-pen-to-square text-xs"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
+                </div>
             </div>
 
             {/* Edit Modal */}

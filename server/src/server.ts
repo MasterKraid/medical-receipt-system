@@ -31,7 +31,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Enable CORS
 app.use(cors({
-    origin: 'https://localhost:5173', 
+    origin: 'https://localhost:5173',
     credentials: true
 }));
 
@@ -105,5 +105,5 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 app.listen(PORT, () => {
-  console.log(`Server is running on https://localhost:${PORT}`);
+    console.log(`Server is running on https://localhost:${PORT}`);
 });

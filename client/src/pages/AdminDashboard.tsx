@@ -6,7 +6,7 @@ import { ReceiptIcon, EstimateIcon, ViewIcon, CustomersIcon, LabsIcon, PackageLi
 
 const AdminDashboard: React.FC = () => {
     const { user, branch, logout } = useAuth();
-    
+
     return (
         <div className="max-w-4xl mx-auto my-10 p-8 bg-white rounded-xl shadow-lg">
             <header className="border-b border-gray-200 pb-6 mb-8">
@@ -30,20 +30,27 @@ const AdminDashboard: React.FC = () => {
                 </div>
             </header>
 
-            <nav>
-                <h2 className="text-xl font-semibold text-gray-700 mb-6 pb-2 border-b">System Management</h2>
-                <ul className="list-none p-0 m-0 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <li><DashboardLink to="/receipt-form" icon={<ReceiptIcon />} text="Create Receipt" /></li>
-                    <li><DashboardLink to="/estimate-form" icon={<EstimateIcon />} text="Create Estimate" /></li>
-                    <li><DashboardLink to="/admin/receipts" icon={<ViewIcon />} text="View Receipts" /></li>
-                    <li><DashboardLink to="/admin/estimates" icon={<ViewIcon />} text="View Estimates" /></li>
-                    <li><DashboardLink to="/admin/customers" icon={<CustomersIcon />} text="View Customers" /></li>
-                    <li><DashboardLink to="/admin/labs" icon={<LabsIcon />} text="Manage Labs" /></li>
-                    <li><DashboardLink to="/admin/package-lists" icon={<PackageListIcon />} text="Manage Rate Lists" /></li>
-                    <li><DashboardLink to="/admin/branches" icon={<BranchesIcon />} text="Manage Branches" /></li>
-                    <li><DashboardLink to="/admin/users" icon={<UsersIcon />} text="Manage Users" /></li>
-                    <li><DashboardLink to="/admin/wallet" icon={<WalletIcon />} text="Manage Wallets" /></li>
-                </ul>
+            <nav className="relative">
+                <fieldset className="border-2 border-gray-300 p-6 rounded-xl">
+                    <legend className="px-3 flex items-center gap-2">
+                        <div className="w-7 h-7 rounded bg-gray-800 flex items-center justify-center text-white shadow-sm">
+                            <i className="fa-solid fa-gears text-xs"></i>
+                        </div>
+                        <span className="text-lg font-bold text-gray-800">System Management</span>
+                    </legend>
+                    <ul className="list-none p-0 m-0 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <li><DashboardLink to="/receipt-form" icon={<ReceiptIcon />} text="Create Receipt" /></li>
+                        <li><DashboardLink to="/estimate-form" icon={<EstimateIcon />} text="Create Estimate" /></li>
+                        <li><DashboardLink to="/admin/receipts" icon={<ViewIcon />} text="View Receipts" /></li>
+                        <li><DashboardLink to="/admin/estimates" icon={<ViewIcon />} text="View Estimates" /></li>
+                        <li><DashboardLink to="/admin/customers" icon={<CustomersIcon />} text="View Customers" /></li>
+                        <li><DashboardLink to="/admin/labs" icon={<LabsIcon />} text="Manage Labs" /></li>
+                        <li><DashboardLink to="/admin/package-lists" icon={<PackageListIcon />} text="Manage Rate Lists" /></li>
+                        <li><DashboardLink to="/admin/branches" icon={<BranchesIcon />} text="Manage Branches" /></li>
+                        <li><DashboardLink to="/admin/users" icon={<UsersIcon />} text="Manage Users" /></li>
+                        <li><DashboardLink to="/admin/wallet" icon={<WalletIcon />} text="Manage Wallets" /></li>
+                    </ul>
+                </fieldset>
             </nav>
 
             <div className="text-center mt-12 pt-6 border-t border-gray-200">

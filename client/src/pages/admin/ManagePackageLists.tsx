@@ -4,6 +4,7 @@ import { apiService } from '../../services/api';
 import { PackageList, Package } from '../../types';
 
 declare var XLSX: any;
+declare var ExcelJS: any;
 
 const ManagePackageLists: React.FC = () => {
     const [lists, setLists] = useState<PackageList[]>([]);
@@ -168,13 +169,14 @@ const ManagePackageLists: React.FC = () => {
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                 <PageHeader title="Rate Database Management" />
 
-                <section className="mb-10">
-                    <div className="flex items-center gap-2 mb-6 border-b border-gray-300 pb-2">
+                {/* Add Rate List Form */}
+                <fieldset className="border-2 border-gray-300 p-6 rounded-xl mb-10">
+                    <legend className="px-3 flex items-center gap-2">
                         <div className="w-7 h-7 rounded bg-blue-600 flex items-center justify-center text-white shadow-sm">
                             <i className="fa-solid fa-database text-xs"></i>
                         </div>
-                        <h2 className="text-lg font-bold text-gray-800">Add Rate List</h2>
-                    </div>
+                        <span className="text-lg font-bold text-gray-800">Add Rate List</span>
+                    </legend>
 
                     <form onSubmit={handleAddList} className="flex flex-col sm:flex-row items-end gap-4 bg-gray-50/50 p-4 rounded-lg border border-gray-100">
                         <div className="flex-grow w-full space-y-1">
@@ -184,80 +186,88 @@ const ManagePackageLists: React.FC = () => {
                                 <input id="newListName" type="text" value={newListName} onChange={e => setNewListName(e.target.value)} required className="w-full pl-9 p-2 border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-50 outline-none transition-all text-sm" />
                             </div>
                         </div>
-                        <button type="submit" className="w-full sm:w-auto px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-all shadow-sm flex items-center justify-center gap-2 text-sm h-[38px]">
+                        <button type="submit" className="w-full sm:w-auto px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-all shadow-sm flex items-center justify-center gap-2 text-sm h-[38px] whitespace-nowrap">
                             <i className="fa-solid fa-plus-circle"></i> Create List
                         </button>
                     </form>
-                </section>
-
-                <hr className="my-10 border-gray-300" />
-
-                <section>
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-gray-300 pb-4">
-                        <div className="flex items-center gap-2">
+                </fieldset>
+                {/* Existing Rate Lists Table */}
+                <div className="relative">
+                    <fieldset className="border-2 border-gray-300 p-6 rounded-xl">
+                        <legend className="px-3 flex items-center gap-2">
                             <div className="w-7 h-7 rounded bg-gray-800 flex items-center justify-center text-white shadow-sm">
                                 <i className="fa-solid fa-layer-group text-xs"></i>
                             </div>
-                            <h2 className="text-lg font-bold text-gray-800">Rate Lists</h2>
-                        </div>
+                            <span className="text-lg font-bold text-gray-800">Available Rate Lists</span>
+                        </legend>
 
-                        <div className="relative w-full md:w-64">
-                            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                        <div className="overflow-x-auto rounded-lg border border-gray-200">
+                            <table className="min-w-full bg-white divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Database Name</th>
+                                        <th className="py-3 px-4 text-center text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Packages</th>
+                                        <th className="py-3 px-4 text-center text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300 w-24">Sync</th>
+                                        <th className="py-3 px-4 text-center text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300 w-24">Import</th>
+                                        <th className="py-3 px-4 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 text-sm">
+                                    {isLoading ? (
+                                        <tr><td colSpan={6} className="text-center py-12 text-gray-400 italic text-sm">Loading rate databases...</td></tr>
+                                    ) : filteredLists.length === 0 ? (
+                                        <tr><td colSpan={6} className="text-center py-12 text-gray-400 italic text-sm">No rate lists matching your search.</td></tr>
+                                    ) : (
+                                        filteredLists.map(list => (
+                                            <tr key={list.id} className="hover:bg-gray-50 transition-colors group">
+                                                <td className="py-3 px-4">
+                                                    <div className="text-sm font-bold text-gray-800">{list.name}</div>
+                                                    <div className="text-[10px] text-gray-400 font-mono italic">REF: #{list.id.toString().padStart(3, '0')}</div>
+                                                </td>
+                                                <td className="py-3 px-4 text-center">
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-100">
+                                                        {list.package_count || 0} ITEMS
+                                                    </span>
+                                                </td>
+                                                <td className="py-3 px-4 text-center">
+                                                    <button onClick={() => openEditModal(list)} className="px-3 py-1.5 flex items-center justify-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded border border-blue-100 transition-all font-bold text-[10px] mx-auto shadow-sm whitespace-nowrap" title="Sync Rates">
+                                                        <i className="fa-solid fa-rotate"></i>
+                                                        <span>Sync</span>
+                                                    </button>
+                                                </td>
+                                                <td className="py-3 px-4 text-center">
+                                                    <label className="px-3 py-1.5 flex items-center justify-center gap-2 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white rounded border border-green-100 transition-all cursor-pointer font-bold text-[10px] mx-auto shadow-sm whitespace-nowrap" title="Import Packages">
+                                                        <i className="fa-solid fa-file-import"></i>
+                                                        <span>Import XLSX</span>
+                                                        <input type="file" accept=".xlsx, .xls" onChange={(e) => handleFileUpload(list.id, e)} className="hidden" />
+                                                    </label>
+                                                </td>
+                                                <td className="py-3 px-4 text-right">
+                                                    <button onClick={() => handleDeleteList(list.id)} className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-red-600 hover:text-white rounded border border-gray-100 transition-all shadow-sm ml-auto" title="Delete Database">
+                                                        <i className="fa-solid fa-trash-can text-xs"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </fieldset>
+
+                    <div className="absolute top-0 right-6 -translate-y-[5px]">
+                        <div className="search-container md:w-64 bg-white">
+                            <i className="fa-solid fa-magnifying-glass text-gray-700 text-xs mr-2"></i>
                             <input
                                 type="text"
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
-                                placeholder="Search databases..."
-                                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-50 focus:bg-white transition-all text-sm"
+                                placeholder="Search lists..."
+                                className="search-input"
                             />
                         </div>
                     </div>
-
-                    <div className="overflow-x-auto rounded-lg border border-gray-200">
-                        <table className="min-w-full bg-white divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Database Name</th>
-                                    <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Capacity</th>
-                                    <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Excel Import</th>
-                                    <th className="py-3 px-4 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 text-sm">
-                                {isLoading ? (
-                                    <tr><td colSpan={4} className="text-center py-12 text-gray-400 italic text-sm">Accessing database registry...</td></tr>
-                                ) : filteredLists.length === 0 ? (
-                                    <tr><td colSpan={4} className="text-center py-12 text-gray-400 italic text-sm">No rate databases found matching your search.</td></tr>
-                                ) : (
-                                    filteredLists.map(list => (
-                                        <tr key={list.id} className="hover:bg-gray-50/50 transition-colors">
-                                            <td className="py-3 px-4 font-bold text-gray-800 text-sm whitespace-nowrap">{list.name}</td>
-                                            <td className="py-3 px-4">
-                                                <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-100 text-[10px] font-bold">{list.package_count} Packages</span>
-                                            </td>
-                                            <td className="py-3 px-4">
-                                                <label className="flex items-center gap-2 p-1 px-2 bg-green-50 text-green-700 rounded border border-green-100 text-[9px] font-bold cursor-pointer hover:bg-green-600 hover:text-white transition-all w-fit">
-                                                    <i className="fa-solid fa-file-excel"></i> IMPORT XLSX
-                                                    <input type="file" accept=".xlsx, .xls" onChange={(e) => handleFileUpload(list.id, e)} className="hidden" />
-                                                </label>
-                                            </td>
-                                            <td className="py-3 px-4 text-right">
-                                                <div className="flex justify-end gap-1.5">
-                                                    <button onClick={() => openEditModal(list)} className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-yellow-500 hover:text-white rounded border border-gray-100 transition-all" title="View/Edit Packages">
-                                                        <i className="fa-solid fa-pen-to-square text-xs"></i>
-                                                    </button>
-                                                    <button onClick={() => handleDeleteList(list.id)} className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-red-600 hover:text-white rounded border border-gray-100 transition-all" title="Delete Database">
-                                                        <i className="fa-solid fa-trash-can text-xs"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
+                </div>
             </div>
 
             {isModalOpen && editingList && (

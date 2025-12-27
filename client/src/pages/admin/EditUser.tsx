@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
+import CleanSelect from '../../components/CleanSelect';
 import { apiService } from '../../services/api';
 import { User, Branch, PackageList, Lab } from '../../types';
 import RateListAccessModal from '../../components/RateListAccessModal';
@@ -101,13 +102,13 @@ const EditUser: React.FC = () => {
 
                 <form onSubmit={handleSubmit} className="mt-8 space-y-8">
                     {/* User Details Section */}
-                    <div className="space-y-6">
-                        <div className="flex items-center gap-2 border-b pb-2">
+                    <fieldset className="border-2 border-gray-300 p-6 rounded-xl">
+                        <legend className="px-3 flex items-center gap-2">
                             <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-100">
                                 <i className="fa-solid fa-user-gear text-sm"></i>
                             </div>
-                            <h2 className="text-xl font-bold text-gray-800">Account Credentials</h2>
-                        </div>
+                            <span className="text-xl font-bold text-gray-800">Account Credentials</span>
+                        </legend>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-1">
@@ -135,24 +136,29 @@ const EditUser: React.FC = () => {
                             </div>
 
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Work Location</label>
-                                <div className="relative">
-                                    <i className="fa-solid fa-house-medical absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                                    <select name="branchId" value={user.branchId} onChange={handleInputChange} className="w-full pl-10 p-3 border rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none appearance-none">
-                                        {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                    </select>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Assigned Branch</label>
+                                    <CleanSelect
+                                        options={branches.map(b => ({ value: b.id, label: b.name }))}
+                                        value={user.branchId}
+                                        onChange={val => setUser({ ...user, branchId: val })}
+                                        placeholder="Select Branch"
+                                    />
                                 </div>
                             </div>
 
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-500 uppercase ml-1">Authorization Tier</label>
-                                <div className="relative">
-                                    <i className="fa-solid fa-crown absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                                    <select name="role" value={user.role} onChange={handleInputChange} className="w-full pl-10 p-3 border rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all outline-none appearance-none">
-                                        <option value="GENERAL_EMPLOYEE">General Employee</option>
-                                        <option value="CLIENT">B2B Client</option>
-                                        <option value="ADMIN">Administrator</option>
-                                    </select>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">System Role</label>
+                                    <CleanSelect
+                                        options={[
+                                            { value: 'GENERAL_EMPLOYEE', label: 'General Employee' },
+                                            { value: 'CLIENT', label: 'B2B Client' },
+                                            { value: 'ADMIN', label: 'Administrator' }
+                                        ]}
+                                        value={user.role}
+                                        onChange={val => setUser({ ...user, role: val })}
+                                    />
                                 </div>
                             </div>
 
@@ -170,13 +176,13 @@ const EditUser: React.FC = () => {
                                 </button>
                             </div>
                         </div>
-                    </div>
+                    </fieldset>
 
-                    <div className="pt-6 border-t flex justify-end gap-3">
-                        <button type="button" onClick={() => navigate('/admin/users')} className="px-6 py-2.5 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition-all">
+                    <div className="pt-6 border-t border-gray-300 flex justify-end gap-3">
+                        <button type="button" onClick={() => navigate('/admin/users')} className="px-6 py-2.5 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition-all text-sm">
                             Cancel Changes
                         </button>
-                        <button type="submit" className="px-10 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center gap-2">
+                        <button type="submit" className="px-10 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center gap-2 text-sm">
                             Update Account Details <i className="fa-solid fa-circle-check"></i>
                         </button>
                     </div>

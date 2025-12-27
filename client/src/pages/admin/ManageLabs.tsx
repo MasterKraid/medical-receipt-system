@@ -97,13 +97,14 @@ const ManageLabs: React.FC = () => {
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                 <PageHeader title="Lab & Rate Management" />
 
-                <section className="mb-10">
-                    <div className="flex items-center gap-2 mb-6 border-b border-gray-300 pb-2">
+                {/* Add New Laboratory Form */}
+                <fieldset className="border-2 border-gray-300 p-6 rounded-xl mb-10">
+                    <legend className="px-3 flex items-center gap-2">
                         <div className="w-7 h-7 rounded bg-blue-600 flex items-center justify-center text-white shadow-sm">
                             <i className="fa-solid fa-flask-vial text-xs"></i>
                         </div>
-                        <h2 className="text-lg font-bold text-gray-800">Add New Laboratory</h2>
-                    </div>
+                        <span className="text-lg font-bold text-gray-800">Add New Laboratory</span>
+                    </legend>
 
                     <form onSubmit={handleAddLab} className="flex flex-col sm:flex-row items-end gap-4 bg-gray-50/50 p-4 rounded-lg border border-gray-100">
                         <div className="flex-grow w-full space-y-1">
@@ -117,84 +118,149 @@ const ManageLabs: React.FC = () => {
                             <i className="fa-solid fa-plus-circle"></i> Create Lab
                         </button>
                     </form>
-                </section>
+                </fieldset>
 
-                <hr className="my-10 border-gray-300" />
 
-                <section>
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-gray-300 pb-4">
-                        <div className="flex items-center gap-2">
+                {/* Laboratory Directory */}
+                <div className="relative">
+                    <fieldset className="border-2 border-gray-300 p-6 rounded-xl">
+                        <legend className="px-3 flex items-center gap-2">
                             <div className="w-7 h-7 rounded bg-gray-800 flex items-center justify-center text-white shadow-sm">
-                                <i className="fa-solid fa-list-check text-xs"></i>
+                                <i className="fa-solid fa-flask text-xs"></i>
                             </div>
-                            <h2 className="text-lg font-bold text-gray-800">Laboratory Directory</h2>
-                        </div>
+                            <span className="text-lg font-bold text-gray-800">Laboratory Network</span>
+                        </legend>
 
-                        <div className="relative w-full md:w-64">
-                            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                        <div className="overflow-x-auto rounded-lg border border-gray-200">
+                            <table className="min-w-full bg-white divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Lab Details</th>
+                                        <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Assigned Rate Databases</th>
+                                        <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Branding</th>
+                                        <th className="py-3 px-4 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 text-sm">
+                                    {isLoading ? (
+                                        <tr><td colSpan={4} className="text-center py-12 text-gray-400 italic text-sm">Synchronizing lab data...</td></tr>
+                                    ) : filteredLabs.length === 0 ? (
+                                        <tr><td colSpan={4} className="text-center py-12 text-gray-400 italic text-sm">No laboratories matching your search found.</td></tr>
+                                    ) : (
+                                        filteredLabs.map(lab => (
+                                            <tr key={lab.id} className="hover:bg-gray-50/50 transition-colors group">
+                                                <td className="py-3 px-4">
+                                                    <div className="text-sm font-bold text-gray-800">{lab.name}</div>
+                                                    <div className="text-[10px] text-gray-400 font-mono italic">REF: #{lab.id.toString().padStart(3, '0')}</div>
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <div className="text-[11px] text-gray-500 max-w-xs line-clamp-2">
+                                                            {lab.assigned_list_ids?.length
+                                                                ? lab.assigned_list_ids.map(id => allLists.find(l => l.id === id)?.name).join(', ')
+                                                                : <span className="italic text-gray-300">No rates assigned</span>
+                                                            }
+                                                        </div>
+                                                        <button onClick={() => openEditModal(lab)} className="p-1 px-2 bg-blue-50 text-blue-600 rounded border border-blue-100 text-[9px] font-bold hover:bg-blue-600 hover:text-white transition-all whitespace-nowrap">
+                                                            <i className="fa-solid fa-sync mr-1"></i> Sync Rates
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    <div className="flex items-center gap-3">
+                                                        {lab.logo_path ? (
+                                                            <div className="h-10 w-24 bg-gray-50 rounded border border-gray-100 overflow-hidden flex items-center justify-center p-1 shadow-sm relative group/logo">
+                                                                <img src={lab.logo_path} alt={lab.name} className="h-full w-full object-contain" />
+                                                                <label className="absolute inset-0 bg-black/40 opacity-0 group-hover/logo:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                                                                    <i className="fa-solid fa-camera text-white text-xs"></i>
+                                                                    <input
+                                                                        type="file"
+                                                                        className="hidden"
+                                                                        accept="image/*"
+                                                                        onChange={async (e) => {
+                                                                            const file = e.target.files?.[0];
+                                                                            if (file) {
+                                                                                // 100KB limit check
+                                                                                if (file.size > 100 * 1024) {
+                                                                                    alert("Upload Failed: File size exceeds the allowed limit (100KB). Please compress the image and try again.");
+                                                                                    return;
+                                                                                }
+                                                                                const reader = new FileReader();
+                                                                                reader.onloadend = async () => {
+                                                                                    try {
+                                                                                        await apiService.updateLabLogo(lab.id, reader.result as string);
+                                                                                        fetchData();
+                                                                                    } catch (err) {
+                                                                                        alert("Upload failed: " + err);
+                                                                                    }
+                                                                                };
+                                                                                reader.readAsDataURL(file);
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                </label>
+                                                            </div>
+                                                        ) : (
+                                                            <label className="text-[9px] text-gray-400 font-bold border border-dashed border-gray-200 rounded px-3 py-1.5 flex flex-col items-center gap-1 cursor-pointer hover:bg-gray-50 transition-colors">
+                                                                <i className="fa-solid fa-cloud-arrow-up text-xs"></i>
+                                                                UPLOAD
+                                                                <input
+                                                                    type="file"
+                                                                    className="hidden"
+                                                                    accept="image/*"
+                                                                    onChange={async (e) => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (file) {
+                                                                            // 100KB limit check
+                                                                            if (file.size > 100 * 1024) {
+                                                                                alert("Upload Failed: File size exceeds the allowed limit (100KB). Please compress the image and try again.");
+                                                                                return;
+                                                                            }
+                                                                            const reader = new FileReader();
+                                                                            reader.onloadend = async () => {
+                                                                                try {
+                                                                                    await apiService.updateLabLogo(lab.id, reader.result as string);
+                                                                                    fetchData();
+                                                                                } catch (err) {
+                                                                                    alert("Upload failed: " + err);
+                                                                                }
+                                                                            };
+                                                                            reader.readAsDataURL(file);
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </label>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="py-3 px-4 text-right">
+                                                    <div className="flex justify-end gap-1.5 transition-opacity">
+                                                        <button onClick={() => handleDeleteLab(lab.id)} className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-red-600 hover:text-white rounded border border-gray-100 transition-all shadow-sm" title="Decommission Laboratory">
+                                                            <i className="fa-solid fa-trash-can text-xs"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </fieldset>
+
+                    <div className="absolute top-0 right-6 -translate-y-[5px]">
+                        <div className="search-container md:w-64 bg-white">
+                            <i className="fa-solid fa-magnifying-glass text-gray-700 text-xs mr-2"></i>
                             <input
                                 type="text"
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                                 placeholder="Search labs..."
-                                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-50 focus:bg-white transition-all text-sm"
+                                className="search-input"
                             />
                         </div>
                     </div>
-
-                    <div className="overflow-x-auto rounded-lg border border-gray-200">
-                        <table className="min-w-full bg-white divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Lab Details</th>
-                                    <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Assigned Rate Databases</th>
-                                    <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Branding</th>
-                                    <th className="py-3 px-4 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 text-sm">
-                                {isLoading ? (
-                                    <tr><td colSpan={4} className="text-center py-12 text-gray-400 italic text-sm">Synchronizing lab data...</td></tr>
-                                ) : filteredLabs.length === 0 ? (
-                                    <tr><td colSpan={4} className="text-center py-12 text-gray-400 italic text-sm">No laboratories matching your search found.</td></tr>
-                                ) : (
-                                    filteredLabs.map(lab => (
-                                        <tr key={lab.id} className="hover:bg-gray-50/50 transition-colors group">
-                                            <td className="py-3 px-4 font-bold text-gray-800 text-sm whitespace-nowrap">{lab.name}</td>
-                                            <td className="py-3 px-4">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <div className="text-[11px] text-gray-500 max-w-xs line-clamp-2">
-                                                        {lab.assigned_list_ids?.length
-                                                            ? lab.assigned_list_ids.map(id => allLists.find(l => l.id === id)?.name).join(', ')
-                                                            : <span className="italic text-gray-300">No rates assigned</span>
-                                                        }
-                                                    </div>
-                                                    <button onClick={() => openEditModal(lab)} className="p-1 px-2 bg-blue-50 text-blue-600 rounded border border-blue-100 text-[9px] font-bold hover:bg-blue-600 hover:text-white transition-all whitespace-nowrap">
-                                                        <i className="fa-solid fa-sync mr-1"></i> Sync Rates
-                                                    </button>
-                                                </div>
-                                            </td>
-                                            <td className="py-3 px-4">
-                                                {lab.logo_path ? (
-                                                    <div className="h-8 w-20 bg-gray-50 rounded border border-gray-100 overflow-hidden flex items-center justify-center p-1 shadow-sm">
-                                                        <img src={lab.logo_path} alt={lab.name} className="h-full w-full object-contain" />
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-[9px] text-gray-300 font-bold border border-dashed border-gray-200 rounded px-1.5 py-0.5 inline-block">NO LOGO</div>
-                                                )}
-                                            </td>
-                                            <td className="py-3 px-4 text-right">
-                                                <button onClick={() => handleDeleteLab(lab.id)} className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-red-600 hover:text-white rounded border border-gray-100 transition-all" title="Retire Laboratory">
-                                                    <i className="fa-solid fa-trash-can text-xs"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
+                </div>
             </div>
 
             {/* Edit Assignments Modal */}

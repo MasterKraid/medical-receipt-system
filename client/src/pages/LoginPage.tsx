@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  
+
   // CHANGED: We now get the error and a way to clear it directly from the context
   const { login, user, authError, clearAuthError } = useAuth();
   const navigate = useNavigate();
@@ -21,16 +21,16 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     if (!username || !password) {
       // We can still handle simple validation locally if we want
-      return; 
+      return;
     }
     // The login function now handles all its own state updates.
     await login(username, password);
   };
-  
+
   React.useEffect(() => {
     if (user) {
-        const targetDashboard = user.role === 'ADMIN' ? '/admin-dashboard' : '/dashboard';
-        navigate(targetDashboard);
+      const targetDashboard = user.role === 'ADMIN' ? '/admin-dashboard' : '/dashboard';
+      navigate(targetDashboard);
     }
   }, [user, navigate]);
 
@@ -82,8 +82,9 @@ const LoginPage: React.FC = () => {
 
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition"
+          className="w-full bg-blue-50 text-blue-600 py-3 rounded-lg font-bold text-lg border border-blue-200 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors flex items-center justify-center gap-2"
         >
+          <i className="fa-solid fa-right-to-bracket"></i>
           Login
         </button>
       </form>

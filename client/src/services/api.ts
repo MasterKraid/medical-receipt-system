@@ -87,11 +87,13 @@ export const apiService = {
   // --- Admin: Branch Management ---
   createBranch: (branchData: Omit<Branch, 'id'>): Promise<Branch> => apiFetch('/branches', { method: 'POST', body: JSON.stringify(branchData) }),
   updateBranch: (branchData: Branch): Promise<void> => apiFetch(`/branches/${branchData.id}`, { method: 'PUT', body: JSON.stringify(branchData) }),
+  deleteBranch: (branchId: number): Promise<void> => apiFetch(`/branches/${branchId}`, { method: 'DELETE' }),
 
   // --- Admin: Lab Management ---
   createLab: (name: string): Promise<Lab> => apiFetch('/labs', { method: 'POST', body: JSON.stringify({ name }) }),
   deleteLab: (labId: number): Promise<void> => apiFetch(`/labs/${labId}`, { method: 'DELETE' }),
   updateLabLists: (labId: number, listIds: number[]): Promise<void> => apiFetch(`/labs/${labId}/lists`, { method: 'PUT', body: JSON.stringify({ listIds }) }),
+  updateLabLogo: (labId: number, logoBase64: string): Promise<{ logoPath: string }> => apiFetch(`/labs/${labId}/logo`, { method: 'PUT', body: JSON.stringify({ logoBase64 }) }),
 
   // --- Admin: Package & List Management ---
   createPackageList: (name: string): Promise<PackageList> => apiFetch('/package-lists', { method: 'POST', body: JSON.stringify({ name }) }),

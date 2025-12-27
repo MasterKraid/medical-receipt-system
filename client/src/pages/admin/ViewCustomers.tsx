@@ -14,7 +14,6 @@ const ViewCustomers: React.FC = () => {
     useEffect(() => {
         if (user) {
             setIsLoading(true);
-            // Fixed: Removed 'user' argument
             apiService.getAllCustomers()
                 .then(data => {
                     setCustomers(data);
@@ -26,65 +25,95 @@ const ViewCustomers: React.FC = () => {
                 });
         }
     }, [user]);
-    
-    const filteredCustomers = customers.filter(cust => 
-        cust.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        cust.mobile?.includes(searchTerm) ||
-        cust.display_id.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+
+    const filteredCustomers = React.useMemo(() => {
+        const query = searchTerm.toLowerCase().trim();
+        if (!query) return customers;
+        return customers.filter(cust =>
+            cust.name.toLowerCase().includes(query) ||
+            cust.mobile?.includes(query) ||
+            cust.display_id.toLowerCase().includes(query)
+        );
+    }, [customers, searchTerm]);
 
     return (
-        <div className="p-4 sm:p-8 max-w-7xl mx-auto">
-            <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg">
-                <PageHeader title="All Customers" />
+        <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <PageHeader title="Customer Directory" />
 
-                <div className="mb-4">
-                    <input 
-                        type="search"
-                        placeholder="Search by Customer ID, Name, or Mobile..."
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        className="w-full p-2 border rounded"
-                    />
-                </div>
-                
-                <div className="overflow-x-auto">
-                    <table className="min-w-full bg-white text-sm">
-                        <thead className="bg-gray-100">
-                            <tr>
-                                <th className="py-2 px-4 border-b text-left">Customer ID</th>
-                                <th className="py-2 px-4 border-b text-left">Name</th>
-                                <th className="py-2 px-4 border-b text-left">Mobile</th>
-                                <th className="py-2 px-4 border-b text-left">Gender</th>
-                                <th className="py-2 px-4 border-b text-left">DOB / Age</th>
-                                <th className="py-2 px-4 border-b text-left">Registered On</th>
-                                {user?.role === 'ADMIN' && <th className="py-2 px-4 border-b text-left">Actions</th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {isLoading ? (
-                                <tr><td colSpan={user?.role === 'ADMIN' ? 7 : 6} className="text-center py-4">Loading customers...</td></tr>
-                            ) : filteredCustomers.length > 0 ? (
-                                filteredCustomers.map(cust => (
-                                    <tr key={cust.id}>
-                                        <td className="py-2 px-4 border-b">{cust.display_id}</td>
-                                        <td className="py-2 px-4 border-b">{cust.name}</td>
-                                        <td className="py-2 px-4 border-b">{cust.mobile || 'N/A'}</td>
-                                        <td className="py-2 px-4 border-b">{cust.gender || 'N/A'}</td>
-                                        <td className="py-2 px-4 border-b">{cust.dob_formatted !== 'N/A' ? cust.dob_formatted : cust.display_age}</td>
-                                        <td className="py-2 px-4 border-b">{cust.display_created_at}</td>
-                                        {user?.role === 'ADMIN' && (
-                                            <td className="py-2 px-4 border-b">
-                                                <Link to={`/admin/customers/edit/${cust.id}`} className="px-3 py-1 bg-yellow-500 text-white rounded text-xs">Edit</Link>
-                                            </td>
-                                        )}
+                <div className="relative">
+                    <fieldset className="border-2 border-gray-300 p-6 rounded-xl">
+                        <legend className="px-3 flex items-center gap-2">
+                            <div className="w-7 h-7 rounded bg-gray-800 flex items-center justify-center text-white shadow-sm">
+                                <i className="fa-solid fa-users text-xs"></i>
+                            </div>
+                            <span className="text-lg font-bold text-gray-800">All Registered Customers</span>
+                        </legend>
+
+                        <div className="overflow-x-auto rounded-lg border border-gray-200">
+                            <table className="min-w-full bg-white divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Identity</th>
+                                        <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Contact & Info</th>
+                                        <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Registration</th>
+                                        {user?.role === 'ADMIN' && <th className="py-3 px-4 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Actions</th>}
                                     </tr>
-                                ))
-                            ) : (
-                                <tr><td colSpan={user?.role === 'ADMIN' ? 7 : 6} className="text-center py-4">No customers found.</td></tr>
-                            )}
-                        </tbody>
-                    </table>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 text-sm">
+                                    {isLoading ? (
+                                        <tr><td colSpan={user?.role === 'ADMIN' ? 4 : 3} className="text-center py-12 text-gray-400 italic text-sm">Synchronizing customer records...</td></tr>
+                                    ) : filteredCustomers.length === 0 ? (
+                                        <tr><td colSpan={user?.role === 'ADMIN' ? 4 : 3} className="text-center py-12 text-gray-400 italic text-sm">No customers matching your search found.</td></tr>
+                                    ) : (
+                                        filteredCustomers.map(cust => (
+                                            <tr key={cust.id} className="hover:bg-gray-50/50 transition-colors group">
+                                                <td className="py-3 px-4">
+                                                    <div className="text-sm font-bold text-gray-800">{cust.name}</div>
+                                                    <div className="text-[10px] text-gray-400 font-mono italic">{cust.display_id}</div>
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    <div className="flex flex-col gap-1">
+                                                        <div className="flex items-center gap-2 text-xs text-gray-600">
+                                                            <i className="fa-solid fa-phone text-[10px] text-gray-400"></i>
+                                                            {cust.mobile || 'No Mobile'}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                                                            <i className={`fa-solid ${cust.gender === 'Male' ? 'fa-mars' : 'fa-venus'} text-gray-300`}></i>
+                                                            {cust.gender || 'N/A'} • {cust.dob_formatted !== 'N/A' ? cust.dob_formatted : cust.display_age}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="py-3 px-4 text-xs font-semibold text-gray-500">
+                                                    {cust.display_created_at}
+                                                </td>
+                                                {user?.role === 'ADMIN' && (
+                                                    <td className="py-3 px-4 text-right">
+                                                        <Link to={`/admin/customers/edit/${cust.id}`} className="w-8 h-8 inline-flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-yellow-600 hover:text-white rounded border border-gray-100 transition-all shadow-sm" title="Edit Profile">
+                                                            <i className="fa-solid fa-pen-to-square text-xs"></i>
+                                                        </Link>
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </fieldset>
+
+                    <div className="absolute top-0 right-6 -translate-y-[5px]">
+                        <div className="search-container md:w-80 bg-white">
+                            <i className="fa-solid fa-magnifying-glass text-gray-700 text-xs mr-2"></i>
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                placeholder="Search by ID, Name, or Mobile..."
+                                className="search-input"
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

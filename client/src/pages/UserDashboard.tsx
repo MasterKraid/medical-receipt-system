@@ -22,7 +22,7 @@ const UserDashboard: React.FC = () => {
               )}
               {user.role === 'CLIENT' && typeof user.wallet_balance !== 'undefined' && (
                 <div className={`font-bold px-3 py-1 rounded-full text-xs ${user.wallet_balance < 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                    <i className="fa-solid fa-wallet mr-2"></i>₹{user.wallet_balance.toFixed(2)}
+                  <i className="fa-solid fa-wallet mr-2"></i>₹{user.wallet_balance.toFixed(2)}
                 </div>
               )}
             </div>
@@ -30,18 +30,25 @@ const UserDashboard: React.FC = () => {
         </div>
       </header>
 
-      <nav>
-        <h2 className="text-xl font-semibold text-gray-700 mb-6 pb-2 border-b">Actions</h2>
-        <ul className="list-none p-0 m-0 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <li><DashboardLink to="/receipt-form" icon={<ReceiptIcon />} text="Create New Receipt" /></li>
-          <li><DashboardLink to="/estimate-form" icon={<EstimateIcon />} text="Create New Estimate" /></li>
-          <li><DashboardLink to="/customers" icon={<CustomersIcon />} text="View Customers" /></li>
-           {user?.role === 'CLIENT' && (
-             <li>
+      <nav className="relative">
+        <fieldset className="border-2 border-gray-300 p-6 rounded-xl">
+          <legend className="px-3 flex items-center gap-2">
+            <div className="w-7 h-7 rounded bg-gray-800 flex items-center justify-center text-white shadow-sm">
+              <i className="fa-solid fa-list-check text-xs"></i>
+            </div>
+            <span className="text-lg font-bold text-gray-800">Available Actions</span>
+          </legend>
+          <ul className="list-none p-0 m-0 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <li><DashboardLink to="/receipt-form" icon={<ReceiptIcon />} text="Create New Receipt" /></li>
+            <li><DashboardLink to="/estimate-form" icon={<EstimateIcon />} text="Create New Estimate" /></li>
+            <li><DashboardLink to="/customers" icon={<CustomersIcon />} text="View Customers" /></li>
+            {user?.role === 'CLIENT' && (
+              <li>
                 <DashboardLink to="/transactions" icon={<WalletIcon />} text="Transaction History" />
-            </li>
-          )}
-        </ul>
+              </li>
+            )}
+          </ul>
+        </fieldset>
       </nav>
 
       <div className="text-center mt-12 pt-6 border-t border-gray-200">

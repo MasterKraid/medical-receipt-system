@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import CleanSelect from '../components/CleanSelect';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
 import { Customer, Lab, PackageList, Package } from '../types';
@@ -390,18 +391,28 @@ const EstimateForm: React.FC = () => {
                     )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="flex items-center gap-2 md:col-span-2">
-                            <select name="prefix" value={newCustomer.prefix} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border rounded disabled:bg-gray-100 w-1/4">
-                                {prefixOptions.map(p => <option key={p} value={p}>{p}</option>)}
-                            </select>
-                            <input type="text" name="name" placeholder="Customer Name" value={newCustomer.name} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required className="p-2 border rounded disabled:bg-gray-100 w-3/4" />
+                            <CleanSelect
+                                options={prefixOptions.map(p => ({ value: p, label: p }))}
+                                value={newCustomer.prefix || ''}
+                                onChange={val => setNewCustomer({ ...newCustomer, prefix: val })}
+                                disabled={selectedCustomer !== null}
+                                className="w-1/4"
+                            />
+                            <input type="text" name="name" placeholder="Customer Name" value={newCustomer.name} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required className="p-2 border border-gray-200 rounded-xl disabled:bg-gray-100 flex-grow outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all text-sm" />
                         </div>
-                        <input type="tel" name="mobile" placeholder="10-digit Mobile" value={newCustomer.mobile} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required pattern="\d{10}" title="Must be 10 digits" className="p-2 border rounded disabled:bg-gray-100" />
-                        <input type="date" name="dob" placeholder="DOB" value={newCustomer.dob} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border rounded disabled:bg-gray-100" />
-                        <input type="number" name="age" placeholder="Age" value={newCustomer.age} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border rounded disabled:bg-gray-100" />
-                        <select name="gender" value={newCustomer.gender} onChange={handleCustomerChange} disabled={isGenderDisabled || selectedCustomer !== null} className="p-2 border rounded disabled:bg-gray-100">
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                        </select>
+                        <input type="tel" name="mobile" placeholder="10-digit Mobile (Optional)" value={newCustomer.mobile} onChange={handleCustomerChange} disabled={selectedCustomer !== null} pattern="\d{10}" title="Must be 10 digits" className="p-2 border border-gray-200 rounded-xl disabled:bg-gray-100 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all text-sm" />
+                        <input type="date" name="dob" placeholder="DOB" value={newCustomer.dob} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border border-gray-200 rounded-xl disabled:bg-gray-100 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all text-sm" />
+                        <input type="number" name="age" placeholder="Age" max="100" value={newCustomer.age} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border border-gray-200 rounded-xl disabled:bg-gray-100 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all text-sm" />
+                        <CleanSelect
+                            options={[
+                                { value: 'Male', label: 'Male' },
+                                { value: 'Female', label: 'Female' }
+                            ]}
+                            value={newCustomer.gender || ''}
+                            onChange={val => setNewCustomer({ ...newCustomer, gender: val })}
+                            disabled={isGenderDisabled || selectedCustomer !== null}
+                            placeholder="Gender"
+                        />
                         <div className="md:col-span-2">
                             <label className="text-sm font-medium">Referred By Dr.</label>
                             <input type="text" value={details.referred_by} onChange={e => setDetails({ ...details, referred_by: e.target.value })} className="w-full p-2 border rounded" placeholder="Doctor Name or 'Self'" />
@@ -412,14 +423,19 @@ const EstimateForm: React.FC = () => {
                 <fieldset className="border-2 border-gray-300 p-4 rounded-lg">
                     <legend className="px-2 font-semibold text-lg text-gray-700">Estimate Details</legend>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <select value={selectedLabId} onChange={e => setSelectedLabId(e.target.value)} required className="p-2 border rounded">
-                            <option value="">-- Select Lab --</option>
-                            {labs.map(lab => <option key={lab.id} value={lab.id}>{lab.name}</option>)}
-                        </select>
-                        <select value={selectedListId} onChange={e => setSelectedListId(e.target.value)} disabled={!selectedLabId} required className="p-2 border rounded">
-                            <option value="">-- Select Rate Database --</option>
-                            {packageLists.map(list => <option key={list.id} value={list.id}>{list.name}</option>)}
-                        </select>
+                        <CleanSelect
+                            options={labs.map(lab => ({ value: lab.id, label: lab.name }))}
+                            value={selectedLabId}
+                            onChange={val => setSelectedLabId(val)}
+                            placeholder="-- Select Lab --"
+                        />
+                        <CleanSelect
+                            options={packageLists.map(list => ({ value: list.id, label: list.name }))}
+                            value={selectedListId}
+                            onChange={val => setSelectedListId(val)}
+                            disabled={!selectedLabId}
+                            placeholder="-- Select Rate Database --"
+                        />
                     </div>
                 </fieldset>
 
