@@ -67,17 +67,30 @@ const ManageWallets: React.FC = () => {
     }
 
     return (
-        <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <div className="p-3 sm:p-6 max-w-7xl mx-auto space-y-6">
+            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
                 <PageHeader title="Wallet Management" />
 
-                <div className="relative">
-                    <fieldset className="border-2 border-gray-300 p-6 rounded-xl">
+                <div className="relative flex flex-col">
+                    <div className="md:absolute static top-0 right-6 md:-translate-y-[5px] mb-4 md:mb-0 flex justify-end order-1 md:order-none">
+                        <div className="search-container w-full md:w-64 bg-white shadow-sm md:shadow-none">
+                            <i className="fa-solid fa-magnifying-glass text-gray-700 text-xs mr-2"></i>
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                placeholder="Search clients..."
+                                className="search-input"
+                            />
+                        </div>
+                    </div>
+
+                    <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl order-2">
                         <legend className="px-3 flex items-center gap-2">
                             <div className="w-7 h-7 rounded bg-gray-800 flex items-center justify-center text-white shadow-sm">
                                 <i className="fa-solid fa-wallet text-xs"></i>
                             </div>
-                            <span className="text-lg font-bold text-gray-800">Account Directory</span>
+                            <span className="text-base md:text-lg font-bold text-gray-800 uppercase tracking-tight md:tracking-normal">Account Directory</span>
                         </legend>
 
                         {isLoading && clients.length === 0 ? (
@@ -154,19 +167,6 @@ const ManageWallets: React.FC = () => {
                             </div>
                         )}
                     </fieldset>
-
-                    <div className="absolute top-0 right-6 -translate-y-[5px]">
-                        <div className="search-container md:w-64 bg-white">
-                            <i className="fa-solid fa-magnifying-glass text-gray-700 text-xs mr-2"></i>
-                            <input
-                                type="text"
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                                placeholder="Search clients..."
-                                className="search-input"
-                            />
-                        </div>
-                    </div>
                 </div>
 
                 {/* Transaction Modal */}
@@ -207,7 +207,7 @@ const ManageWallets: React.FC = () => {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 

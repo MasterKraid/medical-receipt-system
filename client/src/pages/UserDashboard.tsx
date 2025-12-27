@@ -9,10 +9,10 @@ const UserDashboard: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto my-10 p-8 bg-white rounded-xl shadow-lg">
       <header className="border-b border-gray-200 pb-6 mb-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start gap-6">
-          <h1 className="m-0 text-3xl font-bold text-gray-800">User Dashboard</h1>
+        <div className="flex flex-col md:flex-row justify-between items-center md:items-start gap-4 text-center md:text-left">
+          <h1 className="m-0 text-2xl md:text-3xl font-bold text-gray-800">User Dashboard</h1>
           {user && (
-            <div className="flex flex-col items-center sm:items-end bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm text-gray-600 min-w-[200px]">
+            <div className="flex flex-col items-center md:items-end bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm text-gray-600 w-full md:w-auto md:min-w-[200px]">
               <div className="font-semibold text-gray-800 mb-1 text-base">
                 {user.role === 'CLIENT' ? <i className="fa-solid fa-user-tag mr-2"></i> : <i className="fa-solid fa-user mr-2"></i>}
                 {user.username}
@@ -21,7 +21,7 @@ const UserDashboard: React.FC = () => {
                 <div className="mb-2"><i className="fa-solid fa-building mr-2"></i>{branch.name}</div>
               )}
               {user.role === 'CLIENT' && typeof user.wallet_balance !== 'undefined' && (
-                <div className={`font-bold px-3 py-1 rounded-full text-xs ${user.wallet_balance < 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                <div className={`font-bold px-3 py-1 rounded-full text-xs whitespace-nowrap ${user.wallet_balance < 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
                   <i className="fa-solid fa-wallet mr-2"></i>₹{user.wallet_balance.toFixed(2)}
                 </div>
               )}
@@ -31,14 +31,14 @@ const UserDashboard: React.FC = () => {
       </header>
 
       <nav className="relative">
-        <fieldset className="border-2 border-gray-300 p-6 rounded-xl">
+        <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl">
           <legend className="px-3 flex items-center gap-2">
             <div className="w-7 h-7 rounded bg-gray-800 flex items-center justify-center text-white shadow-sm">
               <i className="fa-solid fa-list-check text-xs"></i>
             </div>
-            <span className="text-lg font-bold text-gray-800">Available Actions</span>
+            <span className="text-base md:text-lg font-bold text-gray-800 uppercase tracking-tight md:tracking-normal">Available Actions</span>
           </legend>
-          <ul className="list-none p-0 m-0 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <ul className="list-none p-0 m-0 grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
             <li><DashboardLink to="/receipt-form" icon={<ReceiptIcon />} text="Create New Receipt" /></li>
             <li><DashboardLink to="/estimate-form" icon={<EstimateIcon />} text="Create New Estimate" /></li>
             <li><DashboardLink to="/customers" icon={<CustomersIcon />} text="View Customers" /></li>
