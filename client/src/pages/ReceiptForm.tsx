@@ -115,6 +115,32 @@ const ReceiptForm: React.FC = () => {
         setCustomerMode('new');
     }
 
+    const handlePrefixChange = (newPrefix: string) => {
+        let customerData = { ...newCustomer, prefix: newPrefix };
+        let isGenderLocked = false;
+
+        switch (newPrefix) {
+            case 'Mr.':
+            case 'Master.':
+            case 'B/O':
+            case 'S/O':
+                customerData.gender = 'Male';
+                isGenderLocked = true;
+                break;
+            case 'Mrs.':
+            case 'Miss.':
+            case 'Ms.':
+                customerData.gender = 'Female';
+                isGenderLocked = true;
+                break;
+            default:
+                isGenderLocked = false;
+                break;
+        }
+        setNewCustomer(customerData);
+        setIsGenderDisabled(isGenderLocked);
+    };
+
     const handleCustomerChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         let customerData = { ...newCustomer };
@@ -125,29 +151,8 @@ const ReceiptForm: React.FC = () => {
                 customerData.mobile = mobileValue;
             }
         } else if (name === 'prefix') {
-            const newPrefix = value;
-            customerData.prefix = newPrefix;
-            let isGenderLocked = false;
-
-            switch (newPrefix) {
-                case 'Mr.':
-                case 'Master.':
-                case 'B/O':
-                case 'S/O':
-                    customerData.gender = 'Male';
-                    isGenderLocked = true;
-                    break;
-                case 'Mrs.':
-                case 'Miss.':
-                case 'Ms.':
-                    customerData.gender = 'Female';
-                    isGenderLocked = true;
-                    break;
-                default:
-                    isGenderLocked = false;
-                    break;
-            }
-            setIsGenderDisabled(isGenderLocked);
+            handlePrefixChange(value);
+            return;
         } else {
             customerData = { ...customerData, [name]: value };
         }
@@ -455,7 +460,7 @@ const ReceiptForm: React.FC = () => {
                             <CleanSelect
                                 options={prefixOptions.map(p => ({ value: p, label: p }))}
                                 value={newCustomer.prefix || ''}
-                                onChange={val => setNewCustomer({ ...newCustomer, prefix: val })}
+                                onChange={handlePrefixChange}
                                 disabled={selectedCustomer !== null}
                                 className="w-1/4"
                             />
