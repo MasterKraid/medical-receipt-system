@@ -52,6 +52,16 @@ const ReceiptForm: React.FC = () => {
     });
     const [showPreview, setShowPreview] = useState(false);
 
+    // Mobile specific states
+    const [step, setStep] = useState(1);
+    const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobileView(window.innerWidth < 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     // Fetch initial data
     useEffect(() => {
         apiService.getLabs().then(setLabs);
@@ -63,7 +73,6 @@ const ReceiptForm: React.FC = () => {
         setPackages([]);
         setSelectedListId('');
         if (selectedLabId && user) {
-            // Fix: Call the correct API method 'getPackageListsForLab' which was missing.
             apiService.getPackageListsForLab(parseInt(selectedLabId)).then(setPackageLists);
         }
     }, [selectedLabId, user]);
@@ -79,7 +88,6 @@ const ReceiptForm: React.FC = () => {
     useEffect(() => {
         if (customerSearch.length > 0) {
             const timer = setTimeout(() => {
-                // Fix: Call the correct API method 'searchCustomers' which was missing.
                 apiService.searchCustomers(customerSearch).then(setCustomerSuggestions);
             }, 300);
             return () => clearTimeout(timer);
@@ -197,13 +205,10 @@ const ReceiptForm: React.FC = () => {
         }
     };
 
-    // Add safety check for age
     const validateAge = (age: string) => {
         const num = parseInt(age);
         return !isNaN(num) && num >= 0 && num <= 100;
     }
-
-
 
     const calculations = useMemo(() => {
         let totalMrp = 0;
@@ -221,11 +226,7 @@ const ReceiptForm: React.FC = () => {
         });
 
         const subtotal = totalMrp - totalDiscountAmount;
-
-        // ROUNDING LOGIC: < 0.50 -> floor, >= 0.50 -> ceil
         let netPayable = Math.round(subtotal);
-
-        // Empty = Fully Paid logic
         const receivedInput = details.amount_received.trim();
         const received = receivedInput === '' ? netPayable : (parseFloat(receivedInput) || 0);
 
@@ -261,7 +262,6 @@ const ReceiptForm: React.FC = () => {
             return;
         }
 
-        // Filter empty rows
         const validItems = items.filter(i => i.name && i.name.trim() !== '');
         if (validItems.length === 0) {
             alert("Please add at least one test/package.");
@@ -321,57 +321,258 @@ const ReceiptForm: React.FC = () => {
                 notes: '',
             });
             setShowPreview(false);
+            setStep(1);
         }
     };
+
+    const nextStep = () => {
+        if (step === 1) {
+            if (!newCustomer.name.trim()) {
+                alert("Please enter the customer's name.");
+                return;
+            }
+        } else if (step === 2) {
+            if (!selectedLabId) {
+                alert("Please select a laboratory.");
+                return;
+            }
+            if (!selectedListId) {
+                alert("Please select a rate category.");
+                return;
+            }
+        } else if (step === 3) {
+            const hasValidItem = items.some(i => i.name && i.name.trim() !== '');
+            if (!hasValidItem) {
+                alert("Please add at least one test/package.");
+                return;
+            }
+        }
+        setStep(prev => Math.min(4, prev + 1));
+    };
+    const prevStep = () => setStep(prev => Math.max(1, prev - 1));
+
+    // --- RESTRUCTURED RENDER FUNCTIONS ---
+
+    const renderCustomerStep = () => (
+        <fieldset className="border-2 border-slate-200 p-4 rounded-xl space-y-4">
+            <legend className="px-2 font-bold text-lg text-slate-700">1. Customer Information</legend>
+            <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg mb-2">
+                <span className="text-sm font-medium text-slate-600">
+                    {customerMode === 'search' ? 'Search Existing' : 'Register New'}
+                </span>
+                <button type="button" onClick={() => customerMode === 'search' ? clearCustomer() : setCustomerMode('search')} className="text-blue-600 text-sm font-bold flex items-center gap-1">
+                    {customerMode === 'search' ? <><i className="fa-solid fa-user-plus"></i> New</> : <><i className="fa-solid fa-magnifying-glass"></i> Search</>}
+                </button>
+            </div>
+            {customerMode === 'search' && (
+                <div className="relative mb-2">
+                    <input type="text" value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} placeholder="Search name/mobile..." className="w-full p-3 bg-white border border-slate-300 rounded-xl outline-none focus:ring-4 focus:ring-blue-100 transition-all text-sm" />
+                    {customerSuggestions.length > 0 && (
+                        <ul className="absolute z-50 w-full bg-white border border-slate-200 mt-1 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
+                            {customerSuggestions.map(cust => (
+                                <li key={cust.id} onClick={() => handleSelectCustomer(cust)} className="p-3 hover:bg-blue-50 cursor-pointer border-b last:border-0 border-slate-100 transition-colors flex justify-between items-center text-sm">
+                                    <span>{cust.name}</span>
+                                    <span className="text-slate-400 text-xs font-mono">{cust.mobile}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            )}
+            {selectedCustomer && (
+                <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl flex justify-between items-center shadow-inner">
+                    <span className="text-sm font-bold text-blue-800">CUST-{String(selectedCustomer.id).padStart(10, '0')}</span>
+                    <button type="button" onClick={clearCustomer} className="text-red-500 font-bold text-xs">DISC</button>
+                </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex gap-2 md:col-span-2">
+                    <CleanSelect options={prefixOptions.map(p => ({ value: p, label: p }))} value={newCustomer.prefix || ''} onChange={handlePrefixChange} disabled={selectedCustomer !== null} className="w-24" />
+                    <input type="text" name="name" placeholder="Full Name" value={newCustomer.name} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required className="flex-grow p-3 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-50 transition-all text-sm font-medium" />
+                </div>
+                <input type="tel" name="mobile" placeholder="Mobile (Optional)" value={newCustomer.mobile} onChange={handleCustomerChange} disabled={selectedCustomer !== null} pattern="\d{10}" className="p-3 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-50 text-sm" />
+                <div className="grid grid-cols-2 gap-2">
+                    <input type="number" name="age" placeholder="Age" max="120" value={newCustomer.age} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-3 border border-slate-200 rounded-xl text-sm" />
+                    <input type="date" name="dob" value={newCustomer.dob} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-3 border border-slate-200 rounded-xl text-sm" />
+                </div>
+                <div className="md:col-span-2">
+                    <div className="grid grid-cols-2 gap-2">
+                        <CleanSelect options={[{ value: 'Male', label: 'Male' }, { value: 'Female', label: 'Female' }]} value={newCustomer.gender || ''} onChange={val => setNewCustomer({ ...newCustomer, gender: val as 'Male' | 'Female' })} disabled={isGenderDisabled || selectedCustomer !== null} placeholder="Gender" />
+                        <input type="text" value={details.referred_by} onChange={e => setDetails({ ...details, referred_by: e.target.value })} className="p-3 border border-slate-200 rounded-xl text-sm" placeholder="Self or Doctor Name" />
+                    </div>
+                </div>
+            </div>
+        </fieldset>
+    );
+
+    const renderReceiptDetailsStep = () => (
+        <fieldset className="border-2 border-slate-200 p-4 rounded-xl space-y-4">
+            <legend className="px-2 font-bold text-lg text-slate-700">2. Lab Selection</legend>
+            <div className="space-y-4">
+                <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1 px-1">Laboratory</label>
+                    <CleanSelect options={labs.map(lab => ({ value: lab.id.toString(), label: lab.name }))} value={selectedLabId} onChange={val => setSelectedLabId(val)} placeholder="Select Lab" />
+                </div>
+                <div>
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1 px-1">Rate Category</label>
+                    <CleanSelect options={packageLists.map(list => ({ value: list.id.toString(), label: list.name }))} value={selectedListId} onChange={val => setSelectedListId(val)} disabled={!selectedLabId} placeholder="Select Rate System" />
+                </div>
+            </div>
+        </fieldset>
+    );
+
+    const renderPackagesStep = () => (
+        <fieldset className="border-2 border-slate-200 p-4 rounded-xl space-y-4">
+            <legend className="px-2 font-bold text-lg text-slate-700">3. Select Tests</legend>
+            <div className="hidden md:grid md:grid-cols-12 gap-2 text-xs font-black text-slate-400 uppercase tracking-tighter mb-2 px-1">
+                <div className={`${user?.role === 'CLIENT' ? 'col-span-5' : 'col-span-7'}`}>Test Name/Package</div>
+                {user?.role === 'CLIENT' && <div className="col-span-2 text-right">B2B Cost</div>}
+                <div className="col-span-2 text-right">MRP (₹)</div>
+                <div className="col-span-1 text-right">Disc %</div>
+                <div className="col-span-1 text-right px-1">Disc ₹</div>
+                <div className="col-span-1"></div>
+            </div>
+
+            <div className="space-y-3">
+                {items.map((item) => {
+                    const otherSelectedNames = new Set(items.filter(i => i.id !== item.id && i.name).map(i => i.name));
+                    const dropdownOptions = packages.filter(p => !otherSelectedNames.has(p.name)).map(p => ({ value: p.name, label: p.name }));
+                    return (
+                        <div key={item.id} className="grid grid-cols-12 gap-2 items-end border-b pb-4 last:border-0 hover:bg-slate-50 transition-colors">
+                            <div className={`${user?.role === 'CLIENT' ? 'col-span-12 md:col-span-5' : 'col-span-12 md:col-span-7'}`}>
+                                <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">Test Name</label>
+                                <SearchableDropdown options={dropdownOptions} value={item.name} onChange={name => handlePackageSelect(item.id, name)} placeholder="Choose Package..." disabled={!selectedListId} />
+                            </div>
+                            {user?.role === 'CLIENT' && (
+                                <div className="col-span-4 md:col-span-2 text-right">
+                                    <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">B2B</label>
+                                    <div className="p-2.5 bg-green-50 text-green-700 rounded-xl font-bold text-xs border border-green-100">₹{item.b2b_price.toFixed(0)}</div>
+                                </div>
+                            )}
+                            <div className="col-span-4 md:col-span-2">
+                                <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">MRP</label>
+                                <input type="number" step="0.01" value={item.mrp} onChange={e => handleItemChange(item.id, 'mrp', parseFloat(e.target.value))} required className="w-full p-2.5 border border-slate-200 rounded-xl text-right text-xs font-bold" readOnly={item.isFromDb || user?.role === 'CLIENT'} />
+                            </div>
+                            <div className="col-span-2 md:col-span-1">
+                                <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">Disc %</label>
+                                <input type="number" step="0.1" value={item.discount} onChange={e => handleItemChange(item.id, 'discount', parseFloat(e.target.value))} className="w-full p-2.5 border border-slate-200 rounded-xl text-right text-xs font-bold" />
+                            </div>
+                            <div className="col-span-2 md:col-span-1">
+                                <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">Disc ₹</label>
+                                <div className="p-2.5 bg-slate-50 text-slate-700 rounded-xl text-right font-bold text-xs border border-slate-100 h-[38px] flex items-center justify-end">
+                                    ₹{(item.mrp * (item.discount / 100)).toFixed(0)}
+                                </div>
+                            </div>
+                            <div className="col-span-1 md:col-span-1 text-right flex justify-center items-center h-10">
+                                <button type="button" onClick={() => removeItem(item.id)} className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 rounded-full hover:bg-red-500 hover:text-white transition-all"><i className="fa-solid fa-xmark"></i></button>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+            <button type="button" onClick={addItem} disabled={!selectedListId} className="w-full md:w-auto mt-2 px-6 py-2.5 bg-slate-800 text-white rounded-xl text-sm font-bold shadow-lg shadow-slate-200 flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:bg-slate-300">
+                <i className="fa-solid fa-plus"></i> Add Another Test
+            </button>
+        </fieldset>
+    );
+
+    const renderPaymentStep = () => (
+        <fieldset className="border-2 border-slate-200 p-4 rounded-xl space-y-4">
+            <legend className="px-2 font-bold text-lg text-slate-700">4. Payment & Finalize</legend>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-slate-50 p-4 rounded-xl space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase block tracking-wider">Bulk Discount (%)</label>
+                    <div className="flex gap-2">
+                        <input type="number" value={applyDiscount} onChange={e => setApplyDiscount(e.target.value)} className="flex-grow p-3 border border-slate-200 rounded-xl text-sm" placeholder="0%" />
+                        <button type="button" onClick={handleApplyDiscountToAll} className="px-4 bg-slate-800 text-white rounded-xl"><i className="fa-solid fa-check"></i></button>
+                    </div>
+                </div>
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Received Amount</label>
+                        <input type="number" value={details.amount_received} onChange={e => setDetails({ ...details, amount_received: e.target.value })} placeholder="Full Payment (Leave Blank)" className="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold text-blue-700" />
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Payment via</label>
+                        <CleanSelect options={[{ value: 'Cash', label: 'Cash' }, { value: 'Card', label: 'Card' }, { value: 'UPI', label: 'UPI' }, { value: 'Mixed', label: 'Mixed' }, { value: 'Other', label: 'Other' }]} value={details.payment_method} onChange={val => setDetails({ ...details, payment_method: val })} />
+                    </div>
+                </div>
+                <div className="md:col-span-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Administrative Notes</label>
+                    <textarea value={details.notes} onChange={e => setDetails({ ...details, notes: e.target.value })} rows={2} className="w-full p-3 border border-slate-200 rounded-xl text-sm" placeholder="Special instructions..." />
+                </div>
+                <div className="md:col-span-2 bg-slate-50 border border-slate-200 p-6 rounded-3xl space-y-4">
+                    <div className="grid grid-cols-2 gap-y-3 text-sm">
+                        <span className="text-slate-500">Gross Total (MRP)</span>
+                        <span className="text-right font-medium">₹{calculations.totalMrp.toFixed(0)}</span>
+
+                        <span className="text-slate-500">Total Discount</span>
+                        <span className="text-right font-medium text-green-600">- ₹{calculations.totalDiscountAmount.toFixed(0)}</span>
+
+                        <div className="col-span-2 border-t border-slate-200 my-1"></div>
+
+                        <span className="text-lg font-black text-slate-900">Net Payable</span>
+                        <span className="text-right text-xl font-black text-blue-600">₹{calculations.netPayable.toFixed(0)}</span>
+
+                        <span className="text-sm text-slate-500 mt-2">Amount Received</span>
+                        <span className="text-right font-bold text-slate-700 mt-2">₹{calculations.received.toFixed(0)}</span>
+                    </div>
+
+                    <div className="bg-orange-50 border border-orange-100 p-4 rounded-2xl flex justify-between items-center">
+                        <span className="text-xs font-black text-orange-600 uppercase tracking-widest">Pending Balance</span>
+                        <span className="text-xl font-black text-orange-700">₹{calculations.amountDue.toFixed(0)}</span>
+                    </div>
+                </div>
+            </div>
+        </fieldset>
+    );
 
     if (showPreview) {
         return (
             <div className="p-4 sm:p-8 max-w-4xl mx-auto">
-                <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg space-y-6">
-                    <header className="border-b pb-4">
-                        <h1 className="text-3xl font-bold text-gray-800">Preview Receipt</h1>
-                        <p className="text-sm text-gray-500">Please review the details before saving.</p>
+                <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-2xl space-y-6 border border-slate-100">
+                    <header className="border-b border-slate-100 pb-5">
+                        <h1 className="text-3xl font-black text-slate-800 tracking-tight">Review Order</h1>
+                        <p className="text-sm font-medium text-slate-400 tracking-wide uppercase">Final Validation</p>
                     </header>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* Customer Info */}
-                        <section className="space-y-2">
-                            <h3 className="font-bold text-lg text-blue-800 border-b">Customer Information</h3>
-                            <p><strong>Name:</strong> {newCustomer.prefix} {newCustomer.name}</p>
-                            <p><strong>Mobile:</strong> {newCustomer.mobile || 'N/A'}</p>
-                            <p><strong>Age/Gender:</strong> {newCustomer.age || 'N/A'} / {newCustomer.gender}</p>
-                            <p><strong>Referred By:</strong> {details.referred_by || 'Self'}</p>
+                        <section className="space-y-3">
+                            <h3 className="font-black text-xs text-blue-600 uppercase tracking-widest">Customer</h3>
+                            <div className="p-4 bg-slate-50 rounded-xl space-y-1">
+                                <p className="font-bold text-slate-800">{newCustomer.prefix} {newCustomer.name}</p>
+                                <p className="text-sm text-slate-500">{newCustomer.mobile || 'No Mobile'}</p>
+                                <p className="text-sm text-slate-500">{newCustomer.age || 'N/A'} yrs • {newCustomer.gender}</p>
+                            </div>
                         </section>
 
-                        {/* Lab Info */}
-                        <section className="space-y-2">
-                            <h3 className="font-bold text-lg text-blue-800 border-b">Receipt Details</h3>
-                            <p><strong>Lab:</strong> {labs.find(l => l.id === parseInt(selectedLabId))?.name}</p>
-                            <p><strong>Rate List:</strong> {packageLists.find(p => p.id === parseInt(selectedListId))?.name}</p>
-                            <p><strong>Payment Method:</strong> {details.payment_method}</p>
+                        <section className="space-y-3">
+                            <h3 className="font-black text-xs text-blue-600 uppercase tracking-widest">Receipt Info</h3>
+                            <div className="p-4 bg-slate-50 rounded-xl space-y-1">
+                                <p className="font-bold text-slate-800">{labs.find(l => l.id === parseInt(selectedLabId))?.name}</p>
+                                <p className="text-sm text-slate-500">{packageLists.find(p => p.id === parseInt(selectedListId))?.name}</p>
+                                <p className="text-sm font-bold text-slate-600">Payment: {details.payment_method}</p>
+                            </div>
                         </section>
                     </div>
 
-                    {/* Items Table */}
-                    <section className="space-y-2">
-                        <h3 className="font-bold text-lg text-blue-800 border-b">Tests / Packages</h3>
-                        <div className="overflow-x-auto">
+                    <section className="space-y-3">
+                        <h3 className="font-black text-xs text-blue-600 uppercase tracking-widest">Tests & Pricing</h3>
+                        <div className="overflow-hidden border border-slate-100 rounded-xl">
                             <table className="min-w-full text-sm">
-                                <thead className="bg-gray-50">
+                                <thead className="bg-slate-50">
                                     <tr>
-                                        <th className="p-2 text-left">Test Name</th>
-                                        <th className="p-2 text-right">MRP</th>
-                                        <th className="p-2 text-right">Disc %</th>
-                                        <th className="p-2 text-right">Net</th>
+                                        <th className="p-3 text-left font-bold text-slate-600">Package</th>
+                                        <th className="p-3 text-right font-bold text-slate-600">MRP</th>
+                                        <th className="p-3 text-right font-bold text-slate-600">Net</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y">
+                                <tbody className="divide-y divide-slate-100">
                                     {items.filter(i => i.name).map((item, idx) => (
                                         <tr key={idx}>
-                                            <td className="p-2">{item.name}</td>
-                                            <td className="p-2 text-right">₹{item.mrp.toFixed(2)}</td>
-                                            <td className="p-2 text-right">{item.discount}%</td>
-                                            <td className="p-2 text-right">₹{(item.mrp * (1 - item.discount / 100)).toFixed(2)}</td>
+                                            <td className="p-3 font-medium">{item.name}</td>
+                                            <td className="p-3 text-right text-slate-400">₹{item.mrp.toFixed(0)}</td>
+                                            <td className="p-3 text-right font-bold">₹{(item.mrp * (1 - item.discount / 100)).toFixed(0)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -379,30 +580,23 @@ const ReceiptForm: React.FC = () => {
                         </div>
                     </section>
 
-                    {/* Totals */}
-                    <section className="bg-gray-50 p-4 rounded-lg space-y-2">
-                        <div className="flex justify-between text-sm"><span>Total MRP:</span> <span>₹{calculations.totalMrp.toFixed(2)}</span></div>
-                        <div className="flex justify-between text-sm text-red-600"><span>Total Discount:</span> <span>- ₹{calculations.totalDiscountAmount.toFixed(2)}</span></div>
-                        <div className="flex justify-between font-bold text-lg border-t pt-2"><span>Net Payable:</span> <span>₹{calculations.netPayable.toFixed(2)}</span></div>
-                        <div className="flex justify-between text-blue-700 font-semibold"><span>Received Amount:</span> <span>₹{parseFloat(details.amount_received || '0').toFixed(2)}</span></div>
-                        <div className="flex justify-between text-red-700 font-bold"><span>Balance Due:</span> <span>₹{calculations.amountDue.toFixed(2)}</span></div>
+                    <section className="bg-slate-900 text-white p-6 rounded-2xl space-y-3 shadow-2xl">
+                        <div className="flex justify-between text-sm opacity-60"><span>Gross Value</span> <span>₹{calculations.totalMrp.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-sm text-red-400 font-bold"><span>Total Discount</span> <span>- ₹{calculations.totalDiscountAmount.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-2xl font-black border-t border-slate-800 pt-3 text-green-400"><span>NET PAYABLE</span> <span>₹{calculations.netPayable.toFixed(0)}</span></div>
+                        <div className="flex justify-between text-sm font-bold text-blue-400 pt-1"><span>Received</span> <span>₹{calculations.received.toFixed(0)}</span></div>
+                        <div className="flex justify-between text-lg font-black text-orange-400"><span>DUE BALANCE</span> <span>₹{calculations.amountDue.toFixed(0)}</span></div>
                     </section>
 
-                    {details.notes && (
-                        <div className="text-sm p-3 bg-yellow-50 rounded border border-yellow-200">
-                            <strong>Notes:</strong> {details.notes}
-                        </div>
-                    )}
-
-                    <div className="flex flex-col sm:flex-row gap-4 pt-6 mt-6 border-t">
-                        <button type="button" onClick={handleDiscard} className="flex-1 py-3 px-4 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2">
-                            <i className="fa-solid fa-trash-can"></i> Discard
+                    <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                        <button type="button" onClick={handleDiscard} className="flex-1 py-4 px-4 bg-slate-50 text-slate-400 font-black rounded-xl hover:bg-red-50 hover:text-red-500 transition-all uppercase text-xs tracking-widest">
+                            Discard
                         </button>
-                        <button type="button" onClick={() => setShowPreview(false)} className="flex-1 py-3 px-4 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-600 hover:text-white transition-all flex items-center justify-center gap-2">
-                            <i className="fa-solid fa-pen-to-square"></i> Edit
+                        <button type="button" onClick={() => setShowPreview(false)} className="flex-1 py-4 px-4 bg-slate-100 text-slate-600 font-black rounded-xl hover:bg-slate-800 hover:text-white transition-all uppercase text-xs tracking-widest">
+                            Edit
                         </button>
-                        <button type="button" onClick={handleConfirmSave} className="flex-[2] py-3 px-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-100 transform active:scale-95 transition-all flex items-center justify-center gap-2">
-                            <i className="fa-solid fa-check-double"></i> Save & Confirm
+                        <button type="button" onClick={handleConfirmSave} className="flex-[2] py-4 px-4 bg-green-500 text-white font-black rounded-xl hover:bg-green-600 shadow-xl shadow-green-100 transform active:scale-95 transition-all flex items-center justify-center gap-2 uppercase text-sm tracking-widest">
+                            Save & Generate Receipt
                         </button>
                     </div>
                 </div>
@@ -411,198 +605,77 @@ const ReceiptForm: React.FC = () => {
     }
 
     return (
-        <div className="p-4 sm:p-8 max-w-5xl mx-auto">
-            <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-8 rounded-xl shadow-lg space-y-6">
-                <header>
-                    <h1 className="text-3xl font-bold text-gray-800">Money Receipt Form</h1>
-                    {branch && user && (
-                        <p className="text-sm text-gray-500 mt-2">
-                            Branch: <strong>{branch.name}</strong> | User: {user.username} | <Link to={user.role === 'ADMIN' ? '/admin-dashboard' : '/dashboard'} className="text-blue-600">Dashboard</Link>
-                        </p>
-                    )}
-                </header>
-
-                <fieldset className="border-2 border-gray-300 p-4 rounded-lg">
-                    <legend className="px-2 font-semibold text-lg text-gray-700">Customer</legend>
-                    <div className="flex justify-end mb-2">
-                        <button type="button" onClick={() => {
-                            if (customerMode === 'search') {
-                                clearCustomer();
-                            } else {
-                                setCustomerMode('search');
-                            }
-                        }} className="text-blue-600 text-sm">
-                            {customerMode === 'search' ? <><i className="fa-solid fa-user-plus mr-1"></i> Enter New</> : <><i className="fa-solid fa-magnifying-glass mr-1"></i> Search Existing</>}
-                        </button>
-                    </div>
-                    {customerMode === 'search' && (
-                        <div className="relative mb-2">
-                            <input type="text" value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} placeholder="Search by name, mobile, or ID..." className="w-full p-2 border rounded" />
-                            {customerSuggestions.length > 0 && (
-                                <ul className="absolute z-10 w-full bg-white border mt-1 rounded shadow-lg max-h-48 overflow-y-auto">
-                                    {customerSuggestions.map(cust => (
-                                        <li key={cust.id} onClick={() => handleSelectCustomer(cust)} className="p-2 hover:bg-gray-100 cursor-pointer">{cust.name} - {cust.mobile}</li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-                    )}
-                    {selectedCustomer && (
-                        <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg mb-2 text-sm">
-                            <div className="flex justify-between items-center">
-                                <span><strong>Selected:</strong> {selectedCustomer.name} (ID: CUST-{String(selectedCustomer.id).padStart(10, '0')})</span>
-                                <button type="button" onClick={clearCustomer} className="text-red-600 text-xs">Clear</button>
+        <div className="p-4 sm:p-8 max-w-5xl mx-auto min-h-screen">
+            <form onSubmit={handleSubmit} className="space-y-6">
+                {!isMobileView ? (
+                    <div className="bg-white p-8 rounded-2xl shadow-2xl space-y-8 border border-slate-100">
+                        <header className="flex justify-between items-center border-b border-slate-100 pb-6 mb-2">
+                            <div>
+                                <h1 className="text-2xl font-bold text-slate-800">New Receipt</h1>
+                                <div className="flex items-center gap-3 mt-1 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                    <span>{branch?.name}</span>
+                                    <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
+                                    <span>{user?.username}</span>
+                                </div>
                             </div>
-                        </div>
-                    )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center gap-2 md:col-span-2">
-                            <CleanSelect
-                                options={prefixOptions.map(p => ({ value: p, label: p }))}
-                                value={newCustomer.prefix || ''}
-                                onChange={handlePrefixChange}
-                                disabled={selectedCustomer !== null}
-                                className="w-1/4"
-                            />
-                            <input type="text" name="name" placeholder="Customer Name" value={newCustomer.name} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required className="p-2 border border-gray-200 rounded-xl disabled:bg-gray-100 flex-grow outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all text-sm" />
-                        </div>
-                        <input type="tel" name="mobile" placeholder="10-digit Mobile (Optional)" value={newCustomer.mobile} onChange={handleCustomerChange} disabled={selectedCustomer !== null} pattern="\d{10}" title="Must be 10 digits" className="p-2 border border-gray-200 rounded-xl disabled:bg-gray-100 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all text-sm" />
-                        <input type="date" name="dob" placeholder="DOB" value={newCustomer.dob} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border border-gray-200 rounded-xl disabled:bg-gray-100 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all text-sm" />
-                        <input type="number" name="age" placeholder="Age" max="100" value={newCustomer.age} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border border-gray-200 rounded-xl disabled:bg-gray-100 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all text-sm" />
-                        <CleanSelect
-                            options={[
-                                { value: 'Male', label: 'Male' },
-                                { value: 'Female', label: 'Female' }
-                            ]}
-                            value={newCustomer.gender || ''}
-                            onChange={val => setNewCustomer({ ...newCustomer, gender: val })}
-                            disabled={isGenderDisabled || selectedCustomer !== null}
-                            placeholder="Gender"
-                        />
-                        <div className="md:col-span-2">
-                            <label className="text-sm font-medium">Referred By Dr.</label>
-                            <input type="text" value={details.referred_by} onChange={e => setDetails({ ...details, referred_by: e.target.value })} className="w-full p-2 border rounded" placeholder="Doctor Name or 'Self'" />
+                            <Link to={user?.role === 'ADMIN' ? '/admin-dashboard' : '/dashboard'} className="px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-lg hover:bg-slate-800 hover:text-white transition-all text-xs uppercase">
+                                Dashboard
+                            </Link>
+                        </header>
+
+                        {renderCustomerStep()}
+                        {renderReceiptDetailsStep()}
+                        {renderPackagesStep()}
+                        {renderPaymentStep()}
+
+                        <div className="pt-6 border-t border-slate-100">
+                            <button type="submit" className="w-full py-5 bg-blue-600 text-white font-black text-lg rounded-2xl hover:bg-blue-700 shadow-2xl shadow-blue-100 transform active:scale-[0.98] transition-all uppercase tracking-widest">
+                                Preview & Save
+                            </button>
                         </div>
                     </div>
-                </fieldset>
+                ) : (
+                    <div className="bg-white rounded-3xl shadow-2xl border border-slate-50 flex flex-col min-h-[85vh]">
+                        <header className="p-4 border-b border-slate-100 flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xs">{step}</div>
+                                <h2 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Step {step} of 4</h2>
+                            </div>
+                            <button type="button" onClick={handleDiscard} className="text-slate-400 hover:text-red-500 transition-colors">
+                                <i className="fa-solid fa-circle-xmark text-xl"></i>
+                            </button>
+                        </header>
 
-                <fieldset className="border-2 border-gray-300 p-4 rounded-lg">
-                    <legend className="px-2 font-semibold text-lg text-gray-700">Receipt Details</legend>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <CleanSelect
-                            options={labs.map(lab => ({ value: lab.id, label: lab.name }))}
-                            value={selectedLabId}
-                            onChange={val => setSelectedLabId(val)}
-                            placeholder="-- Select Lab --"
-                        />
-                        <CleanSelect
-                            options={packageLists.map(list => ({ value: list.id, label: list.name }))}
-                            value={selectedListId}
-                            onChange={val => setSelectedListId(val)}
-                            disabled={!selectedLabId}
-                            placeholder="-- Select Rate Database --"
-                        />
-                    </div>
-                </fieldset>
-
-                <fieldset className="border-2 border-gray-300 p-4 rounded-lg">
-                    <legend className="px-2 font-semibold text-lg text-gray-700">Tests / Packages</legend>
-                    {/* Item Headers */}
-                    <div className="hidden md:grid md:grid-cols-12 gap-2 text-sm font-bold text-gray-600 mb-2 px-1">
-                        <div className={`${user?.role === 'CLIENT' ? 'col-span-4' : 'col-span-5'}`}>Test Name</div>
-                        {user?.role === 'CLIENT' && <div className="col-span-2 text-right">B2B (₹)</div>}
-                        <div className="col-span-2 text-right">MRP (₹)</div>
-                        <div className="col-span-2 text-right">Disc (%)</div>
-                        <div className="col-span-1 text-right">Disc Amt</div>
-                        <div className="col-span-1 text-right"></div>
-                    </div>
-
-                    <div className="space-y-4">
-                        {items.map((item) => {
-                            const otherSelectedNames = new Set(
-                                items.filter(i => i.id !== item.id && i.name).map(i => i.name)
-                            );
-                            const dropdownOptions = packages
-                                .filter(p => !otherSelectedNames.has(p.name))
-                                .map(p => ({ value: p.name, label: p.name }));
-
-                            return (
-                                <div key={item.id} className="grid grid-cols-12 gap-2 items-center border-b pb-2">
-                                    <div className={`${user?.role === 'CLIENT' ? 'col-span-12 md:col-span-4' : 'col-span-12 md:col-span-5'}`}>
-                                        <label className="md:hidden text-xs font-bold">Package</label>
-                                        <SearchableDropdown options={dropdownOptions} value={item.name} onChange={name => handlePackageSelect(item.id, name)} placeholder="Select or type package" disabled={!selectedListId} />
-                                    </div>
-                                    {user?.role === 'CLIENT' && <div className="col-span-6 md:col-span-2"><label className="md:hidden text-xs font-bold">B2B (₹)</label><input type="number" value={item.b2b_price} readOnly className="w-full p-2 border rounded text-right bg-gray-100" /></div>}
-                                    <div className="col-span-6 md:col-span-2"><label className="md:hidden text-xs font-bold">MRP (₹)</label><input type="number" step="0.01" value={item.mrp} onChange={e => handleItemChange(item.id, 'mrp', parseFloat(e.target.value))} required className="w-full p-2 border rounded text-right" readOnly={item.isFromDb || user?.role === 'CLIENT'} /></div>
-                                    <div className="col-span-6 md:col-span-2"><label className="md:hidden text-xs font-bold">Disc (%)</label><input type="number" step="0.1" value={item.discount} onChange={e => handleItemChange(item.id, 'discount', parseFloat(e.target.value))} className="w-full p-2 border rounded text-right" /></div>
-                                    <div className="col-span-6 md:col-span-1 text-right text-sm text-gray-500 font-mono"><label className="md:hidden text-xs font-bold">Disc Amt</label>₹{(item.mrp * item.discount / 100).toFixed(2)}</div>
-                                    <div className="col-span-12 md:col-span-1 text-right">
-                                        <button type="button" onClick={() => removeItem(item.id)} className="px-2 py-1 bg-red-500 text-white rounded text-xs w-full md:w-auto"><i className="fa-solid fa-trash"></i></button>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                    <button type="button" onClick={addItem} disabled={!selectedListId} className="mt-4 px-3 py-1 bg-green-500 text-white rounded text-sm disabled:bg-gray-300">Add Item</button>
-                </fieldset>
-
-                <fieldset className="border-2 border-gray-300 p-4 rounded-lg">
-                    <legend className="px-2 font-semibold text-lg text-gray-700">Payment & Details</legend>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                        <div className="flex items-center gap-2">
-                            <input type="number" placeholder="Apply Disc to All (%)" value={applyDiscount} onChange={e => setApplyDiscount(e.target.value)} className="w-full p-2 border rounded" />
-                            <button type="button" onClick={handleApplyDiscountToAll} className="p-2 bg-blue-500 text-white rounded"><i className="fa-solid fa-check"></i></button>
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium">Received Amount</label>
-                            <input type="number" value={details.amount_received} onChange={e => setDetails({ ...details, amount_received: e.target.value })} placeholder="Leave blank for full payment" className="w-full p-2 border rounded" />
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium">Due Amount Override <span className="text-xs">(Optional)</span></label>
-                            <input type="number" value={details.due_amount_manual} onChange={e => setDetails({ ...details, due_amount_manual: e.target.value })} placeholder="Auto-calculated" className="w-full p-2 border rounded" />
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium">No. of Tests <span className="text-xs">(Optional)</span></label>
-                            <input type="number" value={details.num_tests} onChange={e => setDetails({ ...details, num_tests: e.target.value })} placeholder={`Auto: ${items.length}`} className="w-full p-2 border rounded" />
+                        <div className="p-5 flex-grow overflow-y-auto">
+                            {step === 1 && renderCustomerStep()}
+                            {step === 2 && renderReceiptDetailsStep()}
+                            {step === 3 && renderPackagesStep()}
+                            {step === 4 && renderPaymentStep()}
                         </div>
 
-                        <div>
-                            <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Payment Method</label>
-                            <CleanSelect
-                                options={[
-                                    { value: 'Cash', label: 'Cash' },
-                                    { value: 'Card', label: 'Card' },
-                                    { value: 'UPI', label: 'UPI' },
-                                    { value: 'Mixed', label: 'Mixed' },
-                                    { value: 'Other', label: 'Other' }
-                                ]}
-                                value={details.payment_method}
-                                onChange={val => setDetails({ ...details, payment_method: val })}
-                            />
-                        </div>
-                        <div className="md:col-span-2">
-                            <label className="text-sm font-medium">Notes</label>
-                            <textarea value={details.notes} onChange={e => setDetails({ ...details, notes: e.target.value })} rows={2} className="w-full p-2 border rounded" />
-                        </div>
-
-                        {/* Live Calculation */}
-                        <div className="md:col-span-2 mt-4 p-4 bg-gray-50 rounded-lg text-right space-y-1 text-sm font-medium">
-                            <div className="flex justify-between"><span>Total MRP:</span> <span className="font-mono">₹{calculations.totalMrp.toFixed(2)}</span></div>
-                            <div className="flex justify-between text-red-600"><span>Total Discount:</span> <span className="font-mono">- ₹{calculations.totalDiscountAmount.toFixed(2)}</span></div>
-                            <hr />
-                            <div className="flex justify-between font-bold text-base"><span>Net Payable:</span> <span className="font-mono">₹{calculations.netPayable.toFixed(2)}</span></div>
-                            <div className="flex justify-between"><span>Received:</span> <span className="font-mono">₹{calculations.received.toFixed(2)}</span></div>
-                            <div className="flex justify-between font-bold text-base text-red-700"><span>Amount Due:</span> <span className="font-mono">₹{calculations.amountDue.toFixed(2)}</span></div>
-                            {user?.role === 'CLIENT' && (
-                                <div className="pt-2 border-t mt-2">
-                                    <div className="flex justify-between font-bold text-green-700"><span>Your B2B Cost:</span><span className="font-mono">₹{calculations.totalB2B.toFixed(2)}</span></div>
-                                </div>
+                        <footer className="p-6 bg-slate-50 rounded-b-3xl border-t border-slate-100 grid grid-cols-2 gap-4">
+                            {step > 1 ? (
+                                <button type="button" onClick={prevStep} className="py-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-2xl active:scale-95 transition-all text-xs uppercase tracking-widest">
+                                    Back
+                                </button>
+                            ) : (
+                                <Link to={user?.role === 'ADMIN' ? '/admin-dashboard' : '/dashboard'} className="py-4 bg-white border border-slate-200 text-slate-400 font-bold rounded-2xl text-center text-xs uppercase tracking-widest">
+                                    Exit
+                                </Link>
                             )}
-                        </div>
-                    </div>
-                </fieldset>
 
-                <button type="submit" className="w-full py-3 bg-blue-600 text-white font-bold text-lg rounded-lg hover:bg-blue-700 transition">Preview</button>
+                            {step < 4 ? (
+                                <button type="button" onClick={nextStep} className="py-4 bg-blue-600 text-white font-bold rounded-2xl active:scale-95 transition-all shadow-lg shadow-blue-100 text-xs uppercase tracking-widest disabled:bg-slate-300 disabled:shadow-none">
+                                    Next
+                                </button>
+                            ) : (
+                                <button type="submit" className="py-4 bg-green-500 text-white font-black rounded-2xl active:scale-95 transition-all shadow-lg shadow-green-100 text-xs uppercase tracking-widest">
+                                    Review
+                                </button>
+                            )}
+                        </footer>
+                    </div>
+                )}
             </form>
         </div>
     );
