@@ -11,18 +11,21 @@ const ViewCustomers: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
+    const loadCustomers = async () => {
+        setIsLoading(true);
+        try {
+            const data = await apiService.getAllCustomers();
+            setCustomers(data);
+        } catch (err) {
+            console.error("Failed to fetch customers", err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (user) {
-            setIsLoading(true);
-            apiService.getAllCustomers()
-                .then(data => {
-                    setCustomers(data);
-                    setIsLoading(false);
-                })
-                .catch(err => {
-                    console.error("Failed to fetch customers", err);
-                    setIsLoading(false);
-                });
+            loadCustomers();
         }
     }, [user]);
 
@@ -102,9 +105,25 @@ const ViewCustomers: React.FC = () => {
                                                 </td>
                                                 {user?.role === 'ADMIN' && (
                                                     <td className="py-3 px-4 text-right">
-                                                        <Link to={`/admin/customers/edit/${cust.id}`} className="w-8 h-8 inline-flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-yellow-600 hover:text-white rounded border border-gray-100 transition-all shadow-sm" title="Edit Profile">
-                                                            <i className="fa-solid fa-pen-to-square text-xs"></i>
-                                                        </Link>
+                                                        <div className="flex gap-2 justify-end">
+                                                            <Link to={`/admin/customers/edit/${cust.id}`} className="w-8 h-8 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-blue-500 rounded border border-slate-100 hover:border-blue-100 transition-all" title="Edit Profile">
+                                                                <i className="fa-solid fa-pen-to-square text-xs"></i>
+                                                            </Link>
+                                                            <button
+                                                                onClick={async () => {
+                                                                    if (window.confirm(`Are you sure you want to delete customer ${cust.name}? This action cannot be undone.`)) {
+                                                                        try {
+                                                                            await apiService.deleteCustomer(cust.id);
+                                                                            loadCustomers();
+                                                                        } catch (err: any) { alert(`Failed to delete: ${err.message || err}`); }
+                                                                    }
+                                                                }}
+                                                                className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 hover:bg-red-600 hover:text-white rounded border border-red-100 transition-all"
+                                                                title="Delete Customer"
+                                                            >
+                                                                <i className="fa-solid fa-trash-can text-xs"></i>
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 )}
                                             </tr>

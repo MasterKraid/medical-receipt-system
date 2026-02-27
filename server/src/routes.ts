@@ -604,4 +604,112 @@ router.put('/customers/:id', isAdmin, (req, res) => {
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });
 
+// --- TRANSACTION & DOCUMENT MANAGEMENT (ADMIN ONLY) ---
+
+router.delete('/admin/transactions/:id/revert', isAdmin, (req, res) => {
+    try {
+        const transactionResult = db.transaction(() => {
+            const tx = db.prepare('SELECT * FROM transactions WHERE id = ?').get(req.params.id) as Transaction;
+            if (!tx) throw new Error("Transaction not found");
+
+            // 1. If it's a receipt deduction, delete the receipt and its items
+            if (tx.type === 'RECEIPT_DEDUCTION' && tx.receipt_id) {
+                db.prepare('DELETE FROM receipts WHERE id = ?').run(tx.receipt_id);
+                // Note: receipt_items are deleted via CASCADE from receipts
+            }
+
+            // 2. Revert wallet balance (Refund/Deduct the original amount)
+            // tx.amount_deducted is positive for deductions, negative for credits.
+            // To revert: current_balance = current_balance + amount_deducted
+            db.prepare('UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?').run(tx.amount_deducted, tx.user_id);
+
+            // 3. Delete the transaction record
+            db.prepare('DELETE FROM transactions WHERE id = ?').run(req.params.id);
+        });
+        transactionResult();
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.delete('/admin/transactions/:id/delete', isAdmin, (req, res) => {
+    try {
+        const transactionResult = db.transaction(() => {
+            const tx = db.prepare('SELECT * FROM transactions WHERE id = ?').get(req.params.id) as Transaction;
+            if (!tx) throw new Error("Transaction not found");
+
+            // 1. Revert wallet balance
+            db.prepare('UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?').run(tx.amount_deducted, tx.user_id);
+
+            // 2. Delete transaction record (Keep the receipt!)
+            db.prepare('DELETE FROM transactions WHERE id = ?').run(req.params.id);
+        });
+        transactionResult();
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.delete('/admin/receipts/:id', isAdmin, (req, res) => {
+    try {
+        // Simple delete - only remove receipt entry
+        db.prepare('DELETE FROM receipts WHERE id = ?').run(req.params.id);
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.delete('/admin/receipts/:id/revert', isAdmin, (req, res) => {
+    try {
+        const transactionResult = db.transaction(() => {
+            // 1. Find the associated transaction
+            const tx = db.prepare('SELECT * FROM transactions WHERE receipt_id = ?').get(req.params.id) as Transaction;
+            if (tx) {
+                // 2. Refund/Deduct the wallet balance
+                db.prepare('UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?').run(tx.amount_deducted, tx.user_id);
+                // 3. Delete transaction record
+                db.prepare('DELETE FROM transactions WHERE id = ?').run(tx.id);
+            }
+            // 4. Delete receipt entry
+            db.prepare('DELETE FROM receipts WHERE id = ?').run(req.params.id);
+        });
+        transactionResult();
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.delete('/admin/customers/:id', isAdmin, (req, res) => {
+    try {
+        const customerId = req.params.id;
+        const transactionResult = db.transaction(() => {
+            // 1. Delete all receipt items associated with customer receipts
+            db.prepare(`
+                DELETE FROM receipt_items 
+                WHERE receipt_id IN (SELECT id FROM receipts WHERE customer_id = ?)
+            `).run(customerId);
+
+            // 2. Delete all receipts for the customer
+            db.prepare('DELETE FROM receipts WHERE customer_id = ?').run(customerId);
+
+            // 3. Delete all estimate items associated with customer estimates
+            db.prepare(`
+                DELETE FROM estimate_items 
+                WHERE estimate_id IN (SELECT id FROM estimates WHERE customer_id = ?)
+            `).run(customerId);
+
+            // 4. Delete all estimates for the customer
+            db.prepare('DELETE FROM estimates WHERE customer_id = ?').run(customerId);
+
+            // 5. Delete the customer
+            db.prepare('DELETE FROM customers WHERE id = ?').run(customerId);
+        });
+        transactionResult();
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.get('/admin/transactions/user/:userId', isAdmin, (req, res) => {
+    try {
+        const txs = db.prepare('SELECT * FROM transactions WHERE user_id = ? ORDER BY id DESC').all(req.params.userId) as Transaction[];
+        res.json(txs);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
 export default router;

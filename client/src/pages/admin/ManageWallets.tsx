@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import PageHeader from '../../components/PageHeader';
+import ChoiceModal from '../../components/ChoiceModal';
 import { apiService } from '../../services/api';
-import { User } from '../../types';
+import { User, Transaction } from '../../types';
 
 const ManageWallets: React.FC = () => {
     const [clients, setClients] = useState<User[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+
+    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+    const [historyTransactions, setHistoryTransactions] = useState<Transaction[]>([]);
+    const [historyClient, setHistoryClient] = useState<User | null>(null);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+    // Choice Modal State
+    const [isChoiceModalOpen, setIsChoiceModalOpen] = useState(false);
+    const [pendingTxId, setPendingTxId] = useState<number | null>(null);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingClient, setEditingClient] = useState<User | null>(null);
@@ -27,6 +37,40 @@ const ManageWallets: React.FC = () => {
             console.error("Failed to fetch client wallets", error);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const openHistoryModal = async (client: User) => {
+        setHistoryClient(client);
+        setIsHistoryModalOpen(true);
+        setIsLoadingHistory(true);
+        try {
+            const data = await apiService.getTransactionsByUser(client.id);
+            setHistoryTransactions(data);
+        } catch (error) {
+            console.error("Failed to fetch history", error);
+        } finally {
+            setIsLoadingHistory(false);
+        }
+    };
+
+    const handleRevert = async (txId: number) => {
+        try {
+            await apiService.revertTransaction(txId);
+            if (historyClient) openHistoryModal(historyClient);
+            fetchClients(searchTerm);
+        } catch (error) {
+            alert(`Error reverting: ${error}`);
+        }
+    };
+
+    const handleSimpleDelete = async (txId: number) => {
+        try {
+            await apiService.deleteTransactionRecord(txId);
+            if (historyClient) openHistoryModal(historyClient);
+            fetchClients(searchTerm);
+        } catch (error) {
+            alert(`Error deleting: ${error}`);
         }
     };
 
@@ -108,13 +152,18 @@ const ManageWallets: React.FC = () => {
                                     <div key={client.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col">
                                         <div className={`absolute top-0 left-0 w-1 h-full ${client.wallet_balance < 0 ? 'bg-red-500' : 'bg-green-500'}`}></div>
 
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div className="pl-2">
-                                                <h3 className="font-bold text-gray-800 text-sm">{client.alias || client.username}</h3>
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div className="pl-1">
+                                                <h3 className="font-bold text-gray-800 text-sm leading-tight">{client.alias || client.username}</h3>
                                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{client.username} <span className="ml-1 opacity-50 font-mono">#ID:{client.id.toString().padStart(4, '0')}</span></p>
                                             </div>
-                                            <div className={`px-2 py-0.5 rounded text-[10px] font-black border ${client.wallet_balance < 0 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
-                                                {client.wallet_balance < 0 ? 'DUE' : 'CLEAR'}
+                                            <div className="flex items-center gap-1.5">
+                                                <button onClick={() => openHistoryModal(client)} className="w-6 h-6 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-slate-800 hover:text-white rounded-md border border-slate-100 transition-all" title="Client Wallet History">
+                                                    <i className="fa-solid fa-cog text-[10px]"></i>
+                                                </button>
+                                                <div className={`px-1.5 py-0.5 rounded text-[9px] font-black border ${client.wallet_balance < 0 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
+                                                    {client.wallet_balance < 0 ? 'DUE' : 'CLEAR'}
+                                                </div>
                                             </div>
                                         </div>
 
@@ -206,6 +255,88 @@ const ManageWallets: React.FC = () => {
                         </div>
                     </div>
                 )}
+                {/* Transaction History Modal (Cog) */}
+                {isHistoryModalOpen && historyClient && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[90vh]">
+                            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-slate-50">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-white">
+                                        <i className="fa-solid fa-clock-rotate-left"></i>
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-bold text-gray-800 uppercase tracking-tight">Wallet Ledger</h2>
+                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{historyClient.alias || historyClient.username}</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setIsHistoryModalOpen(false)} className="w-8 h-8 flex items-center justify-center bg-white text-gray-400 hover:text-red-500 rounded-lg border border-gray-100 transition-all">
+                                    <i className="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+
+                            <div className="p-4 bg-blue-50 border-b border-blue-100 flex justify-between items-center px-6">
+                                <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Available Balance</span>
+                                <span className={`text-xl font-bold ${historyClient.wallet_balance < 0 ? 'text-red-600' : 'text-blue-700'}`}>
+                                    ₹{Math.abs(historyClient.wallet_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    {historyClient.wallet_balance < 0 && <span className="text-xs ml-1 opacity-50 uppercase">Dr</span>}
+                                </span>
+                            </div>
+
+                            <div className="flex-grow overflow-y-auto p-4 space-y-3">
+                                {isLoadingHistory ? (
+                                    <div className="py-20 text-center"><i className="fa-solid fa-spinner fa-spin text-slate-300 mr-2"></i>Accessing history...</div>
+                                ) : historyTransactions.length === 0 ? (
+                                    <div className="py-20 text-center text-gray-400 italic">No transactions found.</div>
+                                ) : (
+                                    historyTransactions.map(tx => (
+                                        <div key={tx.id} className="p-4 border border-gray-100 rounded-xl hover:bg-slate-50 transition-colors flex justify-between items-center group">
+                                            <div className="flex-grow">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className={`w-2 h-2 rounded-full ${tx.amount_deducted > 0 ? 'bg-red-400' : 'bg-green-400'}`}></span>
+                                                    <p className="text-sm font-bold text-gray-800">
+                                                        {tx.type === 'RECEIPT_DEDUCTION' ? `Receipt #RCPT-${String(tx.receipt_id).padStart(6, '0')}` :
+                                                            tx.type === 'ADMIN_CREDIT' ? 'Credit Added' :
+                                                                tx.type === 'ADMIN_DEBIT' ? 'Funds Deducted' : 'Wallet Settlement'}
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-[10px] text-gray-400 font-bold uppercase">
+                                                    <span>{tx.date.split(' | ')[0]}</span>
+                                                    <span>•</span>
+                                                    <span className="text-gray-500 italic">{tx.notes || 'No reference notes'}</span>
+                                                </div>
+                                            </div>
+                                            <div className="text-right flex items-center gap-4">
+                                                <div>
+                                                    <p className={`text-sm font-black ${tx.amount_deducted > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                                        {tx.amount_deducted > 0 ? '-' : '+'} ₹{Math.abs(tx.amount_deducted).toFixed(2)}
+                                                    </p>
+                                                    <p className="text-[9px] text-gray-400 font-mono">Bal: ₹{Number(tx.balance_snapshot || 0).toFixed(2)}</p>
+                                                </div>
+                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                                    <button onClick={() => {
+                                                        setPendingTxId(tx.id);
+                                                        setIsChoiceModalOpen(true);
+                                                    }} className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white border border-red-100 transition-all">
+                                                        <i className="fa-solid fa-trash-can text-xs"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <ChoiceModal
+                    isOpen={isChoiceModalOpen}
+                    onClose={() => setIsChoiceModalOpen(false)}
+                    title="Manage Transaction"
+                    message="Choose how you would like to undo this transaction. Reverting will nuclear the related receipt, while Delete will only remove this record."
+                    onRevert={() => pendingTxId && handleRevert(pendingTxId)}
+                    onDelete={() => pendingTxId && handleSimpleDelete(pendingTxId)}
+                />
             </div>
         </div >
     );

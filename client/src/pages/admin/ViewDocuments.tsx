@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
 import { apiService } from '../../services/api';
 import { Document } from '../../types';
+import ChoiceModal from '../../components/ChoiceModal';
 
 interface ViewDocumentsProps {
     docType: 'receipt' | 'estimate';
@@ -14,6 +15,10 @@ const ViewDocuments: React.FC<ViewDocumentsProps> = ({ docType }) => {
     const [documents, setDocuments] = useState<Document[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Choice Modal State
+    const [isChoiceModalOpen, setIsChoiceModalOpen] = useState(false);
+    const [pendingDocId, setPendingDocId] = useState<number | null>(null);
 
     useEffect(() => {
         setIsLoading(true);
@@ -29,7 +34,7 @@ const ViewDocuments: React.FC<ViewDocumentsProps> = ({ docType }) => {
             });
     }, [docType]);
 
-    const filteredDocuments = React.useMemo(() => {
+    const filteredDocuments = useMemo(() => {
         const query = searchTerm.toLowerCase().trim();
         if (!query) return documents;
         return documents.filter(doc =>
@@ -39,6 +44,20 @@ const ViewDocuments: React.FC<ViewDocumentsProps> = ({ docType }) => {
             doc.created_by_user.toLowerCase().includes(query)
         );
     }, [documents, searchTerm]);
+
+    const handleAction = async (revert: boolean) => {
+        if (!pendingDocId) return;
+        try {
+            if (revert) await apiService.revertReceipt(pendingDocId);
+            else await apiService.deleteReceipt(pendingDocId);
+
+            // Refresh
+            const data = await apiService.getReceipts();
+            setDocuments(data);
+        } catch (err) {
+            alert(`Action failed: ${err}`);
+        }
+    };
 
     return (
         <div className="p-3 sm:p-6 max-w-7xl mx-auto space-y-6">
@@ -105,10 +124,22 @@ const ViewDocuments: React.FC<ViewDocumentsProps> = ({ docType }) => {
                                                         {doc.created_by_user}
                                                     </div>
                                                 </td>
-                                                <td className="py-3 px-4 text-right">
+                                                <td className="py-3 px-4 text-right flex justify-end gap-2">
                                                     <Link to={`/${docType}/${doc.id}`} className="w-8 h-8 inline-flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-blue-600 hover:text-white rounded border border-gray-100 transition-all shadow-sm" title="View Document">
                                                         <i className="fa-solid fa-eye text-xs"></i>
                                                     </Link>
+                                                    {docType === 'receipt' && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setPendingDocId(doc.id);
+                                                                setIsChoiceModalOpen(true);
+                                                            }}
+                                                            className="w-8 h-8 inline-flex items-center justify-center bg-red-50 text-red-500 hover:bg-red-600 hover:text-white rounded border border-red-100 transition-all shadow-sm"
+                                                            title="Delete / Revert Receipt"
+                                                        >
+                                                            <i className="fa-solid fa-trash-can text-xs"></i>
+                                                        </button>
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))
@@ -119,6 +150,15 @@ const ViewDocuments: React.FC<ViewDocumentsProps> = ({ docType }) => {
                     </fieldset>
                 </div>
             </div>
+
+            <ChoiceModal
+                isOpen={isChoiceModalOpen}
+                onClose={() => setIsChoiceModalOpen(false)}
+                title="Manage Receipt"
+                message="Select an action for this receipt. Revert will nuclear the associated wallet transaction, while Delete will only remove this record from the ledger."
+                onRevert={() => handleAction(true)}
+                onDelete={() => handleAction(false)}
+            />
         </div>
     );
 };

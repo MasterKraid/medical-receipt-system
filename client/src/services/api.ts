@@ -108,4 +108,12 @@ export const apiService = {
 
   // --- Admin: Customer Management ---
   updateCustomer: (customerData: Customer): Promise<void> => apiFetch(`/customers/${customerData.id}`, { method: 'PUT', body: JSON.stringify(customerData) }),
+  deleteCustomer: (id: number): Promise<void> => apiFetch(`/admin/customers/${id}`, { method: 'DELETE' }),
+
+  // --- Admin: Transaction & Receipt Management ---
+  getTransactionsByUser: (userId: number): Promise<Transaction[]> => apiFetch(`/admin/transactions/user/${userId}`),
+  revertTransaction: (id: number): Promise<void> => apiFetch(`/admin/transactions/${id}/revert`, { method: 'DELETE' }),
+  deleteTransactionRecord: (id: number): Promise<void> => apiFetch(`/admin/transactions/${id}/delete`, { method: 'DELETE' }),
+  deleteReceipt: (id: number): Promise<void> => apiFetch(`/admin/receipts/${id}`, { method: 'DELETE' }),
+  revertReceipt: (id: number): Promise<void> => apiFetch(`/admin/receipts/${id}/revert`, { method: 'DELETE' }),
 };

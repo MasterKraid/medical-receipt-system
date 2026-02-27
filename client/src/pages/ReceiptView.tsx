@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
 import { Receipt, Customer, DocumentItem, Branch as BranchType } from '../types';
 import ShareDownloadButton from '../components/ShareDownloadButton';
+import ChoiceModal from '../components/ChoiceModal';
 
 interface ReceiptPageData {
     receipt: Receipt;
@@ -15,9 +16,13 @@ interface ReceiptPageData {
 const ReceiptView: React.FC = () => {
     const { id } = useParams() as { id: string };
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [data, setData] = useState<ReceiptPageData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Choice Modal State
+    const [isChoiceModalOpen, setIsChoiceModalOpen] = useState(false);
 
     useEffect(() => {
         if (!id) return;
@@ -198,12 +203,47 @@ const ReceiptView: React.FC = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="action-buttons text-center my-5 no-print">
-                <button onClick={() => window.print()} className="px-5 py-2 cursor-pointer text-white bg-blue-600 rounded-md mx-2 hover:bg-blue-700">Print</button>
+            <div className="action-buttons text-center my-5 no-print flex flex-wrap justify-center gap-2">
+                <button onClick={() => window.print()} className="px-5 py-2 cursor-pointer text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-all flex items-center gap-2 shadow-sm">
+                    <i className="fa-solid fa-print"></i> Print
+                </button>
                 <ShareDownloadButton elementIdToCapture="print-container" fileName={`Receipt-RCPT-${String(receipt.id).padStart(6, '0')}.pdf`} />
-                <Link to="/receipt-form" className="px-5 py-2 cursor-pointer text-white bg-gray-600 rounded-md mx-2 hover:bg-gray-700">New Receipt Form</Link>
-                <Link to={getDashboardLink()} className="px-5 py-2 cursor-pointer text-white bg-gray-600 rounded-md mx-2 hover:bg-gray-700">Dashboard</Link>
+
+                {user?.role === 'ADMIN' && (
+                    <button
+                        onClick={() => setIsChoiceModalOpen(true)}
+                        className="px-5 py-2 cursor-pointer text-white bg-red-600 rounded-md hover:bg-red-700 transition-all flex items-center gap-2 shadow-sm"
+                    >
+                        <i className="fa-solid fa-trash-can"></i> Delete / Revert
+                    </button>
+                )}
+
+                <Link to="/receipt-form" className="px-5 py-2 cursor-pointer text-white bg-slate-800 rounded-md hover:bg-slate-900 transition-all flex items-center gap-2 shadow-sm">
+                    <i className="fa-solid fa-plus"></i> New Form
+                </Link>
+                <Link to={getDashboardLink()} className="px-5 py-2 cursor-pointer text-white bg-slate-100 text-slate-800 rounded-md hover:bg-slate-200 transition-all flex items-center gap-2 border border-slate-200">
+                    <i className="fa-solid fa-house"></i> Dashboard
+                </Link>
             </div>
+
+            <ChoiceModal
+                isOpen={isChoiceModalOpen}
+                onClose={() => setIsChoiceModalOpen(false)}
+                title="Manage Receipt"
+                message="Select an action for this receipt. Revert will nuclear the associated wallet transaction, while Delete will only remove this record from the ledger."
+                onRevert={async () => {
+                    try {
+                        await apiService.revertReceipt(receipt.id);
+                        navigate('/admin/documents?type=receipt');
+                    } catch (err) { alert(`Action failed: ${err}`); }
+                }}
+                onDelete={async () => {
+                    try {
+                        await apiService.deleteReceipt(receipt.id);
+                        navigate('/admin/documents?type=receipt');
+                    } catch (err) { alert(`Action failed: ${err}`); }
+                }}
+            />
         </>
     );
 };

@@ -463,8 +463,8 @@ const ReceiptForm: React.FC = () => {
                                     ₹{(item.mrp * (item.discount / 100)).toFixed(0)}
                                 </div>
                             </div>
-                            <div className="col-span-1 md:col-span-1 text-right flex justify-center items-center h-10">
-                                <button type="button" onClick={() => removeItem(item.id)} className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 rounded-full hover:bg-red-500 hover:text-white transition-all"><i className="fa-solid fa-xmark"></i></button>
+                            <div className="col-span-1 md:col-span-1 text-right flex justify-end items-center h-10">
+                                <button type="button" onClick={() => removeItem(item.id)} className="w-9 h-9 flex items-center justify-center bg-red-50 text-red-500 rounded-full border border-red-200 hover:bg-red-500 hover:text-white transition-all shadow-sm"><i className="fa-solid fa-trash-can text-sm"></i></button>
                             </div>
                         </div>
                     );
