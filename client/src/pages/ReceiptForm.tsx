@@ -239,6 +239,12 @@ const ReceiptForm: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        // Robust guard for mobile flow submission
+        if (isMobileView && step < 4) {
+            nextStep();
+            return;
+        }
+
         if (!user || !branch) {
             alert("User or branch information is missing. Please log in again.");
             return;
@@ -331,6 +337,14 @@ const ReceiptForm: React.FC = () => {
                 alert("Please enter the customer's name.");
                 return;
             }
+            if (!newCustomer.age.trim() && !newCustomer.dob.trim()) {
+                alert("Please provide either Age or Date of Birth.");
+                return;
+            }
+            if (!details.referred_by.trim()) {
+                alert("Please specify who referred this customer (e.g., 'Self' or Doctor Name).");
+                return;
+            }
         } else if (step === 2) {
             if (!selectedLabId) {
                 alert("Please select a laboratory.");
@@ -355,7 +369,7 @@ const ReceiptForm: React.FC = () => {
 
     const renderCustomerStep = () => (
         <fieldset className="border-2 border-slate-200 p-4 rounded-xl space-y-4">
-            <legend className="px-2 font-bold text-lg text-slate-700">1. Customer Information</legend>
+            <legend className="px-2 font-bold text-lg text-slate-700">Customer Information</legend>
             <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg mb-2">
                 <span className="text-sm font-medium text-slate-600">
                     {customerMode === 'search' ? 'Search Existing' : 'Register New'}
@@ -407,7 +421,7 @@ const ReceiptForm: React.FC = () => {
 
     const renderReceiptDetailsStep = () => (
         <fieldset className="border-2 border-slate-200 p-4 rounded-xl space-y-4">
-            <legend className="px-2 font-bold text-lg text-slate-700">2. Lab Selection</legend>
+            <legend className="px-2 font-bold text-lg text-slate-700">Lab Selection</legend>
             <div className="space-y-4">
                 <div>
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1 px-1">Laboratory</label>
@@ -423,7 +437,7 @@ const ReceiptForm: React.FC = () => {
 
     const renderPackagesStep = () => (
         <fieldset className="border-2 border-slate-200 p-4 rounded-xl space-y-4">
-            <legend className="px-2 font-bold text-lg text-slate-700">3. Select Tests</legend>
+            <legend className="px-2 font-bold text-lg text-slate-700">Select Tests</legend>
             <div className="hidden md:grid md:grid-cols-12 gap-2 text-xs font-black text-slate-400 uppercase tracking-tighter mb-2 px-1">
                 <div className={`${user?.role === 'CLIENT' ? 'col-span-5' : 'col-span-7'}`}>Test Name/Package</div>
                 {user?.role === 'CLIENT' && <div className="col-span-2 text-right">B2B Cost</div>}
@@ -478,7 +492,7 @@ const ReceiptForm: React.FC = () => {
 
     const renderPaymentStep = () => (
         <fieldset className="border-2 border-slate-200 p-4 rounded-xl space-y-4">
-            <legend className="px-2 font-bold text-lg text-slate-700">4. Payment & Finalize</legend>
+            <legend className="px-2 font-bold text-lg text-slate-700">Payment & Finalize</legend>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-slate-50 p-4 rounded-xl space-y-2">
                     <label className="text-xs font-bold text-slate-400 uppercase block tracking-wider">Bulk Discount (%)</label>
@@ -638,7 +652,9 @@ const ReceiptForm: React.FC = () => {
                     <div className="bg-white rounded-3xl shadow-2xl border border-slate-50 flex flex-col min-h-[85vh]">
                         <header className="p-4 border-b border-slate-100 flex justify-between items-center">
                             <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xs">{step}</div>
+                                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xs">
+                                    <i className="fa-solid fa-list-check"></i>
+                                </div>
                                 <h2 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Step {step} of 4</h2>
                             </div>
                             <button type="button" onClick={handleDiscard} className="text-slate-400 hover:text-red-500 transition-colors">
@@ -665,12 +681,24 @@ const ReceiptForm: React.FC = () => {
                             )}
 
                             {step < 4 ? (
-                                <button type="button" onClick={nextStep} className="py-4 bg-blue-600 text-white font-bold rounded-2xl active:scale-95 transition-all shadow-lg shadow-blue-100 text-xs uppercase tracking-widest disabled:bg-slate-300 disabled:shadow-none">
+                                <button
+                                    key="next-btn"
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        nextStep();
+                                    }}
+                                    className="py-4 bg-blue-600 shadow-blue-100 text-white font-bold rounded-2xl active:scale-95 transition-all shadow-lg text-xs uppercase tracking-widest disabled:bg-slate-300 disabled:shadow-none"
+                                >
                                     Next
                                 </button>
                             ) : (
-                                <button type="submit" className="py-4 bg-green-500 text-white font-black rounded-2xl active:scale-95 transition-all shadow-lg shadow-green-100 text-xs uppercase tracking-widest">
-                                    Review
+                                <button
+                                    key="review-btn"
+                                    type="submit"
+                                    className="py-4 bg-green-500 shadow-green-100 text-white font-bold rounded-2xl active:scale-95 transition-all shadow-lg text-xs uppercase tracking-widest"
+                                >
+                                    Review Order
                                 </button>
                             )}
                         </footer>
