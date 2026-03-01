@@ -508,67 +508,68 @@ const ReceiptForm: React.FC = () => {
     );
 
     const renderPackagesStep = () => (
-        <fieldset className="border-2 border-slate-200 p-4 rounded-xl space-y-4">
-            <legend className="px-2 font-bold text-lg text-slate-700">Select Tests</legend>
-
-            <div className="flex justify-end">
-                <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full font-black uppercase tracking-widest shadow-sm">
+        <div className="relative flex flex-col">
+            <div className="absolute top-[15px] md:top-[10px] right-6 -translate-y-1/2 z-10 flex justify-end px-1 bg-white">
+                <span className="text-[10px] md:text-sm bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-semibold uppercase tracking-widest border border-blue-200 shadow-sm">
                     {isMobileView ? `Total Tests: ${calculations.totalTests}` : `Total number of tests: ${calculations.totalTests}`}
                 </span>
             </div>
 
-            <div className="hidden md:grid md:grid-cols-12 gap-2 text-xs font-black text-slate-400 uppercase tracking-tighter mb-2 px-1">
-                <div className={`${user?.role === 'CLIENT' ? 'col-span-5' : 'col-span-7'}`}>Test Name/Package</div>
-                {user?.role === 'CLIENT' && <div className="col-span-2 text-right">B2B Cost</div>}
-                <div className="col-span-2 text-right">MRP (₹)</div>
-                <div className="col-span-1 text-right">Disc %</div>
-                <div className="col-span-1 text-right px-1">Disc ₹</div>
-                <div className="col-span-1"></div>
-            </div>
+            <fieldset className="border-2 border-slate-200 p-4 rounded-xl space-y-4 order-2">
+                <legend className="px-2 font-bold text-lg text-slate-700">Select Tests</legend>
 
-            <div className="space-y-3">
-                {items.map((item) => {
-                    const otherSelectedNames = new Set(items.filter(i => i.id !== item.id && i.name).map(i => i.name));
-                    const dropdownOptions = packages.filter(p => !otherSelectedNames.has(p.name)).map(p => ({ value: p.name, label: p.name }));
-                    return (
-                        <div key={item.id} className="grid grid-cols-12 gap-2 items-end border-b pb-4 last:border-0 hover:bg-slate-50 transition-colors">
-                            <div className={`${user?.role === 'CLIENT' ? 'col-span-12 md:col-span-5' : 'col-span-12 md:col-span-7'}`}>
-                                <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">Test Name</label>
-                                <SearchableDropdown ref={el => itemRefs.current[item.id] = el} options={dropdownOptions} value={item.name} onChange={name => handlePackageSelect(item.id, name)} onKeyDown={e => handleTestKeyDown(e, item.id)} placeholder="Choose Package..." disabled={!selectedListId} />
-                            </div>
-                            {user?.role === 'CLIENT' && (
-                                <div className="col-span-3 md:col-span-2 text-right">
-                                    <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">B2B</label>
-                                    <div className="p-2.5 bg-green-50 text-green-700 rounded-xl font-bold text-xs border border-green-100">₹{item.b2b_price.toFixed(0)}</div>
+                <div className="hidden md:grid md:grid-cols-12 gap-2 text-xs font-black text-slate-400 uppercase tracking-tighter mb-2 px-1">
+                    <div className={`${user?.role === 'CLIENT' ? 'col-span-5' : 'col-span-7'}`}>Test Name/Package</div>
+                    {user?.role === 'CLIENT' && <div className="col-span-2 text-right">B2B Cost</div>}
+                    <div className="col-span-2 text-right">MRP (₹)</div>
+                    <div className="col-span-1 text-right">Disc %</div>
+                    <div className="col-span-1 text-right px-1">Disc ₹</div>
+                    <div className="col-span-1"></div>
+                </div>
+
+                <div className="space-y-3">
+                    {items.map((item) => {
+                        const otherSelectedNames = new Set(items.filter(i => i.id !== item.id && i.name).map(i => i.name));
+                        const dropdownOptions = packages.filter(p => !otherSelectedNames.has(p.name)).map(p => ({ value: p.name, label: p.name }));
+                        return (
+                            <div key={item.id} className="grid grid-cols-12 gap-2 items-end border-b pb-4 last:border-0 hover:bg-slate-50 transition-colors">
+                                <div className={`${user?.role === 'CLIENT' ? 'col-span-12 md:col-span-5' : 'col-span-12 md:col-span-7'}`}>
+                                    <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">Test Name</label>
+                                    <SearchableDropdown ref={el => itemRefs.current[item.id] = el} options={dropdownOptions} value={item.name} onChange={name => handlePackageSelect(item.id, name)} onKeyDown={e => handleTestKeyDown(e, item.id)} placeholder="Choose Package..." disabled={!selectedListId} />
                                 </div>
-                            )}
-                            <div className="col-span-4 md:col-span-2">
-                                <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">MRP</label>
-                                <input type="number" step="0.01" value={item.mrp} onChange={e => handleItemChange(item.id, 'mrp', parseFloat(e.target.value))} required className="w-full p-2.5 border border-slate-200 rounded-xl text-right text-xs font-bold" readOnly={item.isFromDb || user?.role === 'CLIENT'} />
-                            </div>
-                            <div className="col-span-2 md:col-span-1">
-                                <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">Disc %</label>
-                                <input type="number" step="0.1" value={item.discount} onChange={e => handleItemChange(item.id, 'discount', parseFloat(e.target.value))} className="w-full p-2.5 border border-slate-200 rounded-xl text-right text-xs font-bold" />
-                            </div>
-                            <div className="col-span-2 md:col-span-1">
-                                <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">Disc ₹</label>
-                                <div className="p-2.5 bg-slate-50 text-slate-700 rounded-xl text-right font-bold text-xs border border-slate-100 h-[38px] flex items-center justify-end">
-                                    ₹{(item.mrp * (item.discount / 100)).toFixed(0)}
+                                {user?.role === 'CLIENT' && (
+                                    <div className="col-span-3 md:col-span-2 text-right">
+                                        <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">B2B</label>
+                                        <div className="p-2.5 bg-green-50 text-green-700 rounded-xl font-bold text-xs border border-green-100">₹{item.b2b_price.toFixed(0)}</div>
+                                    </div>
+                                )}
+                                <div className="col-span-4 md:col-span-2">
+                                    <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">MRP</label>
+                                    <input type="number" step="0.01" value={item.mrp} onChange={e => handleItemChange(item.id, 'mrp', parseFloat(e.target.value))} required className="w-full p-2.5 border border-slate-200 rounded-xl text-right text-xs font-bold" readOnly={item.isFromDb || user?.role === 'CLIENT'} />
+                                </div>
+                                <div className="col-span-2 md:col-span-1">
+                                    <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">Disc %</label>
+                                    <input type="number" step="0.1" value={item.discount} onChange={e => handleItemChange(item.id, 'discount', parseFloat(e.target.value))} className="w-full p-2.5 border border-slate-200 rounded-xl text-right text-xs font-bold" />
+                                </div>
+                                <div className="col-span-2 md:col-span-1">
+                                    <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">Disc ₹</label>
+                                    <div className="p-2.5 bg-slate-50 text-slate-700 rounded-xl text-right font-bold text-xs border border-slate-100 h-[38px] flex items-center justify-end">
+                                        ₹{(item.mrp * (item.discount / 100)).toFixed(0)}
+                                    </div>
+                                </div>
+                                <div className="col-span-1 md:col-span-1 text-right flex justify-end items-center h-10">
+                                    <button type="button" onClick={() => removeItem(item.id)} className="w-9 h-9 flex items-center justify-center bg-red-50 text-red-500 rounded-full border border-red-200 hover:bg-red-500 hover:text-white transition-all shadow-sm"><i className="fa-solid fa-trash-can text-sm"></i></button>
                                 </div>
                             </div>
-                            <div className="col-span-1 md:col-span-1 text-right flex justify-end items-center h-10">
-                                <button type="button" onClick={() => removeItem(item.id)} className="w-9 h-9 flex items-center justify-center bg-red-50 text-red-500 rounded-full border border-red-200 hover:bg-red-500 hover:text-white transition-all shadow-sm"><i className="fa-solid fa-trash-can text-sm"></i></button>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-            <button type="button" onClick={addItem} disabled={!selectedListId} className="w-full md:w-auto mt-2 px-6 py-2.5 bg-slate-800 text-white rounded-xl text-sm font-bold shadow-lg shadow-slate-200 flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:bg-slate-300">
-                <i className="fa-solid fa-plus"></i> Add Another Test
-            </button>
-        </fieldset>
+                        );
+                    })}
+                </div>
+                <button type="button" onClick={addItem} disabled={!selectedListId} className="w-full md:w-auto mt-2 px-6 py-2.5 bg-slate-800 text-white rounded-xl text-sm font-bold shadow-lg shadow-slate-200 flex items-center justify-center gap-2 transition-transform active:scale-95 disabled:bg-slate-300">
+                    <i className="fa-solid fa-plus"></i> Add Another Test
+                </button>
+            </fieldset>
+        </div>
     );
-
     const renderPaymentStep = () => (
         <fieldset className="border-2 border-slate-200 p-4 rounded-xl space-y-4">
             <legend className="px-2 font-bold text-lg text-slate-700">Payment & Finalize</legend>
