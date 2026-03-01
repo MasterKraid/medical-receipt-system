@@ -73,14 +73,17 @@ const ReceiptView: React.FC = () => {
         });
 
         const dateParts = receipt.created_at.split(' | ');
+        const totalMrp = receipt.total_mrp || calculatedTotalMrp;
+        const finalAmount = Number(receipt.amount_final) || 0;
+        const totalDiscount = totalMrp - finalAmount;
 
         return {
             ...data,
             items: formattedItems,
             displayReceiptDate: `${dateParts[0]} ${dateParts[1]}`,
-            totalMrpFormatted: (receipt.total_mrp || calculatedTotalMrp).toFixed(2),
-            subtotalAfterItemDiscountsFormatted: calculatedSubtotalAfterItemDiscounts.toFixed(2),
-            finalAmountFormatted: (Number(receipt.amount_final) || 0).toFixed(2),
+            totalMrpFormatted: totalMrp.toFixed(2),
+            totalDiscountFormatted: totalDiscount.toFixed(2),
+            finalAmountFormatted: finalAmount.toFixed(2),
             amountReceivedFormatted: (Number(receipt.amount_received) || 0).toFixed(2),
             amountDueFormatted: (Number(receipt.amount_due) || 0).toFixed(2),
         };
@@ -177,14 +180,14 @@ const ReceiptView: React.FC = () => {
                             </td>
                             <td className="border p-2 bg-gray-50 align-top text-right">
                                 TOTAL MRP<br />
-                                SUBTOTAL<br />
+                                TOTAL DISCOUNT<br />
                                 <strong className="text-base">NET PAYABLE</strong><br />
                                 RECEIVED<br />
                                 <strong className="text-base">DUE</strong>
                             </td>
                             <td className="border p-2 bg-gray-50 align-top text-right font-mono">
                                 ₹{formattedData.totalMrpFormatted}<br />
-                                ₹{formattedData.subtotalAfterItemDiscountsFormatted}<br />
+                                ₹{formattedData.totalDiscountFormatted}<br />
                                 <strong className="text-base">₹{formattedData.finalAmountFormatted}</strong><br />
                                 ₹{formattedData.amountReceivedFormatted}<br />
                                 <strong className="text-base">₹{formattedData.amountDueFormatted}</strong>
