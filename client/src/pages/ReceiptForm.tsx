@@ -104,7 +104,9 @@ const ReceiptForm: React.FC = () => {
     useEffect(() => {
         setPackages([]);
         if (selectedListId) {
-            apiService.getPackagesForList(parseInt(selectedListId)).then(setPackages);
+            apiService.getPackagesForList(parseInt(selectedListId)).then(data => {
+                setPackages(data.filter(p => p.name && p.name.trim() !== ''));
+            });
         }
     }, [selectedListId]);
 
@@ -530,7 +532,9 @@ const ReceiptForm: React.FC = () => {
                 <div className="space-y-3">
                     {items.map((item) => {
                         const otherSelectedNames = new Set(items.filter(i => i.id !== item.id && i.name).map(i => i.name));
-                        const dropdownOptions = packages.filter(p => !otherSelectedNames.has(p.name)).map(p => ({ value: p.name, label: p.name }));
+                        const dropdownOptions = packages
+                            .filter(p => p.name && p.name.trim() !== '' && !otherSelectedNames.has(p.name))
+                            .map(p => ({ value: p.name, label: p.name }));
                         return (
                             <div key={item.id} className="grid grid-cols-12 gap-2 items-end border-b pb-4 last:border-0 hover:bg-slate-50 transition-colors">
                                 <div className={`${user?.role === 'CLIENT' ? 'col-span-12 md:col-span-5' : 'col-span-12 md:col-span-7'}`}>

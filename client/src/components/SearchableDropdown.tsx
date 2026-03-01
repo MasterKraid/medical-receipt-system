@@ -30,6 +30,10 @@ const SearchableDropdown = forwardRef<SearchableDropdownHandle, SearchableDropdo
         useImperativeHandle(ref, () => ({
             focus: () => {
                 inputRef.current?.focus();
+                // Universal scroll-to-center on focus
+                setTimeout(() => {
+                    inputRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                }, 100);
             }
         }));
 
@@ -37,9 +41,11 @@ const SearchableDropdown = forwardRef<SearchableDropdownHandle, SearchableDropdo
             setSearchTerm(value);
         }, [value]);
 
-        const filteredOptions = options.filter(option =>
-            option.label.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        const filteredOptions = options
+            .filter(option => option.label && option.label.trim() !== '')
+            .filter(option =>
+                option.label.toLowerCase().includes(searchTerm.toLowerCase())
+            );
 
         useEffect(() => {
             setHighlightedIndex(-1);
@@ -103,10 +109,14 @@ const SearchableDropdown = forwardRef<SearchableDropdownHandle, SearchableDropdo
                     type="text"
                     value={searchTerm}
                     onChange={e => {
-                        setSearchTerm(e.target.value);
-                        if (!isOpen) setIsOpen(true);
+                        const newVal = e.target.value;
+                        setSearchTerm(newVal);
+                        if (newVal.trim().length > 0) {
+                            setIsOpen(true);
+                        } else {
+                            setIsOpen(false);
+                        }
                     }}
-                    onFocus={() => setIsOpen(true)}
                     onKeyDown={handleKeyDown}
                     placeholder={placeholder}
                     disabled={disabled}
