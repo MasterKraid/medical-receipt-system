@@ -4,7 +4,8 @@ import CleanSelect from '../components/CleanSelect';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
 import { Customer, Lab, PackageList, Package } from '../types';
-import SearchableDropdown from '../components/SearchableDropdown';
+import SearchableDropdown, { SearchableDropdownHandle } from '../components/SearchableDropdown';
+import { useRef } from 'react';
 
 interface ItemRow {
     id: number;
@@ -56,6 +57,19 @@ const ReceiptForm: React.FC = () => {
     const [step, setStep] = useState(1);
     const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
 
+    // Refs for enter-key navigation
+    const nameRef = useRef<HTMLInputElement>(null);
+    const mobileRef = useRef<HTMLInputElement>(null);
+    const ageRef = useRef<HTMLInputElement>(null);
+    const referredByRef = useRef<HTMLInputElement>(null);
+    const itemRefs = useRef<{ [key: number]: SearchableDropdownHandle | null }>({});
+
+    useEffect(() => {
+        if (user?.role === 'CLIENT') {
+            setCustomerMode('new');
+        }
+    }, [user]);
+
     useEffect(() => {
         const handleResize = () => setIsMobileView(window.innerWidth < 768);
         window.addEventListener('resize', handleResize);
@@ -64,7 +78,12 @@ const ReceiptForm: React.FC = () => {
 
     // Fetch initial data
     useEffect(() => {
-        apiService.getLabs().then(setLabs);
+        apiService.getLabs().then(data => {
+            setLabs(data);
+            if (data.length > 0 && !selectedLabId) {
+                setSelectedLabId(data[0].id.toString());
+            }
+        });
     }, []);
 
     // Handle cascading dropdowns
@@ -73,7 +92,12 @@ const ReceiptForm: React.FC = () => {
         setPackages([]);
         setSelectedListId('');
         if (selectedLabId && user) {
-            apiService.getPackageListsForLab(parseInt(selectedLabId)).then(setPackageLists);
+            apiService.getPackageListsForLab(parseInt(selectedLabId)).then(data => {
+                setPackageLists(data);
+                if (data.length > 0) {
+                    setSelectedListId(data[0].id.toString());
+                }
+            });
         }
     }, [selectedLabId, user]);
 
@@ -233,7 +257,9 @@ const ReceiptForm: React.FC = () => {
         const dueOverride = parseFloat(details.due_amount_manual);
         const amountDue = !isNaN(dueOverride) ? dueOverride : Math.max(0, netPayable - received);
 
-        return { totalMrp, totalDiscountAmount, totalB2B, subtotal, netPayable, amountDue, received };
+        const validTests = items.filter(i => i.name && i.name.trim() !== '');
+
+        return { totalMrp, totalDiscountAmount, totalB2B, subtotal, netPayable, amountDue, received, totalTests: validTests.length };
     }, [items, details.amount_received, details.due_amount_manual]);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -365,6 +391,50 @@ const ReceiptForm: React.FC = () => {
     };
     const prevStep = () => setStep(prev => Math.max(1, prev - 1));
 
+    // Focus helpers
+    const handleCustomerKeyDown = (e: React.KeyboardEvent, nextRef?: React.RefObject<HTMLInputElement> | 'tests') => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (nextRef === 'tests') {
+                const firstItem = items[0];
+                if (firstItem) itemRefs.current[firstItem.id]?.focus();
+            } else if (nextRef && nextRef.current) {
+                nextRef.current.focus();
+            }
+        }
+    };
+
+    const handleTestKeyDown = (e: React.KeyboardEvent, itemId: number) => {
+        if (e.key === 'Enter') {
+            const item = items.find(i => i.id === itemId);
+            if (item && item.name) {
+                // If it's the last item, wait for state update then focus next
+                const index = items.findIndex(i => i.id === itemId);
+                if (index === items.length - 1) {
+                    setTimeout(() => {
+                        const newLastItem = items[items.length - 1];
+                        if (newLastItem && newLastItem.id !== itemId) {
+                            itemRefs.current[newLastItem.id]?.focus();
+                        } else {
+                            // Find the new row by looking at state again
+                            // but actually handlePackageSelect adds it
+                        }
+                    }, 50);
+                } else {
+                    itemRefs.current[items[index + 1].id]?.focus();
+                }
+            }
+        }
+    };
+
+    useEffect(() => {
+        // When items length changes, focus the last one if it was just added
+        const lastItem = items[items.length - 1];
+        if (lastItem && !lastItem.name && items.length > 1) {
+            itemRefs.current[lastItem.id]?.focus();
+        }
+    }, [items.length]);
+
     // --- RESTRUCTURED RENDER FUNCTIONS ---
 
     const renderCustomerStep = () => (
@@ -374,9 +444,11 @@ const ReceiptForm: React.FC = () => {
                 <span className="text-sm font-medium text-slate-600">
                     {customerMode === 'search' ? 'Search Existing' : 'Register New'}
                 </span>
-                <button type="button" onClick={() => customerMode === 'search' ? clearCustomer() : setCustomerMode('search')} className="text-blue-600 text-sm font-bold flex items-center gap-1">
-                    {customerMode === 'search' ? <><i className="fa-solid fa-user-plus"></i> New</> : <><i className="fa-solid fa-magnifying-glass"></i> Search</>}
-                </button>
+                {user?.role !== 'CLIENT' && (
+                    <button type="button" onClick={() => customerMode === 'search' ? clearCustomer() : setCustomerMode('search')} className="text-blue-600 text-sm font-bold flex items-center gap-1">
+                        {customerMode === 'search' ? <><i className="fa-solid fa-user-plus"></i> New</> : <><i className="fa-solid fa-magnifying-glass"></i> Search</>}
+                    </button>
+                )}
             </div>
             {customerMode === 'search' && (
                 <div className="relative mb-2">
@@ -402,17 +474,17 @@ const ReceiptForm: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex gap-2 md:col-span-2">
                     <CleanSelect options={prefixOptions.map(p => ({ value: p, label: p }))} value={newCustomer.prefix || ''} onChange={handlePrefixChange} disabled={selectedCustomer !== null} className="w-24" />
-                    <input type="text" name="name" placeholder="Full Name" value={newCustomer.name} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required className="flex-grow p-3 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-50 transition-all text-sm font-medium" />
+                    <input ref={nameRef} onKeyDown={e => handleCustomerKeyDown(e, mobileRef)} type="text" name="name" placeholder="Full Name" value={newCustomer.name} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required className="flex-grow p-3 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-50 transition-all text-sm font-medium" />
                 </div>
-                <input type="tel" name="mobile" placeholder="Mobile (Optional)" value={newCustomer.mobile} onChange={handleCustomerChange} disabled={selectedCustomer !== null} pattern="\d{10}" className="p-3 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-50 text-sm" />
+                <input ref={mobileRef} onKeyDown={e => handleCustomerKeyDown(e, ageRef)} type="tel" name="mobile" placeholder="Mobile (Optional)" value={newCustomer.mobile} onChange={handleCustomerChange} disabled={selectedCustomer !== null} pattern="\d{10}" className="p-3 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-50 text-sm" />
                 <div className="grid grid-cols-2 gap-2">
-                    <input type="number" name="age" placeholder="Age" max="120" value={newCustomer.age} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-3 border border-slate-200 rounded-xl text-sm" />
+                    <input ref={ageRef} onKeyDown={e => handleCustomerKeyDown(e, referredByRef)} type="number" name="age" placeholder="Age" max="120" value={newCustomer.age} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-3 border border-slate-200 rounded-xl text-sm" />
                     <input type="date" name="dob" value={newCustomer.dob} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-3 border border-slate-200 rounded-xl text-sm" />
                 </div>
                 <div className="md:col-span-2">
                     <div className="grid grid-cols-2 gap-2">
                         <CleanSelect options={[{ value: 'Male', label: 'Male' }, { value: 'Female', label: 'Female' }]} value={newCustomer.gender || ''} onChange={val => setNewCustomer({ ...newCustomer, gender: val as 'Male' | 'Female' })} disabled={isGenderDisabled || selectedCustomer !== null} placeholder="Gender" />
-                        <input type="text" value={details.referred_by} onChange={e => setDetails({ ...details, referred_by: e.target.value })} className="p-3 border border-slate-200 rounded-xl text-sm" placeholder="Self or Doctor Name" />
+                        <input ref={referredByRef} onKeyDown={e => handleCustomerKeyDown(e, 'tests')} type="text" value={details.referred_by} onChange={e => setDetails({ ...details, referred_by: e.target.value })} className="p-3 border border-slate-200 rounded-xl text-sm" placeholder="Self or Doctor Name" />
                     </div>
                 </div>
             </div>
@@ -438,6 +510,13 @@ const ReceiptForm: React.FC = () => {
     const renderPackagesStep = () => (
         <fieldset className="border-2 border-slate-200 p-4 rounded-xl space-y-4">
             <legend className="px-2 font-bold text-lg text-slate-700">Select Tests</legend>
+
+            <div className="flex justify-end">
+                <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full font-black uppercase tracking-widest shadow-sm">
+                    {isMobileView ? `Total Tests: ${calculations.totalTests}` : `Total number of tests: ${calculations.totalTests}`}
+                </span>
+            </div>
+
             <div className="hidden md:grid md:grid-cols-12 gap-2 text-xs font-black text-slate-400 uppercase tracking-tighter mb-2 px-1">
                 <div className={`${user?.role === 'CLIENT' ? 'col-span-5' : 'col-span-7'}`}>Test Name/Package</div>
                 {user?.role === 'CLIENT' && <div className="col-span-2 text-right">B2B Cost</div>}
@@ -455,10 +534,10 @@ const ReceiptForm: React.FC = () => {
                         <div key={item.id} className="grid grid-cols-12 gap-2 items-end border-b pb-4 last:border-0 hover:bg-slate-50 transition-colors">
                             <div className={`${user?.role === 'CLIENT' ? 'col-span-12 md:col-span-5' : 'col-span-12 md:col-span-7'}`}>
                                 <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">Test Name</label>
-                                <SearchableDropdown options={dropdownOptions} value={item.name} onChange={name => handlePackageSelect(item.id, name)} placeholder="Choose Package..." disabled={!selectedListId} />
+                                <SearchableDropdown ref={el => itemRefs.current[item.id] = el} options={dropdownOptions} value={item.name} onChange={name => handlePackageSelect(item.id, name)} onKeyDown={e => handleTestKeyDown(e, item.id)} placeholder="Choose Package..." disabled={!selectedListId} />
                             </div>
                             {user?.role === 'CLIENT' && (
-                                <div className="col-span-4 md:col-span-2 text-right">
+                                <div className="col-span-3 md:col-span-2 text-right">
                                     <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">B2B</label>
                                     <div className="p-2.5 bg-green-50 text-green-700 rounded-xl font-bold text-xs border border-green-100">₹{item.b2b_price.toFixed(0)}</div>
                                 </div>
@@ -520,6 +599,8 @@ const ReceiptForm: React.FC = () => {
                         <span className="text-slate-500">Gross Total (MRP)</span>
                         <span className="text-right font-medium">₹{calculations.totalMrp.toFixed(0)}</span>
 
+                        <span className="text-slate-500">Total number of tests</span>
+                        <span className="text-right font-bold text-blue-700">{calculations.totalTests}</span>
                         {user?.role === 'CLIENT' && (
                             <>
                                 <span className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">B2B Total (Cost)</span>
@@ -578,7 +659,10 @@ const ReceiptForm: React.FC = () => {
                     </div>
 
                     <section className="space-y-3">
-                        <h3 className="font-black text-xs text-blue-600 uppercase tracking-widest">Tests & Pricing</h3>
+                        <h3 className="font-black text-xs text-blue-600 uppercase tracking-widest flex justify-between">
+                            <span>Tests & Pricing</span>
+                            <span className="bg-blue-50 px-2 py-0.5 rounded text-blue-800 font-black">Count: {calculations.totalTests}</span>
+                        </h3>
                         <div className="overflow-hidden border border-slate-100 rounded-xl">
                             <table className="min-w-full text-sm">
                                 <thead className="bg-slate-50">
