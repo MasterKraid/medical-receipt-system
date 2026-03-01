@@ -520,6 +520,13 @@ const ReceiptForm: React.FC = () => {
                         <span className="text-slate-500">Gross Total (MRP)</span>
                         <span className="text-right font-medium">₹{calculations.totalMrp.toFixed(0)}</span>
 
+                        {user?.role === 'CLIENT' && (
+                            <>
+                                <span className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">B2B Total (Cost)</span>
+                                <span className="text-right font-black text-green-700 mt-1">₹{calculations.totalB2B.toFixed(0)}</span>
+                            </>
+                        )}
+
                         <span className="text-slate-500">Total Discount</span>
                         <span className="text-right font-medium text-green-600">- ₹{calculations.totalDiscountAmount.toFixed(0)}</span>
 
@@ -577,6 +584,7 @@ const ReceiptForm: React.FC = () => {
                                 <thead className="bg-slate-50">
                                     <tr>
                                         <th className="p-3 text-left font-bold text-slate-600">Package</th>
+                                        {user?.role === 'CLIENT' && <th className="p-3 text-right font-bold text-slate-600">B2B</th>}
                                         <th className="p-3 text-right font-bold text-slate-600">MRP</th>
                                         <th className="p-3 text-right font-bold text-slate-600">Net</th>
                                     </tr>
@@ -585,6 +593,7 @@ const ReceiptForm: React.FC = () => {
                                     {items.filter(i => i.name).map((item, idx) => (
                                         <tr key={idx}>
                                             <td className="p-3 font-medium">{item.name}</td>
+                                            {user?.role === 'CLIENT' && <td className="p-3 text-right text-green-600 font-bold">₹{item.b2b_price.toFixed(0)}</td>}
                                             <td className="p-3 text-right text-slate-400">₹{item.mrp.toFixed(0)}</td>
                                             <td className="p-3 text-right font-bold">₹{(item.mrp * (1 - item.discount / 100)).toFixed(0)}</td>
                                         </tr>
@@ -596,6 +605,9 @@ const ReceiptForm: React.FC = () => {
 
                     <section className="bg-slate-900 text-white p-6 rounded-2xl space-y-3 shadow-2xl">
                         <div className="flex justify-between text-sm opacity-60"><span>Gross Value</span> <span>₹{calculations.totalMrp.toFixed(2)}</span></div>
+                        {user?.role === 'CLIENT' && (
+                            <div className="flex justify-between text-sm font-bold text-green-400"><span>B2B Total Cost</span> <span>₹{calculations.totalB2B.toFixed(2)}</span></div>
+                        )}
                         <div className="flex justify-between text-sm text-red-400 font-bold"><span>Total Discount</span> <span>- ₹{calculations.totalDiscountAmount.toFixed(2)}</span></div>
                         <div className="flex justify-between text-2xl font-black border-t border-slate-800 pt-3 text-green-400"><span>NET PAYABLE</span> <span>₹{calculations.netPayable.toFixed(0)}</span></div>
                         <div className="flex justify-between text-sm font-bold text-blue-400 pt-1"><span>Received</span> <span>₹{calculations.received.toFixed(0)}</span></div>
