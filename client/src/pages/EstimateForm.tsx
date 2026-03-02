@@ -1,35 +1,28 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import PageHeader from '../components/PageHeader';
 import CleanSelect from '../components/CleanSelect';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
-import { Customer, Lab, PackageList, Package } from '../types';
-import SearchableDropdown from '../components/SearchableDropdown';
+import { Customer } from '../types';
 
-interface ItemRow {
-    id: number;
-    name: string;
-    mrp: number;
-    b2b_price: number;
-    discount: number;
-    isFromDb: boolean;
+interface ComparisonData {
+    tests: { id: number, name: string }[];
+    labs: { id: number, name: string }[];
+    prices: { test_id: number, lab_id: number, price: number }[];
 }
 
 const prefixOptions = ['Mr.', 'Mrs.', 'Miss.', 'Baby.', 'Master.', 'Dr.', 'B/O', 'Ms.', 'C/O', 'S/O'];
 
 const EstimateForm: React.FC = () => {
     const { user, branch } = useAuth();
-    const navigate = useNavigate();
+
+
 
     // Data states
-    const [labs, setLabs] = useState<Lab[]>([]);
-    const [packageLists, setPackageLists] = useState<PackageList[]>([]);
-    const [packages, setPackages] = useState<Package[]>([]);
+    const [comparisonData, setComparisonData] = useState<ComparisonData | null>(null);
 
     // Form states
-    const [selectedLabId, setSelectedLabId] = useState('');
-    const [selectedListId, setSelectedListId] = useState('');
-
     const [customerMode, setCustomerMode] = useState<'new' | 'search'>('new');
     const [customerSearch, setCustomerSearch] = useState('');
     const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
@@ -38,9 +31,8 @@ const EstimateForm: React.FC = () => {
     const [newCustomer, setNewCustomer] = useState({ prefix: 'Mr.', name: '', mobile: '', dob: '', age: '', gender: 'Male' as 'Male' | 'Female' });
     const [isGenderDisabled, setIsGenderDisabled] = useState(true);
 
-    const [items, setItems] = useState<ItemRow[]>([{ id: Date.now(), name: '', mrp: 0, b2b_price: 0, discount: 0, isFromDb: false }]);
-
-    const [applyDiscount, setApplyDiscount] = useState('');
+    const [selectedTestIds, setSelectedTestIds] = useState<Set<number>>(new Set());
+    const [searchTestQuery, setSearchTestQuery] = useState('');
 
     const [details, setDetails] = useState({
         referred_by: '',
@@ -50,32 +42,16 @@ const EstimateForm: React.FC = () => {
 
     // Fetch initial data
     useEffect(() => {
-        apiService.getLabs().then(setLabs);
+        apiService.getComparisonData().then(setComparisonData).catch(err => {
+            console.error(err);
+            alert("Failed to load comparison data. Please ensure it has been uploaded by an administrator.");
+        });
     }, []);
-
-    // Handle cascading dropdowns
-    useEffect(() => {
-        setPackageLists([]);
-        setPackages([]);
-        setSelectedListId('');
-        if (selectedLabId && user) {
-            // Fix: Call the correct API method 'getPackageListsForLab' which was missing.
-            apiService.getPackageListsForLab(parseInt(selectedLabId)).then(setPackageLists);
-        }
-    }, [selectedLabId, user]);
-
-    useEffect(() => {
-        setPackages([]);
-        if (selectedListId) {
-            apiService.getPackagesForList(parseInt(selectedListId)).then(setPackages);
-        }
-    }, [selectedListId]);
 
     // Customer search logic
     useEffect(() => {
         if (customerSearch.length > 0) {
             const timer = setTimeout(() => {
-                // Fix: Call the correct API method 'searchCustomers' which was missing.
                 apiService.searchCustomers(customerSearch).then(setCustomerSuggestions);
             }, 300);
             return () => clearTimeout(timer);
@@ -155,71 +131,56 @@ const EstimateForm: React.FC = () => {
         setNewCustomer(customerData);
     };
 
-    const handleItemChange = (id: number, field: keyof ItemRow, value: string | number) => {
-        setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
-    };
-
-    const handlePackageSelect = (id: number, name: string) => {
-        const pkg = packages.find(p => p.name === name);
-
-        setItems(prevItems => {
-            const updated = prevItems.map(item =>
-                item.id === id ? {
-                    ...item,
-                    name: pkg ? pkg.name : name,
-                    mrp: pkg ? pkg.mrp : item.mrp,
-                    b2b_price: pkg ? pkg.b2b_price : item.b2b_price,
-                    isFromDb: !!pkg
-                } : item
-            );
-
-            // Auto-add row if this is the last row and name is selected
-            const selectedItemIndex = updated.findIndex(i => i.id === id);
-            if (selectedItemIndex === updated.length - 1 && name.trim() !== '') {
-                return [...updated, { id: Date.now() + 1, name: '', mrp: 0, b2b_price: 0, discount: 0, isFromDb: false }];
-            }
-            return updated;
-        });
-    };
-
-    const addItem = () => setItems(prev => [...prev, { id: Date.now(), name: '', mrp: 0, b2b_price: 0, discount: 0, isFromDb: false }]);
-    const removeItem = (id: number) => items.length > 1 && setItems(items.filter(item => item.id !== id));
-
-    const handleApplyDiscountToAll = () => {
-        const disc = parseFloat(applyDiscount);
-        if (!isNaN(disc) && disc >= 0 && disc <= 100) {
-            setItems(items.map(item => ({ ...item, discount: disc })));
-            setApplyDiscount('');
+    const toggleTestSelect = (testId: number) => {
+        const newSet = new Set(selectedTestIds);
+        if (newSet.has(testId)) {
+            newSet.delete(testId);
+        } else {
+            newSet.add(testId);
         }
+        setSelectedTestIds(newSet);
     };
 
-    const calculations = useMemo(() => {
-        let totalMrp = 0;
-        let totalDiscountAmount = 0;
-        let totalB2B = 0;
+    const filteredTests = useMemo(() => {
+        if (!comparisonData) return [];
+        return comparisonData.tests.filter(t =>
+            t.name.toLowerCase().includes(searchTestQuery.toLowerCase())
+        );
+    }, [comparisonData, searchTestQuery]);
 
-        items.forEach(item => {
-            const mrp = Number(item.mrp) || 0;
-            const b2b = Number(item.b2b_price) || 0;
-            const discountPercent = Number(item.discount) || 0;
+    const getPrice = (testId: number, labId: number) => {
+        if (!comparisonData) return null;
+        const p = comparisonData.prices.find(p => p.test_id === testId && p.lab_id === labId);
+        return p ? p.price : null;
+    };
 
-            totalMrp += mrp;
-            totalDiscountAmount += mrp * (discountPercent / 100);
-            totalB2B += b2b;
+    const labTotals = useMemo(() => {
+        if (!comparisonData) return {};
+        const totals: { [labId: number]: number } = {};
+        comparisonData.labs.forEach(l => totals[l.id] = 0);
+
+        selectedTestIds.forEach(testId => {
+            comparisonData.labs.forEach(lab => {
+                const price = getPrice(testId, lab.id);
+                if (price !== null) {
+                    totals[lab.id] += price;
+                }
+            });
         });
 
-        const subtotal = totalMrp - totalDiscountAmount;
-        const netPayable = subtotal;
-
-        return { totalMrp, totalDiscountAmount, totalB2B, subtotal, netPayable };
-    }, [items]);
+        return totals;
+    }, [comparisonData, selectedTestIds]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Fix: Add a guard to ensure user and branch are loaded before submitting.
         if (!user || !branch) {
             alert("User or branch information is missing. Please log in again.");
+            return;
+        }
+
+        if (selectedTestIds.size === 0) {
+            alert("Please select at least one test to compare.");
             return;
         }
 
@@ -229,119 +190,117 @@ const EstimateForm: React.FC = () => {
     const handleConfirmSave = async () => {
         if (!user || !branch) return;
 
-        const validItems = items.filter(i => i.name && i.name.trim() !== '');
-        const payload = {
-            customer_data: { id: selectedCustomer?.id, ...newCustomer },
-            lab_id: parseInt(selectedLabId),
-            package_list_id: parseInt(selectedListId),
-            items: validItems.map(({ id, isFromDb, ...rest }) => rest),
-            ...details,
-            referred_by: details.referred_by || 'Self',
-            amount_after_discount: calculations.netPayable,
-        };
-
-        try {
-            const newEstimate = await apiService.createEstimate(payload, user, branch);
-            navigate(`/estimate/${newEstimate.id}`);
-        } catch (error) {
-            alert(`Failed to create estimate: ${error}`);
-        }
+        // Ensure the old Estimates API is properly handled. 
+        // For now, the user mentioned they want a brand NEW one. 
+        // A "Comparison Estimate" may just be a printed view, so we will trigger window.print() instead of saving to DB for now, since the DB schema for estimates expects specific lab/package list context.
+        window.print();
     };
 
     const handleDiscard = () => {
-        if (window.confirm("Are you sure you want to discard this estimate? All entered data will be lost.")) {
-            // Reset everything
-            setItems([{ id: Date.now(), name: '', mrp: 0, b2b_price: 0, discount: 0, isFromDb: false }]);
+        if (window.confirm("Are you sure you want to discard this comparison?")) {
             setNewCustomer({ prefix: 'Mr.', name: '', mobile: '', dob: '', age: '', gender: 'Male' });
             setSelectedCustomer(null);
             setCustomerSearch('');
             setCustomerMode('new');
-            setSelectedLabId('');
-            setSelectedListId('');
-            setDetails({
-                referred_by: '',
-                notes: '',
-            });
+            setSelectedTestIds(new Set());
+            setSearchTestQuery('');
+            setDetails({ referred_by: '', notes: '' });
             setShowPreview(false);
         }
     };
 
     if (showPreview) {
         return (
-            <div className="p-4 sm:p-8 max-w-4xl mx-auto">
-                <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg space-y-6">
-                    <header className="border-b pb-4">
-                        <h1 className="text-3xl font-bold text-gray-800">Preview Estimate</h1>
-                        <p className="text-sm text-gray-500">Please review the details before saving.</p>
+            <div className="p-4 sm:p-8 max-w-6xl mx-auto printable-area">
+                <style>{`
+                    @media print {
+                        body * { visibility: hidden; }
+                        .printable-area, .printable-area * { visibility: visible; }
+                        .printable-area { position: absolute; left: 0; top: 0; width: 100%; border: none; box-shadow: none; padding: 20px; }
+                        .no-print { display: none !important; }
+                    }
+                `}</style>
+                <div className="max-w-7xl mx-auto my-10 p-4 sm:p-6 bg-white rounded-2xl shadow-xl print:shadow-none print:m-0 print:p-0">
+                    <PageHeader title="Comparison Report" showActingAs={false} />
+                    <header className="border-b pb-4 text-center">
+                        <h1 className="text-3xl font-bold text-gray-800">Estimate Price Comparison</h1>
+                        {branch && <p className="text-gray-500">{branch.name}</p>}
                     </header>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* Customer Info */}
                         <section className="space-y-2">
-                            <h3 className="font-bold text-lg text-blue-800 border-b">Customer Information</h3>
+                            <h3 className="font-bold text-lg text-indigo-800 border-b pb-1">Patient Information</h3>
                             <p><strong>Name:</strong> {newCustomer.prefix} {newCustomer.name}</p>
                             <p><strong>Mobile:</strong> {newCustomer.mobile || 'N/A'}</p>
                             <p><strong>Age/Gender:</strong> {newCustomer.age || 'N/A'} / {newCustomer.gender}</p>
-                            <p><strong>Referred By:</strong> {details.referred_by || 'Self'}</p>
                         </section>
-
-                        {/* Lab Info */}
                         <section className="space-y-2">
-                            <h3 className="font-bold text-lg text-blue-800 border-b">Estimate Details</h3>
-                            <p><strong>Lab:</strong> {labs.find(l => l.id === parseInt(selectedLabId))?.name}</p>
-                            <p><strong>Rate List:</strong> {packageLists.find(p => p.id === parseInt(selectedListId))?.name}</p>
+                            <h3 className="font-bold text-lg text-indigo-800 border-b pb-1">Details</h3>
+                            <p><strong>Referred By:</strong> {details.referred_by || 'Self'}</p>
+                            <p><strong>Date:</strong> {new Date().toLocaleDateString('en-GB')}</p>
                         </section>
                     </div>
 
-                    {/* Items Table */}
-                    <section className="space-y-2">
-                        <h3 className="font-bold text-lg text-blue-800 border-b">Tests / Packages</h3>
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full text-sm">
-                                <thead className="bg-gray-50">
+                    <section className="space-y-2 mt-6">
+                        <h3 className="font-bold text-lg text-indigo-800 border-b pb-1">Comparison Matrix</h3>
+                        <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                            <table className="min-w-full text-sm text-left">
+                                <thead className="bg-slate-100">
                                     <tr>
-                                        <th className="p-2 text-left">Test Name</th>
-                                        <th className="p-2 text-right">MRP</th>
-                                        <th className="p-2 text-right">Disc %</th>
-                                        <th className="p-2 text-right">Net</th>
+                                        <th className="p-3 font-bold text-slate-700 border-r border-slate-200">Test / Profile Name</th>
+                                        {comparisonData?.labs.map(lab => (
+                                            <th key={lab.id} className="p-3 font-bold text-center text-slate-700 border-r border-slate-200 min-w-[120px]">{lab.name}</th>
+                                        ))}
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y">
-                                    {items.filter(i => i.name).map((item, idx) => (
-                                        <tr key={idx}>
-                                            <td className="p-2">{item.name}</td>
-                                            <td className="p-2 text-right">₹{item.mrp.toFixed(2)}</td>
-                                            <td className="p-2 text-right">{item.discount}%</td>
-                                            <td className="p-2 text-right">₹{(item.mrp * (1 - item.discount / 100)).toFixed(2)}</td>
-                                        </tr>
-                                    ))}
+                                <tbody>
+                                    {Array.from(selectedTestIds).map(testId => {
+                                        const test = comparisonData?.tests.find(t => t.id === testId);
+                                        if (!test) return null;
+                                        return (
+                                            <tr key={testId} className="border-b border-slate-100 hover:bg-slate-50">
+                                                <td className="p-3 font-medium text-slate-800 border-r border-slate-200">{test.name}</td>
+                                                {comparisonData?.labs.map(lab => {
+                                                    const price = getPrice(testId, lab.id);
+                                                    return (
+                                                        <td key={lab.id} className="p-3 text-center border-r border-slate-200 font-mono">
+                                                            {price !== null ? `₹${price.toFixed(2)}` : <span className="text-slate-400">-</span>}
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
+                                <tfoot>
+                                    <tr className="bg-indigo-50 border-t-2 border-indigo-200">
+                                        <td className="p-3 font-bold text-indigo-900 border-r border-indigo-200 text-right uppercase">Total Estimated Payable</td>
+                                        {comparisonData?.labs.map(lab => (
+                                            <td key={'total-' + lab.id} className="p-3 text-center font-bold text-indigo-900 border-r border-indigo-200 text-lg font-mono">
+                                                ₹{labTotals[lab.id] ? labTotals[lab.id].toFixed(2) : '0.00'}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
                     </section>
 
-                    {/* Totals */}
-                    <section className="bg-gray-50 p-4 rounded-lg space-y-2">
-                        <div className="flex justify-between text-sm"><span>Total MRP:</span> <span>₹{calculations.totalMrp.toFixed(2)}</span></div>
-                        <div className="flex justify-between text-sm text-red-600"><span>Total Discount:</span> <span>- ₹{calculations.totalDiscountAmount.toFixed(2)}</span></div>
-                        <div className="flex justify-between font-bold text-lg border-t pt-2"><span>Estimated Payable:</span> <span>₹{calculations.netPayable.toFixed(2)}</span></div>
-                    </section>
-
                     {details.notes && (
-                        <div className="text-sm p-3 bg-yellow-50 rounded border border-yellow-200">
-                            <strong>Notes:</strong> {details.notes}
+                        <div className="text-sm p-3 bg-yellow-50 rounded border border-yellow-200 mt-4">
+                            <strong>Remarks:</strong> {details.notes}
                         </div>
                     )}
 
-                    <div className="flex flex-col sm:flex-row gap-4 pt-6 mt-6 border-t">
+                    <div className="flex flex-col sm:flex-row gap-4 pt-6 mt-6 border-t no-print">
                         <button type="button" onClick={handleDiscard} className="flex-1 py-3 px-4 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2">
                             <i className="fa-solid fa-trash-can"></i> Discard
                         </button>
                         <button type="button" onClick={() => setShowPreview(false)} className="flex-1 py-3 px-4 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-600 hover:text-white transition-all flex items-center justify-center gap-2">
                             <i className="fa-solid fa-pen-to-square"></i> Edit
                         </button>
-                        <button type="button" onClick={handleConfirmSave} className="flex-[2] py-3 px-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-100 transform active:scale-95 transition-all flex items-center justify-center gap-2">
-                            <i className="fa-solid fa-check-double"></i> Save & Confirm
+                        <button type="button" onClick={handleConfirmSave} className="flex-[2] py-3 px-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transform active:scale-95 transition-all flex items-center justify-center gap-2">
+                            <i className="fa-solid fa-print"></i> Print Comparison
                         </button>
                     </div>
                 </div>
@@ -350,170 +309,253 @@ const EstimateForm: React.FC = () => {
     }
 
     return (
-        <div className="p-4 sm:p-8 max-w-5xl mx-auto">
+        <div className="p-4 sm:p-8 max-w-6xl mx-auto">
             <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-8 rounded-xl shadow-lg space-y-6">
                 <header>
-                    <h1 className="text-3xl font-bold text-gray-800">Estimate Form</h1>
+                    <h1 className="text-3xl font-bold text-slate-800">Estimate Price Comparison</h1>
                     {branch && user && (
-                        <p className="text-sm text-gray-500 mt-2">
-                            Branch: <strong>{branch.name}</strong> | User: {user.username} | <Link to={user.role === 'ADMIN' ? '/admin-dashboard' : '/dashboard'} className="text-blue-600">Dashboard</Link>
+                        <p className="text-sm text-slate-500 mt-2 flex items-center gap-2">
+                            <span><i className="fa-solid fa-building text-indigo-400"></i> {branch.name}</span>
+                            <span>|</span>
+                            <span><i className="fa-solid fa-user text-indigo-400"></i> {user.username}</span>
+                            <span>|</span>
+                            <Link to={user.role === 'ADMIN' ? '/admin-dashboard' : '/dashboard'} className="text-indigo-600 font-medium hover:underline">Dashboard</Link>
                         </p>
                     )}
                 </header>
 
-                <fieldset className="border-2 border-gray-300 p-4 rounded-lg">
-                    <legend className="px-2 font-semibold text-lg text-gray-700">Customer</legend>
-                    <div className="flex justify-end mb-2">
+                <fieldset className="border border-slate-200 bg-slate-50 p-5 rounded-xl">
+                    <legend className="px-3 font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg text-sm py-1">Customer / Patient Details</legend>
+                    <div className="flex justify-end mb-3">
                         <button type="button" onClick={() => {
                             if (customerMode === 'search') {
                                 clearCustomer();
                             } else {
                                 setCustomerMode('search');
                             }
-                        }} className="text-blue-600 text-sm">
-                            {customerMode === 'search' ? <><i className="fa-solid fa-user-plus mr-1"></i> Enter New</> : <><i className="fa-solid fa-magnifying-glass mr-1"></i> Search Existing</>}
+                        }} className="text-indigo-600 text-sm font-medium hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors">
+                            {customerMode === 'search' ? <><i className="fa-solid fa-user-plus mr-1"></i> Enter New Customer</> : <><i className="fa-solid fa-magnifying-glass mr-1"></i> Search Existing Data</>}
                         </button>
                     </div>
                     {customerMode === 'search' && (
-                        <div className="relative mb-2">
-                            <input type="text" value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} placeholder="Search by name, mobile, or ID..." className="w-full p-2 border rounded" />
+                        <div className="relative mb-4">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i className="fa-solid fa-search text-slate-400"></i>
+                            </div>
+                            <input type="text" value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} placeholder="Search by name, mobile, or ID..." className="w-full pl-10 p-2.5 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" />
                             {customerSuggestions.length > 0 && (
-                                <ul className="absolute z-10 w-full bg-white border mt-1 rounded shadow-lg max-h-48 overflow-y-auto">
+                                <ul className="absolute z-10 w-full bg-white border border-slate-200 mt-1 rounded-lg shadow-xl max-h-60 overflow-y-auto">
                                     {customerSuggestions.map(cust => (
-                                        <li key={cust.id} onClick={() => handleSelectCustomer(cust)} className="p-2 hover:bg-gray-100 cursor-pointer">{cust.name} - {cust.mobile}</li>
+                                        <li key={cust.id} onClick={() => handleSelectCustomer(cust)} className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-slate-100 last:border-0 flex justify-between items-center group">
+                                            <div>
+                                                <span className="font-medium text-slate-800">{cust.name}</span>
+                                                <span className="text-sm text-slate-500 block">{cust.mobile || 'No mobile'}</span>
+                                            </div>
+                                            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded group-hover:bg-indigo-100 group-hover:text-indigo-700">CUST-{String(cust.id).padStart(6, '0')}</span>
+                                        </li>
                                     ))}
                                 </ul>
                             )}
                         </div>
                     )}
                     {selectedCustomer && (
-                        <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg mb-2 text-sm">
-                            <div className="flex justify-between items-center">
-                                <span><strong>Selected:</strong> {selectedCustomer.name} (ID: CUST-{String(selectedCustomer.id).padStart(10, '0')})</span>
-                                <button type="button" onClick={clearCustomer} className="text-red-600 text-xs">Clear</button>
-                            </div>
+                        <div className="bg-indigo-50 border border-indigo-200 p-3 rounded-lg mb-4 text-sm flex justify-between items-center shadow-sm">
+                            <span className="text-indigo-900">
+                                <i className="fa-solid fa-check-circle text-indigo-500 mr-2"></i>
+                                <strong>Selected:</strong> {selectedCustomer.name} <span className="text-indigo-500 ml-1">(ID: CUST-{String(selectedCustomer.id).padStart(10, '0')})</span>
+                            </span>
+                            <button type="button" onClick={clearCustomer} className="text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors">Clear Selection</button>
                         </div>
                     )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center gap-2 md:col-span-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="flex items-center gap-2 lg:col-span-2">
                             <CleanSelect
                                 options={prefixOptions.map(p => ({ value: p, label: p }))}
                                 value={newCustomer.prefix || ''}
                                 onChange={handlePrefixChange}
                                 disabled={selectedCustomer !== null}
-                                className="w-1/4"
+                                className="w-24"
                             />
-                            <input type="text" name="name" placeholder="Customer Name" value={newCustomer.name} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required className="p-2 border border-gray-200 rounded-xl disabled:bg-gray-100 flex-grow outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all text-sm" />
+                            <input type="text" name="name" placeholder="Customer Name" value={newCustomer.name} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required className="p-2.5 border border-slate-300 rounded-lg disabled:bg-slate-100 disabled:text-slate-500 flex-grow outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm w-full" />
                         </div>
-                        <input type="tel" name="mobile" placeholder="10-digit Mobile (Optional)" value={newCustomer.mobile} onChange={handleCustomerChange} disabled={selectedCustomer !== null} pattern="\d{10}" title="Must be 10 digits" className="p-2 border border-gray-200 rounded-xl disabled:bg-gray-100 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all text-sm" />
-                        <input type="date" name="dob" placeholder="DOB" value={newCustomer.dob} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border border-gray-200 rounded-xl disabled:bg-gray-100 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all text-sm" />
-                        <input type="number" name="age" placeholder="Age" max="100" value={newCustomer.age} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2 border border-gray-200 rounded-xl disabled:bg-gray-100 outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all text-sm" />
-                        <CleanSelect
-                            options={[
-                                { value: 'Male', label: 'Male' },
-                                { value: 'Female', label: 'Female' }
-                            ]}
-                            value={newCustomer.gender || ''}
-                            onChange={val => setNewCustomer({ ...newCustomer, gender: val })}
-                            disabled={isGenderDisabled || selectedCustomer !== null}
-                            placeholder="Gender"
-                        />
-                        <div className="md:col-span-2">
-                            <label className="text-sm font-medium">Referred By Dr.</label>
-                            <input type="text" value={details.referred_by} onChange={e => setDetails({ ...details, referred_by: e.target.value })} className="w-full p-2 border rounded" placeholder="Doctor Name or 'Self'" />
+                        <input type="tel" name="mobile" placeholder="Mobile No. (Optional)" value={newCustomer.mobile} onChange={handleCustomerChange} disabled={selectedCustomer !== null} pattern="\d{10}" title="Must be 10 digits" className="p-2.5 border border-slate-300 rounded-lg disabled:bg-slate-100 disabled:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm w-full" />
+
+                        <div className="flex gap-2">
+                            <input type="number" name="age" placeholder="Age" max="120" value={newCustomer.age} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2.5 border border-slate-300 rounded-lg disabled:bg-slate-100 disabled:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm w-20" />
+                            <div className="flex-1 relative">
+                                <CleanSelect
+                                    options={[
+                                        { value: 'Male', label: 'Male' },
+                                        { value: 'Female', label: 'Female' }
+                                    ]}
+                                    value={newCustomer.gender || ''}
+                                    onChange={val => setNewCustomer({ ...newCustomer, gender: val as any })}
+                                    disabled={isGenderDisabled || selectedCustomer !== null}
+                                    placeholder="Gender"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="lg:col-span-4">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Referred By / Doctor</label>
+                            <input type="text" value={details.referred_by} onChange={e => setDetails({ ...details, referred_by: e.target.value })} className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm" placeholder="Doctor Name or leave blank for 'Self'" />
                         </div>
                     </div>
                 </fieldset>
 
-                <fieldset className="border-2 border-gray-300 p-4 rounded-lg">
-                    <legend className="px-2 font-semibold text-lg text-gray-700">Estimate Details</legend>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <CleanSelect
-                            options={labs.map(lab => ({ value: lab.id, label: lab.name }))}
-                            value={selectedLabId}
-                            onChange={val => setSelectedLabId(val)}
-                            placeholder="-- Select Lab --"
-                        />
-                        <CleanSelect
-                            options={packageLists.map(list => ({ value: list.id, label: list.name }))}
-                            value={selectedListId}
-                            onChange={val => setSelectedListId(val)}
-                            disabled={!selectedLabId}
-                            placeholder="-- Select Rate Database --"
-                        />
+                {!comparisonData ? (
+                    <div className="p-10 text-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl">
+                        <i className="fa-solid fa-spinner fa-spin text-3xl text-indigo-400 mb-2"></i>
+                        <p className="text-slate-500 font-medium">Loading comparison laboratory data...</p>
                     </div>
-                </fieldset>
-
-                <fieldset className="border-2 border-gray-300 p-4 rounded-lg">
-                    <legend className="px-2 font-semibold text-lg text-gray-700">Tests / Packages</legend>
-                    {/* Item Headers */}
-                    <div className="hidden md:grid md:grid-cols-12 gap-2 text-sm font-bold text-gray-600 mb-2 px-1">
-                        <div className={`${user?.role === 'CLIENT' ? 'col-span-4' : 'col-span-5'}`}>Test Name</div>
-                        {user?.role === 'CLIENT' && <div className="col-span-2 text-right">B2B (₹)</div>}
-                        <div className="col-span-2 text-right">MRP (₹)</div>
-                        <div className="col-span-2 text-right">Disc (%)</div>
-                        <div className="col-span-1 text-right">Disc Amt</div>
-                        <div className="col-span-1 text-right"></div>
-                    </div>
-
-                    <div className="space-y-4">
-                        {items.map((item) => {
-                            const otherSelectedNames = new Set(
-                                items.filter(i => i.id !== item.id && i.name).map(i => i.name)
-                            );
-                            const dropdownOptions = packages
-                                .filter(p => !otherSelectedNames.has(p.name))
-                                .map(p => ({ value: p.name, label: p.name }));
-
-                            return (
-                                <div key={item.id} className="grid grid-cols-12 gap-2 items-center border-b pb-2">
-                                    <div className={`${user?.role === 'CLIENT' ? 'col-span-12 md:col-span-4' : 'col-span-12 md:col-span-5'}`}>
-                                        <label className="md:hidden text-xs font-bold">Package</label>
-                                        <SearchableDropdown options={dropdownOptions} value={item.name} onChange={name => handlePackageSelect(item.id, name)} placeholder="Select or type package" disabled={!selectedListId} />
-                                    </div>
-                                    {user?.role === 'CLIENT' && <div className="col-span-6 md:col-span-2"><label className="md:hidden text-xs font-bold">B2B (₹)</label><input type="number" value={item.b2b_price} readOnly className="w-full p-2 border rounded text-right bg-gray-100" /></div>}
-                                    <div className="col-span-6 md:col-span-2"><label className="md:hidden text-xs font-bold">MRP (₹)</label><input type="number" step="0.01" value={item.mrp} onChange={e => handleItemChange(item.id, 'mrp', parseFloat(e.target.value))} required className="w-full p-2 border rounded text-right" readOnly={item.isFromDb || user?.role === 'CLIENT'} /></div>
-                                    <div className="col-span-6 md:col-span-2"><label className="md:hidden text-xs font-bold">Disc (%)</label><input type="number" step="0.1" value={item.discount} onChange={e => handleItemChange(item.id, 'discount', parseFloat(e.target.value))} className="w-full p-2 border rounded text-right" /></div>
-                                    <div className="col-span-6 md:col-span-1 text-right text-sm text-gray-500 font-mono"><label className="md:hidden text-xs font-bold">Disc Amt</label>₹{(item.mrp * item.discount / 100).toFixed(2)}</div>
-                                    <div className="col-span-12 md:col-span-1 text-right">
-                                        <button type="button" onClick={() => removeItem(item.id)} className="px-2 py-1 bg-red-500 text-white rounded text-xs w-full md:w-auto"><i className="fa-solid fa-trash"></i></button>
-                                    </div>
+                ) : (
+                    <fieldset className="border border-indigo-200 bg-white p-0 rounded-xl overflow-hidden shadow-sm">
+                        <div className="bg-indigo-50 p-4 border-b border-indigo-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div>
+                                <h2 className="text-lg font-bold text-indigo-900 inline-flex items-center gap-2">
+                                    <i className="fa-solid fa-vials text-indigo-500"></i> Test Selection
+                                </h2>
+                                <p className="text-xs text-indigo-600 mt-1">Select the tests to compare rates across different laboratories.</p>
+                            </div>
+                            <div className="relative w-full md:w-72">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i className="fa-solid fa-search text-indigo-400"></i>
                                 </div>
-                            );
-                        })}
-                    </div>
-                    <button type="button" onClick={addItem} disabled={!selectedListId} className="mt-4 px-3 py-1 bg-green-500 text-white rounded text-sm disabled:bg-gray-300">Add Item</button>
-                </fieldset>
-
-                <fieldset className="border-2 border-gray-300 p-4 rounded-lg">
-                    <legend className="px-2 font-semibold text-lg text-gray-700">Totals & Details</legend>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                        <div className="flex items-center gap-2">
-                            <input type="number" placeholder="Apply Disc to All (%)" value={applyDiscount} onChange={e => setApplyDiscount(e.target.value)} className="w-full p-2 border rounded" />
-                            <button type="button" onClick={handleApplyDiscountToAll} className="p-2 bg-blue-500 text-white rounded"><i className="fa-solid fa-check"></i></button>
+                                <input
+                                    type="text"
+                                    placeholder="Search tests/packages..."
+                                    value={searchTestQuery}
+                                    onChange={e => setSearchTestQuery(e.target.value)}
+                                    className="w-full pl-9 p-2 border border-indigo-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                />
+                            </div>
                         </div>
 
-                        <div className="md:col-span-2">
-                            <label className="text-sm font-medium">Notes</label>
-                            <textarea value={details.notes} onChange={e => setDetails({ ...details, notes: e.target.value })} rows={2} className="w-full p-2 border rounded" />
-                        </div>
-
-                        {/* Live Calculation */}
-                        <div className="md:col-span-2 mt-4 p-4 bg-gray-50 rounded-lg text-right space-y-1 text-sm font-medium">
-                            <div className="flex justify-between"><span>Total MRP:</span> <span className="font-mono">₹{calculations.totalMrp.toFixed(2)}</span></div>
-                            <div className="flex justify-between text-red-600"><span>Total Discount:</span> <span className="font-mono">- ₹{calculations.totalDiscountAmount.toFixed(2)}</span></div>
-                            <hr />
-                            <div className="flex justify-between font-bold text-base"><span>Estimated Payable:</span> <span className="font-mono">₹{calculations.netPayable.toFixed(2)}</span></div>
-                            {user?.role === 'CLIENT' && (
-                                <div className="pt-2 border-t mt-2">
-                                    <div className="flex justify-between font-bold text-green-700"><span>Your B2B Cost:</span><span className="font-mono">₹{calculations.totalB2B.toFixed(2)}</span></div>
+                        <div className="p-4 bg-white flex flex-col md:flex-row gap-6">
+                            {/* Selected Tests Panel */}
+                            {selectedTestIds.size > 0 && (
+                                <div className="w-full md:w-1/3 bg-slate-50 border border-slate-200 rounded-lg p-3 max-h-96 overflow-y-auto">
+                                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex justify-between">
+                                        Selected Tests <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">{selectedTestIds.size}</span>
+                                    </h3>
+                                    <ul className="space-y-2">
+                                        {Array.from(selectedTestIds).map(testId => {
+                                            const test = comparisonData.tests.find(t => t.id === testId);
+                                            if (!test) return null;
+                                            return (
+                                                <li key={testId} className="bg-white border border-slate-200 rounded-md p-2 text-sm flex justify-between items-center shadow-sm group">
+                                                    <span className="font-medium text-slate-700 truncate mr-2" title={test.name}>{test.name}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleTestSelect(testId)}
+                                                        className="text-slate-400 hover:text-red-500 p-1"
+                                                    >
+                                                        <i className="fa-solid fa-times"></i>
+                                                    </button>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
                                 </div>
                             )}
-                        </div>
-                    </div>
-                </fieldset>
 
-                <button type="submit" className="w-full py-3 bg-blue-600 text-white font-bold text-lg rounded-lg hover:bg-blue-700 transition">Preview</button>
+                            {/* Test Search Results */}
+                            <div className="flex-1 max-h-96 overflow-y-auto pr-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                                    {filteredTests.map(test => {
+                                        const isSelected = selectedTestIds.has(test.id);
+                                        return (
+                                            <div
+                                                key={test.id}
+                                                onClick={() => toggleTestSelect(test.id)}
+                                                className={`p-3 rounded-lg border cursor-pointer transition-all flex items-start gap-3 ${isSelected ? 'bg-indigo-50 border-indigo-300 shadow-sm ring-1 ring-indigo-500' : 'bg-white border-slate-200 hover:border-indigo-300 hover:bg-slate-50'}`}
+                                            >
+                                                <div className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 bg-white'}`}>
+                                                    {isSelected && <i className="fa-solid fa-check text-white text-[10px]"></i>}
+                                                </div>
+                                                <span className={`font-medium ${isSelected ? 'text-indigo-900' : 'text-slate-700'}`}>{test.name}</span>
+                                            </div>
+                                        );
+                                    })}
+                                    {filteredTests.length === 0 && (
+                                        <div className="col-span-full py-8 text-center text-slate-500 italic">
+                                            No tests found matching "{searchTestQuery}"
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Live Matrix Preview */}
+                        {selectedTestIds.size > 0 && (
+                            <div className="border-t border-slate-200">
+                                <div className="bg-slate-100 px-4 py-2 border-b border-slate-200">
+                                    <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Live Comparison Preview</h3>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full text-xs text-left">
+                                        <thead className="bg-white">
+                                            <tr>
+                                                <th className="p-2 border-b border-r border-slate-200 text-slate-500 font-medium">Test</th>
+                                                {comparisonData.labs.map(lab => (
+                                                    <th key={lab.id} className="p-2 border-b border-r border-slate-200 text-center text-slate-600 font-bold">{lab.name}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {Array.from(selectedTestIds).slice(0, 3).map(testId => {
+                                                const test = comparisonData.tests.find(t => t.id === testId);
+                                                if (!test) return null;
+                                                return (
+                                                    <tr key={testId} className="border-b border-slate-100">
+                                                        <td className="p-2 border-r border-slate-200 text-slate-700 truncate max-w-[150px]">{test.name}</td>
+                                                        {comparisonData.labs.map(lab => {
+                                                            const price = getPrice(testId, lab.id);
+                                                            return (
+                                                                <td key={lab.id} className="p-2 text-center border-r border-slate-200 font-mono text-slate-600">
+                                                                    {price !== null ? price : '-'}
+                                                                </td>
+                                                            );
+                                                        })}
+                                                    </tr>
+                                                );
+                                            })}
+                                            {selectedTestIds.size > 3 && (
+                                                <tr>
+                                                    <td colSpan={comparisonData.labs.length + 1} className="p-2 text-center text-slate-400 italic bg-slate-50">
+                                                        ... and {selectedTestIds.size - 3} more. See preview for full details.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                    </fieldset>
+                )}
+
+                <div className="mt-6">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Additional Remarks / Notes</label>
+                    <textarea value={details.notes} onChange={e => setDetails({ ...details, notes: e.target.value })} rows={2} className="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm" placeholder="Any special instructions or notes to print on the estimate..." />
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3 mt-6">
+                    <i className="fa-solid fa-circle-info text-blue-500 mt-0.5"></i>
+                    <p className="text-xs text-blue-800 leading-relaxed">
+                        This rewritten module functions as a <strong>Price Comparison Generator</strong>.
+                        It will generate a tabular comparison of tests across all available labs. The printout is suitable for sharing with clients. It does not track standard estimate documents in the database at this time.
+                    </p>
+                </div>
+
+                <button
+                    type="submit"
+                    disabled={selectedTestIds.size === 0 || !comparisonData}
+                    className="w-full py-3.5 bg-indigo-600 disabled:bg-slate-300 text-white font-bold text-lg rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
+                >
+                    <i className="fa-solid fa-table-list"></i>
+                    Generate Detailed Comparison Matrix
+                </button>
             </form>
         </div>
     );

@@ -54,6 +54,9 @@ export default defineConfig({
             type: 'image/png'
           }
         ]
+      },
+      workbox: {
+        navigateFallbackDenylist: [/^\/api/, /^\/lab_reports/]
       }
     })
   ],
@@ -68,6 +71,12 @@ export default defineConfig({
       '/api': {
         target: 'https://localhost:3001',
         changeOrigin: true,
+        secure: false,
+      },
+      '/lab_reports': {
+        target: 'https://localhost:3001',
+        changeOrigin: true,
+        secure: false,
       }
     }
   }

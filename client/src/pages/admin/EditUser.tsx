@@ -57,10 +57,11 @@ const EditUser: React.FC = () => {
     }, [id]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
+        const { name, value, type } = e.target as any;
         if (user) {
-            let parsedValue: string | number = value;
+            let parsedValue: any = value;
             if (name === 'branchId') parsedValue = parseInt(value, 10);
+            if (type === 'checkbox') parsedValue = (e.target as HTMLInputElement).checked ? 1 : 0;
             setUser({ ...user, [name]: parsedValue });
         }
     };
@@ -98,7 +99,7 @@ const EditUser: React.FC = () => {
     return (
         <div className="p-4 sm:p-8 max-w-5xl mx-auto space-y-8">
             <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-100">
-                <PageHeader title={`Modify Access: ${user.alias || user.username}`} backLink="/admin/users" backText="Return to Directory" />
+                <PageHeader title={`Modify Access: ${user.alias || user.username}`} backLink="/admin/users" backText="Return to Directory" showActingAs={false} />
 
                 <form onSubmit={handleSubmit} className="mt-8 space-y-8">
                     {/* User Details Section */}
@@ -159,6 +160,19 @@ const EditUser: React.FC = () => {
                                         value={user.role}
                                         onChange={val => setUser({ ...user, role: val })}
                                     />
+                                    {user.role === 'GENERAL_EMPLOYEE' && (
+                                        <div className="flex items-center gap-2 mt-2 ml-1">
+                                            <input
+                                                type="checkbox"
+                                                name="master_data_entry"
+                                                id="masterDataEntryParams"
+                                                checked={!!user.master_data_entry}
+                                                onChange={handleInputChange}
+                                                className="w-3.5 h-3.5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer"
+                                            />
+                                            <label htmlFor="masterDataEntryParams" className="text-[10px] font-bold text-gray-500 cursor-pointer uppercase tracking-tight">Allow Master Entry (Act as Admin)</label>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

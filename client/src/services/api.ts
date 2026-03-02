@@ -1,4 +1,4 @@
-import { User, Branch, PackageList, Package, Lab, Customer, Receipt, Estimate, Document, FormattedCustomer, Transaction } from '../types';
+import { User, Branch, PackageList, Package, Lab, Customer, Receipt, Estimate, Document, FormattedCustomer, Transaction, LabReport } from '../types';
 
 // Helper for all API calls to the backend
 async function apiFetch(url: string, options: RequestInit = {}) {
@@ -44,10 +44,10 @@ export const apiService = {
   },
 
   // --- Document Creation ---
-  createReceipt: (payload: any, user: User, branch: Branch): Promise<{ newReceipt: Receipt; updatedUser: User | null }> => {
+  createReceipt: (payload: any, user: User, branch: Branch, acting_as_client_id?: number): Promise<{ newReceipt: Receipt; updatedUser: User | null }> => {
     return apiFetch('/receipts', {
       method: 'POST',
-      body: JSON.stringify({ payload, context: { user, branch } }),
+      body: JSON.stringify({ payload, context: { user, branch, acting_as_client_id } }),
     });
   },
 
@@ -114,6 +114,28 @@ export const apiService = {
   getTransactionsByUser: (userId: number): Promise<Transaction[]> => apiFetch(`/admin/transactions/user/${userId}`),
   revertTransaction: (id: number): Promise<void> => apiFetch(`/admin/transactions/${id}/revert`, { method: 'DELETE' }),
   deleteTransactionRecord: (id: number): Promise<void> => apiFetch(`/admin/transactions/${id}/delete`, { method: 'DELETE' }),
-  deleteReceipt: (id: number): Promise<void> => apiFetch(`/admin/receipts/${id}`, { method: 'DELETE' }),
   revertReceipt: (id: number): Promise<void> => apiFetch(`/admin/receipts/${id}/revert`, { method: 'DELETE' }),
+  deleteReceipt: (id: number): Promise<void> => apiFetch(`/admin/receipts/${id}`, { method: 'DELETE' }),
+
+  // --- Reports (Client & Admin) ---
+  uploadReport: (formData: FormData): Promise<{ reportId: number }> => {
+    // Don't use apiFetch since we need to let the browser set the boundary headers for FormData
+    return fetch('/api/reports/upload', {
+      method: 'POST',
+      body: formData,
+    }).then(res => res.ok ? res.json() : Promise.reject('Upload failed'));
+  },
+  getReportsAdmin: (): Promise<LabReport[]> => apiFetch('/reports'),
+  getReportsClient: (): Promise<LabReport[]> => apiFetch('/reports/client'),
+  deleteReport: (id: number): Promise<void> => apiFetch(`/reports/${id}`, { method: 'DELETE' }),
+  markReportAsRead: (id: number): Promise<void> => apiFetch(`/reports/${id}/read`, { method: 'PUT' }),
+
+  // --- Estimate Comparison ---
+  uploadComparisonData: (formData: FormData): Promise<void> => {
+    return fetch('/api/comparison/upload', {
+      method: 'POST',
+      body: formData,
+    }).then(res => res.ok ? res.json() : Promise.reject('Upload failed'));
+  },
+  getComparisonData: (): Promise<{ tests: any[]; labs: any[]; prices: any[] }> => apiFetch('/comparison/data'),
 };

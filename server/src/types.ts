@@ -1,6 +1,39 @@
 
 // This file can be a copy of the frontend's types.ts to ensure consistency.
 // In a larger project, this could be a shared package.
+export interface AdminSettings {
+    upi_id?: string;
+    organization_name?: string;
+    lab_name?: string;
+}
+
+export interface LabReport {
+    id: number;
+    client_id: number;
+    customer_name: string;
+    file_path: string;
+    uploaded_at: string;
+    is_read: boolean;
+    alias?: string;
+    username?: string;
+}
+
+export interface ComparisonTest {
+    id: number;
+    name: string;
+}
+
+export interface ComparisonLab {
+    id: number;
+    name: string;
+}
+
+export interface ComparisonPrice {
+    test_id: number;
+    lab_id: number;
+    price: number;
+}
+
 export interface User {
     id: number;
     username: string;
@@ -11,6 +44,7 @@ export interface User {
     allow_negative_balance: boolean;
     negative_balance_allowed_until?: string;
     assigned_list_ids?: number[];
+    master_data_entry?: boolean;
 }
 
 export interface Branch {

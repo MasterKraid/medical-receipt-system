@@ -95,7 +95,7 @@ const ManageLabs: React.FC = () => {
     return (
         <div className="p-3 sm:p-6 max-w-7xl mx-auto space-y-6">
             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
-                <PageHeader title="Lab & Rate Management" />
+                <PageHeader title="Lab & Rate Management" showActingAs={false} />
 
                 {/* Add New Laboratory Form */}
                 <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl mb-10">

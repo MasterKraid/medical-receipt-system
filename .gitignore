@@ -50,3 +50,5 @@ sessions/
 private.md
 Installation.md
 .vscode/settings.json
+.agents/workflows/post_code_check.md
+server/public

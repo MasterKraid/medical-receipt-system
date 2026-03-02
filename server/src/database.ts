@@ -29,10 +29,51 @@ try {
     console.error("Migration check failed:", error);
 }
 
+// MIGRATION: Check if 'users' table has 'master_data_entry'
+try {
+    const tableInfo = db.prepare("PRAGMA table_info(users)").all() as any[];
+    const hasMasterDataEntry = tableInfo.some(col => col.name === 'master_data_entry');
+
+    if (tableInfo.length > 0 && !hasMasterDataEntry) {
+        console.log("Migrating database: Adding master_data_entry column to users...");
+        db.prepare("ALTER TABLE users ADD COLUMN master_data_entry BOOLEAN NOT NULL DEFAULT 0").run();
+    }
+} catch (error) {
+    console.error("Migration check failed:", error);
+}
+
 console.log('Database connected at', dbPath);
 
 const schema = `
-    -- Your existing schema creation statements will go here...
+    CREATE TABLE IF NOT EXISTS lab_reports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_id INTEGER NOT NULL,
+        customer_name TEXT NOT NULL,
+        file_path TEXT NOT NULL,
+        uploaded_at TEXT NOT NULL,
+        is_read BOOLEAN DEFAULT 0,
+        FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS comparison_tests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE
+    );
+
+    CREATE TABLE IF NOT EXISTS comparison_labs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE
+    );
+
+    CREATE TABLE IF NOT EXISTS comparison_prices (
+        test_id INTEGER NOT NULL,
+        lab_id INTEGER NOT NULL,
+        price REAL NOT NULL,
+        PRIMARY KEY (test_id, lab_id),
+        FOREIGN KEY (test_id) REFERENCES comparison_tests(id) ON DELETE CASCADE,
+        FOREIGN KEY (lab_id) REFERENCES comparison_labs(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS branches (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
@@ -50,6 +91,7 @@ const schema = `
         wallet_balance REAL NOT NULL DEFAULT 0,
         allow_negative_balance BOOLEAN NOT NULL DEFAULT 0,
         negative_balance_allowed_until TEXT,
+        master_data_entry BOOLEAN NOT NULL DEFAULT 0,
         FOREIGN KEY (branchId) REFERENCES branches(id)
     );
     
@@ -72,6 +114,13 @@ const schema = `
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE,
         logo_path TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS admin_settings (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        upi_id TEXT,
+        organization_name TEXT,
+        lab_name TEXT
     );
 
     CREATE TABLE IF NOT EXISTS customers (
@@ -192,7 +241,7 @@ export function initDb() {
         const testPass = bcrypt.hashSync('test', saltRounds);
         const clientPass = bcrypt.hashSync('client123', saltRounds);
 
-        const adminId = db.prepare('INSERT INTO users (username, password_hash, branchId, role) VALUES (?, ?, ?, ?)').run('admin', adminPass, mainBranchId, 'ADMIN').lastInsertRowid;
+        const adminId = db.prepare('INSERT INTO users (username, password_hash, branchId, role, master_data_entry) VALUES (?, ?, ?, ?, ?)').run('admin', adminPass, mainBranchId, 'ADMIN', 1).lastInsertRowid;
         const testUserId = db.prepare('INSERT INTO users (username, password_hash, branchId, role) VALUES (?, ?, ?, ?)').run('testuser', testPass, mainBranchId, 'GENERAL_EMPLOYEE').lastInsertRowid;
         const clientId = db.prepare('INSERT INTO users (username, alias, password_hash, branchId, role, wallet_balance) VALUES (?, ?, ?, ?, ?, ?)').run('client@b2b.com', 'B2B Corporate Client', clientPass, mainBranchId, 'CLIENT', 5000).lastInsertRowid;
 

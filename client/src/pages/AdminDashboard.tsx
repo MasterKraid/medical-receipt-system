@@ -49,6 +49,8 @@ const AdminDashboard: React.FC = () => {
                         <li><DashboardLink to="/admin/branches" icon={<BranchesIcon />} text="Manage Branches" /></li>
                         <li><DashboardLink to="/admin/users" icon={<UsersIcon />} text="Manage Users" /></li>
                         <li><DashboardLink to="/admin/wallet" icon={<WalletIcon />} text="Manage Wallets" /></li>
+                        <li><DashboardLink to="/admin/reports" icon={<ViewIcon />} text="Manage Reports" /></li>
+                        <li><DashboardLink to="/admin/comparison" icon={<EstimateIcon />} text="Comparison Data" /></li>
                     </ul>
                 </fieldset>
             </nav>

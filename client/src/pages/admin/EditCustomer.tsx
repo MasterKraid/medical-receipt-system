@@ -82,7 +82,7 @@ const EditCustomer: React.FC = () => {
     return (
         <div className="p-4 sm:p-8 max-w-4xl mx-auto">
             <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg">
-                <PageHeader title={`Edit Customer: ${customer.name}`} backLink="/admin/customers" backText="Back to Customers" />
+                <PageHeader title={`Edit Customer: ${customer.name}`} backLink="/admin/customers" backText="Back to Customers" showActingAs={false} />
 
                 <form onSubmit={handleSubmit} className="mt-6 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -1,10 +1,20 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { apiService } from '../services/api';
 import DashboardLink from '../components/DashboardLink';
-import { ReceiptIcon, EstimateIcon, CustomersIcon, LogoutIcon, WalletIcon } from '../components/icons';
+import { ReceiptIcon, EstimateIcon, CustomersIcon, LogoutIcon, WalletIcon, ViewIcon } from '../components/icons';
 
 const UserDashboard: React.FC = () => {
   const { user, branch, logout } = useAuth();
+  const [unreadReports, setUnreadReports] = useState(0);
+
+  useEffect(() => {
+    if (user?.role === 'CLIENT') {
+      apiService.getReportsClient().then(reports => {
+        setUnreadReports(reports.filter(r => !r.is_read).length);
+      }).catch(console.error);
+    }
+  }, [user]);
 
   return (
     <div className="max-w-4xl mx-auto my-10 p-8 bg-white rounded-xl shadow-lg">
@@ -40,8 +50,24 @@ const UserDashboard: React.FC = () => {
           </legend>
           <ul className="list-none p-0 m-0 grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
             <li><DashboardLink to="/receipt-form" icon={<ReceiptIcon />} text="Create New Receipt" /></li>
-            <li><DashboardLink to="/estimate-form" icon={<EstimateIcon />} text="Create New Estimate" /></li>
+
+            {user?.role === 'CLIENT' ? (
+              <li>
+                <div className="relative">
+                  <DashboardLink to="/reports" icon={<ViewIcon />} text="My Lab Reports" />
+                  {unreadReports > 0 && (
+                    <div className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-bounce shadow-sm ring-2 ring-white">
+                      {unreadReports} New
+                    </div>
+                  )}
+                </div>
+              </li>
+            ) : (
+              <li><DashboardLink to="/estimate-form" icon={<EstimateIcon />} text="Create New Estimate" /></li>
+            )}
+
             <li><DashboardLink to="/customers" icon={<CustomersIcon />} text="View Customers" /></li>
+
             {user?.role === 'CLIENT' && (
               <li>
                 <DashboardLink to="/transactions" icon={<WalletIcon />} text="Transaction History" />

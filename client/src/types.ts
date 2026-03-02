@@ -10,6 +10,7 @@ export interface User {
     allow_negative_balance: boolean;
     negative_balance_allowed_until?: string;
     assigned_list_ids?: number[];
+    master_data_entry?: boolean;
 }
 
 export interface Branch {
@@ -123,4 +124,15 @@ export interface Document {
     display_customer_id: string;
     display_amount: string;
     created_by_user: string;
+}
+
+export interface LabReport {
+    id: number;
+    client_id: number;
+    customer_name: string;
+    file_path: string;
+    uploaded_at: string;
+    is_read: boolean;
+    alias?: string;
+    username?: string;
 }

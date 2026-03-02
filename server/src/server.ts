@@ -24,8 +24,7 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
 const SessionStore = FileStore(session);
 
-// --- Serve Static Files from Server ---
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// --- Lab Reports served after Session Initialization ---
 
 // --- Middleware ---
 
@@ -93,6 +92,16 @@ app.use(session({
 
 // --- API Routes ---
 app.use('/api', apiRoutes);
+
+// --- Secure Lab Reports Serving ---
+const requireAuthForReports = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if ((req as any).session && (req as any).session.user) {
+        next();
+    } else {
+        res.status(401).send("Unauthorized: Please log in to view lab reports.");
+    }
+};
+app.use('/lab_reports', requireAuthForReports, express.static(path.join(__dirname, '..', 'public', 'lab_reports')));
 
 // --- Serve React App in Production ---
 if (process.env.NODE_ENV === 'production') {

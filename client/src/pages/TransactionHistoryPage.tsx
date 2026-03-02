@@ -56,7 +56,7 @@ const TransactionHistoryPage: React.FC = () => {
     return (
         <div className="p-4 sm:p-8 max-w-4xl mx-auto">
             <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg">
-                <PageHeader title="Transaction History" />
+                <PageHeader title="Transaction History" showActingAs={false} />
 
                 {user && (
                     <div className="bg-blue-50 p-4 rounded-lg mb-6 text-center border border-blue-200">

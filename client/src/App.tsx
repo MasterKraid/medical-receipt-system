@@ -18,6 +18,9 @@ import ViewDocuments from './pages/admin/ViewDocuments';
 import EditUser from './pages/admin/EditUser';
 import EditCustomer from './pages/admin/EditCustomer';
 import TransactionHistoryPage from './pages/TransactionHistoryPage';
+import ManageReports from './pages/admin/ManageReports';
+import ManageComparison from './pages/admin/ManageComparison';
+import ClientReports from './pages/ClientReports';
 import ReloadPrompt from './components/ReloadPrompt';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement; roles?: string[] }> = ({ children, roles }) => {
@@ -36,41 +39,44 @@ const AdminRoute: React.FC<{ children: React.ReactElement }> = ({ children }) =>
 );
 
 const AppRoutes: React.FC = () => {
-    const { user } = useAuth();
+  const { user } = useAuth();
 
-    return (
-        <Routes>
-            <Route path="/" element={!user ? <LoginPage /> : <Navigate to={user.role === 'ADMIN' ? '/admin-dashboard' : '/dashboard'} />} />
-            
-            <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
-            <Route path="/admin-dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-            
-            <Route path="/receipt-form" element={<ProtectedRoute roles={['ADMIN', 'GENERAL_EMPLOYEE', 'CLIENT']}><ReceiptForm /></ProtectedRoute>} />
-            <Route path="/estimate-form" element={<ProtectedRoute><EstimateForm /></ProtectedRoute>} />
-            
-            <Route path="/receipt/:id" element={<ProtectedRoute><ReceiptView /></ProtectedRoute>} />
-            <Route path="/estimate/:id" element={<ProtectedRoute><EstimateView /></ProtectedRoute>} />
-            
-            <Route path="/transactions" element={<ProtectedRoute roles={['CLIENT']}><TransactionHistoryPage /></ProtectedRoute>} />
+  return (
+    <Routes>
+      <Route path="/" element={!user ? <LoginPage /> : <Navigate to={user.role === 'ADMIN' ? '/admin-dashboard' : '/dashboard'} />} />
 
-            <Route path="/admin/users" element={<AdminRoute><ManageUsers /></AdminRoute>} />
-            <Route path="/admin/users/edit/:id" element={<AdminRoute><EditUser /></AdminRoute>} />
+      <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
+      <Route path="/admin-dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
 
-            <Route path="/admin/branches" element={<AdminRoute><ManageBranches /></AdminRoute>} />
-            <Route path="/admin/labs" element={<AdminRoute><ManageLabs /></AdminRoute>} />
-            <Route path="/admin/package-lists" element={<AdminRoute><ManagePackageLists /></AdminRoute>} />
-            <Route path="/admin/wallet" element={<AdminRoute><ManageWallets /></AdminRoute>} />
-            
-            <Route path="/customers" element={<ProtectedRoute><ViewCustomers /></ProtectedRoute>} />
-            <Route path="/admin/customers" element={<AdminRoute><ViewCustomers /></AdminRoute>} />
-            <Route path="/admin/customers/edit/:id" element={<AdminRoute><EditCustomer /></AdminRoute>} />
+      <Route path="/receipt-form" element={<ProtectedRoute roles={['ADMIN', 'GENERAL_EMPLOYEE', 'CLIENT']}><ReceiptForm /></ProtectedRoute>} />
+      <Route path="/estimate-form" element={<ProtectedRoute roles={['ADMIN', 'GENERAL_EMPLOYEE']}><EstimateForm /></ProtectedRoute>} />
 
-            <Route path="/admin/receipts" element={<AdminRoute><ViewDocuments docType="receipt" /></AdminRoute>} />
-            <Route path="/admin/estimates" element={<AdminRoute><ViewDocuments docType="estimate" /></AdminRoute>} />
-            
-            <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-    );
+      <Route path="/receipt/:id" element={<ProtectedRoute><ReceiptView /></ProtectedRoute>} />
+      <Route path="/estimate/:id" element={<ProtectedRoute roles={['ADMIN', 'GENERAL_EMPLOYEE']}><EstimateView /></ProtectedRoute>} />
+
+      <Route path="/transactions" element={<ProtectedRoute roles={['CLIENT']}><TransactionHistoryPage /></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute roles={['CLIENT']}><ClientReports /></ProtectedRoute>} />
+
+      <Route path="/admin/users" element={<AdminRoute><ManageUsers /></AdminRoute>} />
+      <Route path="/admin/users/edit/:id" element={<AdminRoute><EditUser /></AdminRoute>} />
+
+      <Route path="/admin/branches" element={<AdminRoute><ManageBranches /></AdminRoute>} />
+      <Route path="/admin/labs" element={<AdminRoute><ManageLabs /></AdminRoute>} />
+      <Route path="/admin/package-lists" element={<AdminRoute><ManagePackageLists /></AdminRoute>} />
+      <Route path="/admin/wallet" element={<AdminRoute><ManageWallets /></AdminRoute>} />
+
+      <Route path="/customers" element={<ProtectedRoute><ViewCustomers /></ProtectedRoute>} />
+      <Route path="/admin/customers" element={<AdminRoute><ViewCustomers /></AdminRoute>} />
+      <Route path="/admin/customers/edit/:id" element={<AdminRoute><EditCustomer /></AdminRoute>} />
+
+      <Route path="/admin/receipts" element={<AdminRoute><ViewDocuments docType="receipt" /></AdminRoute>} />
+      <Route path="/admin/estimates" element={<AdminRoute><ViewDocuments docType="estimate" /></AdminRoute>} />
+      <Route path="/admin/reports" element={<AdminRoute><ManageReports /></AdminRoute>} />
+      <Route path="/admin/comparison" element={<AdminRoute><ManageComparison /></AdminRoute>} />
+
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
+  );
 };
 
 const App: React.FC = () => {

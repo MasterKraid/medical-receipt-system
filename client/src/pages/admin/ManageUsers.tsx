@@ -25,6 +25,7 @@ const ManageUsers: React.FC = () => {
     const [branchId, setBranchId] = useState('');
     const [role, setRole] = useState('GENERAL_EMPLOYEE');
     const [assignedLists, setAssignedLists] = useState<Set<number>>(new Set());
+    const [masterDataEntry, setMasterDataEntry] = useState(false);
 
     // Search state
     const [searchTerm, setSearchTerm] = useState('');
@@ -81,9 +82,9 @@ const ManageUsers: React.FC = () => {
             return;
         }
         try {
-            await apiService.createUser({ username, alias, password_hash: password, branchId: parseInt(branchId), role: role as any, assigned_list_ids: Array.from(assignedLists) });
+            await apiService.createUser({ username, alias, password_hash: password, branchId: parseInt(branchId), role: role as any, assigned_list_ids: Array.from(assignedLists), master_data_entry: masterDataEntry ? 1 : 0 });
             // Reset form
-            setUsername(''); setAlias(''); setPassword(''); setBranchId(''); setRole('GENERAL_EMPLOYEE'); setAssignedLists(new Set());
+            setUsername(''); setAlias(''); setPassword(''); setBranchId(''); setRole('GENERAL_EMPLOYEE'); setAssignedLists(new Set()); setMasterDataEntry(false);
             fetchData();
         } catch (error) {
             alert(`Error creating user: ${error}`);
@@ -115,7 +116,7 @@ const ManageUsers: React.FC = () => {
     return (
         <div className="p-3 sm:p-6 max-w-7xl mx-auto space-y-6">
             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
-                <PageHeader title="User Management" />
+                <PageHeader title="User Management" showActingAs={false} />
 
                 {/* Add User Form */}
                 <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl mb-10">
@@ -173,6 +174,18 @@ const ManageUsers: React.FC = () => {
                                     value={role}
                                     onChange={val => setRole(val as string)}
                                 />
+                                {role === 'GENERAL_EMPLOYEE' && (
+                                    <div className="flex items-center gap-2 mt-2 ml-1">
+                                        <input
+                                            type="checkbox"
+                                            id="masterDataEntry"
+                                            checked={masterDataEntry}
+                                            onChange={(e) => setMasterDataEntry(e.target.checked)}
+                                            className="w-3.5 h-3.5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+                                        />
+                                        <label htmlFor="masterDataEntry" className="text-[10px] font-bold text-gray-500 cursor-pointer uppercase tracking-tight">Allow Master Entry (Act as Admin)</label>
+                                    </div>
+                                )}
                             </div>
                             <div className="flex flex-col justify-end gap-1">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">RateList Access Control</label>

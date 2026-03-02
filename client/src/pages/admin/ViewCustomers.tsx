@@ -42,7 +42,7 @@ const ViewCustomers: React.FC = () => {
     return (
         <div className="p-3 sm:p-6 max-w-7xl mx-auto space-y-6">
             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
-                <PageHeader title="Customer Directory" />
+                <PageHeader title="Customer Directory" showActingAs={false} />
 
                 <div className="relative flex flex-col">
                     <div className="md:absolute static top-0 right-6 md:-translate-y-[5px] mb-4 md:mb-0 flex justify-end order-1 md:order-none">

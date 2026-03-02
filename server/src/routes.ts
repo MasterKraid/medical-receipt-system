@@ -2,8 +2,10 @@ import { Router, Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcrypt';
 import path from 'path';
 import fs from 'fs';
+import multer from 'multer';
+import ExcelJS from 'exceljs';
 import { db } from './database';
-import { User, Lab, Receipt, Estimate, Customer, Branch, PackageList, FormattedCustomer, Document, Transaction, Package } from './types';
+import { User, Lab, Receipt, Estimate, Customer, Branch, PackageList, FormattedCustomer, Document, Transaction, Package, LabReport } from './types';
 
 const router = Router();
 
@@ -37,6 +39,37 @@ const isAdmin = (req: Request, res: Response, next: NextFunction) => {
         res.status(403).json({ message: "Forbidden: Administrator access required." });
     }
 }
+
+// --- FILE UPLOAD CONFIG (MULTER) ---
+const uploadDir = path.join(__dirname, '..', 'public', 'lab_reports');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, `report-${uniqueSuffix}${path.extname(file.originalname)}`);
+    }
+});
+const upload = multer({
+    storage,
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype === 'application/pdf') cb(null, true);
+        else cb(new Error('Only PDF files are allowed'));
+    },
+    limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
+const excelUpload = multer({
+    storage,
+    fileFilter: (req, file, cb) => {
+        if (file.originalname.match(/\.(xlsx|xls)$/)) cb(null, true);
+        else cb(new Error('Only Excel files are allowed'));
+    },
+    limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit for excel
+});
 
 // --- AUTH ROUTES ---
 
@@ -108,7 +141,7 @@ const handleCustomerData = (customer_data: any, user_id: number): number => {
 
 router.post('/receipts', isAuthenticated, (req, res) => {
     const user = (req.session as any).user as User;
-    const { branch } = req.body.context;
+    const { branch, acting_as_client_id } = req.body.context || {};
     const payload = req.body.payload;
 
     try {
@@ -125,26 +158,60 @@ router.post('/receipts', isAuthenticated, (req, res) => {
             payload.items.forEach((item: any) => insertItem.run(newReceiptId, item.name, item.mrp, item.discount));
 
             let updatedUser: User | null = null;
-            // CORRECTED LOGIC: Only perform wallet operations for CLIENT role
+
+            // Determine the true client ID and whether wallet logic applies
+            let targetClientId = -1;
+            let shouldDeductWallet = false;
+
             if (user.role === 'CLIENT') {
+                targetClientId = user.id;
+                shouldDeductWallet = true;
+            } else if (acting_as_client_id && (user.role === 'ADMIN' || user.master_data_entry)) {
+                targetClientId = acting_as_client_id;
+                shouldDeductWallet = true;
+            }
+
+            if (shouldDeductWallet && targetClientId !== -1) {
                 const totalB2BCost = payload.items.reduce((sum: number, item: any) => sum + (Number(item.b2b_price) || 0), 0);
 
                 if (totalB2BCost > 0) {
+                    // Check if they have enough balance (or allow negative)
+                    const targetClient = db.prepare('SELECT wallet_balance, allow_negative_balance, negative_balance_allowed_until FROM users WHERE id = ?').get(targetClientId) as User;
+                    if (!targetClient) throw new Error("Target client not found.");
+
+                    let canProceed = false;
+                    if (targetClient.wallet_balance >= totalB2BCost) {
+                        canProceed = true;
+                    } else if (targetClient.allow_negative_balance) {
+                        if (targetClient.negative_balance_allowed_until) {
+                            const untilDate = new Date(targetClient.negative_balance_allowed_until);
+                            if (untilDate >= new Date()) canProceed = true;
+                        } else {
+                            canProceed = true;
+                        }
+                    }
+
+                    if (!canProceed) {
+                        throw new Error(`Insufficient wallet balance for client (Current: ₹${targetClient.wallet_balance.toFixed(2)}, Required: ₹${totalB2BCost.toFixed(2)})`);
+                    }
+
                     // 1. Update user's wallet balance in the database
-                    db.prepare('UPDATE users SET wallet_balance = wallet_balance - ? WHERE id = ?').run(totalB2BCost, user.id);
+                    db.prepare('UPDATE users SET wallet_balance = wallet_balance - ? WHERE id = ?').run(totalB2BCost, targetClientId);
 
                     // 1.5 Fetch new balance for snapshot
-                    const newBalanceObj = db.prepare('SELECT wallet_balance FROM users WHERE id = ?').get(user.id) as { wallet_balance: number };
+                    const newBalanceObj = db.prepare('SELECT wallet_balance FROM users WHERE id = ?').get(targetClientId) as { wallet_balance: number };
 
                     // 2. Create a detailed transaction record for the history
                     db.prepare('INSERT INTO transactions (user_id, date, type, amount_deducted, balance_snapshot, receipt_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?)')
-                        .run(user.id, getISTDateTimeString(), 'RECEIPT_DEDUCTION', totalB2BCost, newBalanceObj.wallet_balance, newReceiptId, `Payment for ${customerName.name}`);
+                        .run(targetClientId, getISTDateTimeString(), 'RECEIPT_DEDUCTION', totalB2BCost, newBalanceObj.wallet_balance, newReceiptId, `Payment for ${customerName.name}`);
                 }
 
-                // 3. Fetch the user's new data to send back to the frontend
-                const updatedUserRow = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id) as User & { password_hash: string };
-                const { password_hash, ...rest } = updatedUserRow;
-                updatedUser = rest;
+                // If acting as self, return updated user data to refresh UI
+                if (targetClientId === user.id) {
+                    const updatedUserRow = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id) as User & { password_hash: string };
+                    const { password_hash, ...rest } = updatedUserRow;
+                    updatedUser = rest;
+                }
             }
 
             const newReceipt = db.prepare('SELECT * FROM receipts WHERE id = ?').get(newReceiptId) as Receipt;
@@ -256,7 +323,7 @@ router.get('/transactions', isAuthenticated, (req, res) => {
 
 // --- ADMIN-ONLY ROUTES ---
 
-router.get('/users', isAdmin, (req, res) => res.json(db.prepare('SELECT id, username, alias, branchId, role FROM users').all()));
+router.get('/users', isAdmin, (req, res) => res.json(db.prepare('SELECT id, username, alias, branchId, role, master_data_entry FROM users').all()));
 router.get('/branches', isAdmin, (req, res) => res.json(db.prepare('SELECT * FROM branches').all()));
 router.get('/labs', isAuthenticated, (req, res) => {
     const user = (req.session as any).user as User;
@@ -283,7 +350,11 @@ router.get('/labs', isAuthenticated, (req, res) => {
     }
 });
 router.get('/package-lists', isAdmin, (req, res) => res.json(db.prepare('SELECT p.*, (SELECT COUNT(*) FROM packages WHERE package_list_id = p.id) as package_count FROM package_lists p').all()));
-router.get('/client-wallets', isAdmin, (req, res) => {
+router.get('/client-wallets', isAuthenticated, (req, res) => {
+    const user = (req.session as any).user as User;
+    if (user.role !== 'ADMIN' && !user.master_data_entry) {
+        return res.status(403).json({ message: "Forbidden: Master Data Entry access required." });
+    }
     const query = req.query.q as string;
     let clients;
     if (query) {
@@ -359,7 +430,7 @@ router.get('/admin/estimates', isAdmin, (req, res) => {
 // Users Management
 router.get('/users/:id', isAdmin, (req, res) => {
     try {
-        const user = db.prepare('SELECT id, username, alias, branchId, role FROM users WHERE id = ?').get(req.params.id) as User;
+        const user = db.prepare('SELECT id, username, alias, branchId, role, master_data_entry FROM users WHERE id = ?').get(req.params.id) as User;
         if (user) {
             user.assigned_list_ids = db.prepare('SELECT package_list_id FROM user_package_list_access WHERE user_id = ?').all(req.params.id).map((r: any) => r.package_list_id);
         }
@@ -368,10 +439,10 @@ router.get('/users/:id', isAdmin, (req, res) => {
 });
 
 router.post('/users', isAdmin, (req, res) => {
-    const { username, alias, password_hash, branchId, role, assigned_list_ids } = req.body;
+    const { username, alias, password_hash, branchId, role, assigned_list_ids, master_data_entry } = req.body;
     const password = bcrypt.hashSync(password_hash, 10);
     const transaction = db.transaction(() => {
-        const result = db.prepare('INSERT INTO users (username, alias, password_hash, branchId, role) VALUES (?, ?, ?, ?, ?)').run(username, alias, password, branchId, role);
+        const result = db.prepare('INSERT INTO users (username, alias, password_hash, branchId, role, master_data_entry) VALUES (?, ?, ?, ?, ?, ?)').run(username, alias, password, branchId, role, master_data_entry ? 1 : 0);
         const userId = result.lastInsertRowid;
         const insertAccess = db.prepare('INSERT INTO user_package_list_access (user_id, package_list_id) VALUES (?, ?)');
         assigned_list_ids.forEach((listId: number) => insertAccess.run(userId, listId));
@@ -383,13 +454,13 @@ router.post('/users', isAdmin, (req, res) => {
 });
 
 router.put('/users/:id', isAdmin, (req, res) => {
-    const { username, alias, password_hash, branchId, role, assigned_list_ids } = req.body;
+    const { username, alias, password_hash, branchId, role, assigned_list_ids, master_data_entry } = req.body;
     const transaction = db.transaction(() => {
         if (password_hash) {
             const password = bcrypt.hashSync(password_hash, 10);
-            db.prepare('UPDATE users SET username=?, alias=?, password_hash=?, branchId=?, role=? WHERE id=?').run(username, alias, password, branchId, role, req.params.id);
+            db.prepare('UPDATE users SET username=?, alias=?, password_hash=?, branchId=?, role=?, master_data_entry=? WHERE id=?').run(username, alias, password, branchId, role, master_data_entry ? 1 : 0, req.params.id);
         } else {
-            db.prepare('UPDATE users SET username=?, alias=?, branchId=?, role=? WHERE id=?').run(username, alias, branchId, role, req.params.id);
+            db.prepare('UPDATE users SET username=?, alias=?, branchId=?, role=?, master_data_entry=? WHERE id=?').run(username, alias, branchId, role, master_data_entry ? 1 : 0, req.params.id);
         }
         db.prepare('DELETE FROM user_package_list_access WHERE user_id = ?').run(req.params.id);
         const insertAccess = db.prepare('INSERT INTO user_package_list_access (user_id, package_list_id) VALUES (?, ?)');
@@ -710,6 +781,202 @@ router.get('/admin/transactions/user/:userId', isAdmin, (req, res) => {
         const txs = db.prepare('SELECT * FROM transactions WHERE user_id = ? ORDER BY id DESC').all(req.params.userId) as Transaction[];
         res.json(txs);
     } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+// --- LAB REPORTS ENDPOINTS ---
+
+router.post('/reports/upload', isAdmin, upload.single('report'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'No PDF file uploaded.' });
+    }
+    const { client_id, customer_name } = req.body;
+    if (!client_id || !customer_name) {
+        fs.unlinkSync(req.file.path); // Cleanup
+        return res.status(400).json({ message: 'Missing client_id or customer_name.' });
+    }
+
+    try {
+        const relativePath = `/lab_reports/${req.file.filename}`;
+        const result = db.prepare(`INSERT INTO lab_reports (client_id, customer_name, file_path, uploaded_at) VALUES (?, ?, ?, ?)`)
+            .run(client_id, customer_name, relativePath, getISTDateTimeString());
+
+        res.status(201).json({
+            message: 'Report uploaded successfully',
+            reportId: result.lastInsertRowid
+        });
+    } catch (e: any) {
+        fs.unlinkSync(req.file.path);
+        res.status(500).json({ message: e.message });
+    }
+});
+
+router.get('/reports', isAdmin, (req, res) => {
+    try {
+        const reports = db.prepare(`
+            SELECT lr.*, u.alias, u.username 
+            FROM lab_reports lr 
+            JOIN users u ON lr.client_id = u.id 
+            ORDER BY lr.id DESC
+        `).all() as any[];
+
+        res.json(reports);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.get('/reports/client', isAuthenticated, (req, res) => {
+    const user = (req.session as any).user as User;
+    if (user.role !== 'CLIENT') {
+        return res.status(403).json({ message: 'Forbidden' });
+    }
+    try {
+        const reports = db.prepare('SELECT * FROM lab_reports WHERE client_id = ? ORDER BY id DESC').all(user.id) as any[];
+        res.json(reports);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.put('/reports/:id/read', isAuthenticated, (req, res) => {
+    try {
+        db.prepare('UPDATE lab_reports SET is_read = 1 WHERE id = ?').run(req.params.id);
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.delete('/reports/:id', isAdmin, (req, res) => {
+    try {
+        const report = db.prepare('SELECT file_path FROM lab_reports WHERE id = ?').get(req.params.id) as any;
+        if (report) {
+            const absolutePath = path.join(__dirname, '..', 'public', report.file_path);
+            if (fs.existsSync(absolutePath)) {
+                fs.unlinkSync(absolutePath);
+            }
+            db.prepare('DELETE FROM lab_reports WHERE id = ?').run(req.params.id);
+        }
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+// Periodic cleanup function for old reports (called occasionally or via cron in production)
+export const cleanupOldReports = () => {
+    try {
+        // SQLite date logic: compare ISO-ish dates. We stored custom IST strings, which makes direct Date('<90 days') hard in SQL.
+        // It's safer to fetch all, parse in JS, and delete.
+        const reports = db.prepare('SELECT id, file_path, uploaded_at FROM lab_reports').all() as any[];
+        const now = new Date();
+        const ninetyDaysInMs = 90 * 24 * 60 * 60 * 1000;
+
+        let deletedCount = 0;
+        reports.forEach(report => {
+            // "uploaded_at" format is "DD/MM/YYYY | HH:MM:SS | UTC+5:30"
+            // We need to parse it roughly to JS Date to check age
+            const [datePart] = report.uploaded_at.split(' |');
+            const [day, month, year] = datePart.split('/');
+            const uploadDate = new Date(`${year}-${month}-${day}`);
+
+            if (!isNaN(uploadDate.getTime()) && (now.getTime() - uploadDate.getTime() > ninetyDaysInMs)) {
+                // Delete file and record
+                const absolutePath = path.join(__dirname, '..', 'public', report.file_path);
+                if (fs.existsSync(absolutePath)) fs.unlinkSync(absolutePath);
+                db.prepare('DELETE FROM lab_reports WHERE id = ?').run(report.id);
+                deletedCount++;
+            }
+        });
+        if (deletedCount > 0) console.log(`Cleaned up ${deletedCount} old lab reports.`);
+    } catch (error) {
+        console.error("Error cleaning up old reports:", error);
+    }
+};
+
+// Immediately run cleanup once on startup, then every 24 hours
+cleanupOldReports();
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+setInterval(cleanupOldReports, ONE_DAY_MS);
+
+// --- ESTIMATE COMPARISON ENDPOINTS ---
+
+router.post('/comparison/upload', isAdmin, excelUpload.single('sheet'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ message: 'No Excel file uploaded.' });
+
+    try {
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.readFile(req.file.path);
+        const worksheet = workbook.worksheets[0]; // Assuming first sheet
+
+        if (!worksheet) throw new Error("Excel file is empty");
+
+        const headers: { [key: number]: string } = {}; // colNumber -> lab name
+        let isFirstRow = true;
+
+        const transaction = db.transaction(() => {
+            // Clear existing data. Depending on requirements, we overwrite everything.
+            db.prepare('DELETE FROM comparison_prices').run();
+            db.prepare('DELETE FROM comparison_tests').run();
+            db.prepare('DELETE FROM comparison_labs').run();
+
+            const insertTest = db.prepare('INSERT INTO comparison_tests (name) VALUES (?)');
+            const insertLab = db.prepare('INSERT INTO comparison_labs (name) VALUES (?)');
+            const insertPrice = db.prepare('INSERT INTO comparison_prices (test_id, lab_id, price) VALUES (?, ?, ?)');
+
+            const labNameToId: { [key: string]: number } = {};
+
+            worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+                if (isFirstRow) {
+                    // Header row: Column 1 is usually Test/Package name, Col 2+ are Labs
+                    row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+                        if (colNumber > 1) { // Skip column 1 (Test Name)
+                            const labName = cell.value?.toString().trim() || `Lab ${colNumber}`;
+                            headers[colNumber] = labName;
+
+                            // Insert into labs and map
+                            const result = insertLab.run(labName);
+                            labNameToId[labName] = result.lastInsertRowid as number;
+                        }
+                    });
+                    isFirstRow = false;
+                } else {
+                    // Data row
+                    const testName = row.getCell(1).value?.toString().trim();
+                    if (!testName) return; // Skip empty test names
+
+                    const testResult = insertTest.run(testName);
+                    const testId = testResult.lastInsertRowid as number;
+
+                    row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+                        if (colNumber > 1 && headers[colNumber]) {
+                            const priceStr = cell.value?.toString().replace(/[^0-9.]/g, '');
+                            const price = parseFloat(priceStr || '0');
+                            const labId = labNameToId[headers[colNumber]];
+
+                            if (labId && !isNaN(price)) {
+                                insertPrice.run(testId, labId, price);
+                            }
+                        }
+                    });
+                }
+            });
+        });
+
+        transaction();
+
+        // Cleanup file
+        fs.unlinkSync(req.file.path);
+
+        res.status(201).json({ message: 'Comparison data uploaded successfully' });
+    } catch (e: any) {
+        if (req.file) fs.unlinkSync(req.file.path);
+        res.status(500).json({ message: `Upload failed: ${e.message}` });
+    }
+});
+
+router.get('/comparison/data', isAuthenticated, (req, res) => {
+    try {
+        const tests = db.prepare('SELECT * FROM comparison_tests ORDER BY name ASC').all();
+        const labs = db.prepare('SELECT * FROM comparison_labs ORDER BY id ASC').all();
+        const prices = db.prepare('SELECT * FROM comparison_prices').all();
+
+        res.json({ tests, labs, prices });
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
 });
 
 export default router;

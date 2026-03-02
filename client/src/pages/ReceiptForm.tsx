@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import PageHeader from '../components/PageHeader';
 import CleanSelect from '../components/CleanSelect';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
@@ -19,8 +20,11 @@ interface ItemRow {
 const prefixOptions = ['Mr.', 'Mrs.', 'Miss.', 'Baby.', 'Master.', 'Dr.', 'B/O', 'Ms.', 'C/O', 'S/O'];
 
 const ReceiptForm: React.FC = () => {
-    const { user, branch, updateUser } = useAuth();
+    const { user, branch, updateUser, actingAsClient } = useAuth();
     const navigate = useNavigate();
+
+    // Determine effective user role
+    const isClientMode = user?.role === 'CLIENT' || actingAsClient !== null;
 
     // Data states
     const [labs, setLabs] = useState<Lab[]>([]);
@@ -65,10 +69,10 @@ const ReceiptForm: React.FC = () => {
     const itemRefs = useRef<{ [key: number]: SearchableDropdownHandle | null }>({});
 
     useEffect(() => {
-        if (user?.role === 'CLIENT') {
+        if (isClientMode) {
             setCustomerMode('new');
         }
-    }, [user]);
+    }, [isClientMode]);
 
     useEffect(() => {
         const handleResize = () => setIsMobileView(window.innerWidth < 768);
@@ -326,7 +330,10 @@ const ReceiptForm: React.FC = () => {
         };
 
         try {
-            const { newReceipt, updatedUser } = await apiService.createReceipt(payload, user, branch);
+            const { newReceipt, updatedUser } = await apiService.createReceipt(
+                payload,
+                user, branch, actingAsClient ? actingAsClient.id : undefined
+            );
             if (updatedUser) {
                 updateUser(updatedUser);
             }
@@ -446,7 +453,7 @@ const ReceiptForm: React.FC = () => {
                 <span className="text-sm font-medium text-slate-600">
                     {customerMode === 'search' ? 'Search Existing' : 'Register New'}
                 </span>
-                {user?.role !== 'CLIENT' && (
+                {!isClientMode && (
                     <button type="button" onClick={() => customerMode === 'search' ? clearCustomer() : setCustomerMode('search')} className="text-blue-600 text-sm font-bold flex items-center gap-1">
                         {customerMode === 'search' ? <><i className="fa-solid fa-user-plus"></i> New</> : <><i className="fa-solid fa-magnifying-glass"></i> Search</>}
                     </button>
@@ -521,8 +528,8 @@ const ReceiptForm: React.FC = () => {
                 <legend className="px-2 font-bold text-lg text-slate-700">Select Tests</legend>
 
                 <div className="hidden md:grid md:grid-cols-12 gap-2 text-xs font-black text-slate-400 uppercase tracking-tighter mb-2 px-1">
-                    <div className={`${user?.role === 'CLIENT' ? 'col-span-5' : 'col-span-7'}`}>Test Name/Package</div>
-                    {user?.role === 'CLIENT' && <div className="col-span-2 text-right">B2B Cost</div>}
+                    <div className={`${isClientMode ? 'col-span-5' : 'col-span-7'}`}>Test Name/Package</div>
+                    {isClientMode && <div className="col-span-2 text-right">B2B Cost</div>}
                     <div className="col-span-2 text-right">MRP (₹)</div>
                     <div className="col-span-1 text-right">Disc %</div>
                     <div className="col-span-1 text-right px-1">Disc ₹</div>
@@ -541,7 +548,7 @@ const ReceiptForm: React.FC = () => {
                                     <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">Test Name</label>
                                     <SearchableDropdown ref={el => itemRefs.current[item.id] = el} options={dropdownOptions} value={item.name} onChange={name => handlePackageSelect(item.id, name)} onKeyDown={e => handleTestKeyDown(e, item.id)} placeholder="Choose Package..." disabled={!selectedListId} />
                                 </div>
-                                {user?.role === 'CLIENT' && (
+                                {isClientMode && (
                                     <div className="col-span-3 md:col-span-2 text-right">
                                         <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">B2B</label>
                                         <div className="p-2.5 bg-green-50 text-green-700 rounded-xl font-bold text-xs border border-green-100">₹{item.b2b_price.toFixed(0)}</div>
@@ -549,7 +556,7 @@ const ReceiptForm: React.FC = () => {
                                 )}
                                 <div className="col-span-4 md:col-span-2">
                                     <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">MRP</label>
-                                    <input type="number" step="0.01" value={item.mrp} onChange={e => handleItemChange(item.id, 'mrp', parseFloat(e.target.value))} required className="w-full p-2.5 border border-slate-200 rounded-xl text-right text-xs font-bold" readOnly={item.isFromDb || user?.role === 'CLIENT'} />
+                                    <input type="number" step="0.01" value={item.mrp} onChange={e => handleItemChange(item.id, 'mrp', parseFloat(e.target.value))} required className="w-full p-2.5 border border-slate-200 rounded-xl text-right text-xs font-bold" readOnly={item.isFromDb || isClientMode} />
                                 </div>
                                 <div className="col-span-2 md:col-span-1">
                                     <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">Disc %</label>
@@ -606,7 +613,7 @@ const ReceiptForm: React.FC = () => {
 
                         <span className="text-slate-500">Total number of tests</span>
                         <span className="text-right font-bold text-blue-700">{calculations.totalTests}</span>
-                        {user?.role === 'CLIENT' && (
+                        {isClientMode && (
                             <>
                                 <span className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">B2B Total (Cost)</span>
                                 <span className="text-right font-black text-green-700 mt-1">₹{calculations.totalB2B.toFixed(0)}</span>
@@ -673,7 +680,7 @@ const ReceiptForm: React.FC = () => {
                                 <thead className="bg-slate-50">
                                     <tr>
                                         <th className="p-3 text-left font-bold text-slate-600">Package</th>
-                                        {user?.role === 'CLIENT' && <th className="p-3 text-right font-bold text-slate-600">B2B</th>}
+                                        {isClientMode && <th className="p-3 text-right font-bold text-slate-600">B2B</th>}
                                         <th className="p-3 text-right font-bold text-slate-600">MRP</th>
                                         <th className="p-3 text-right font-bold text-slate-600">Net</th>
                                     </tr>
@@ -682,7 +689,7 @@ const ReceiptForm: React.FC = () => {
                                     {items.filter(i => i.name).map((item, idx) => (
                                         <tr key={idx}>
                                             <td className="p-3 font-medium">{item.name}</td>
-                                            {user?.role === 'CLIENT' && <td className="p-3 text-right text-green-600 font-bold">₹{item.b2b_price.toFixed(0)}</td>}
+                                            {isClientMode && <td className="p-3 text-right text-green-600 font-bold">₹{item.b2b_price.toFixed(0)}</td>}
                                             <td className="p-3 text-right text-slate-400">₹{item.mrp.toFixed(0)}</td>
                                             <td className="p-3 text-right font-bold">₹{(item.mrp * (1 - item.discount / 100)).toFixed(0)}</td>
                                         </tr>
@@ -694,7 +701,7 @@ const ReceiptForm: React.FC = () => {
 
                     <section className="bg-slate-900 text-white p-6 rounded-2xl space-y-3 shadow-2xl">
                         <div className="flex justify-between text-sm opacity-60"><span>Gross Value</span> <span>₹{calculations.totalMrp.toFixed(2)}</span></div>
-                        {user?.role === 'CLIENT' && (
+                        {isClientMode && (
                             <div className="flex justify-between text-sm font-bold text-green-400"><span>B2B Total Cost</span> <span>₹{calculations.totalB2B.toFixed(2)}</span></div>
                         )}
                         <div className="flex justify-between text-sm text-red-400 font-bold"><span>Total Discount</span> <span>- ₹{calculations.totalDiscountAmount.toFixed(2)}</span></div>
@@ -724,19 +731,16 @@ const ReceiptForm: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
                 {!isMobileView ? (
                     <div className="bg-white p-8 rounded-2xl shadow-2xl space-y-8 border border-slate-100">
-                        <header className="flex justify-between items-center border-b border-slate-100 pb-6 mb-2">
-                            <div>
-                                <h1 className="text-2xl font-bold text-slate-800">New Receipt</h1>
-                                <div className="flex items-center gap-3 mt-1 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                        <PageHeader
+                            title="New Receipt"
+                            subtitle={
+                                <div className="flex items-center gap-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                                     <span>{branch?.name}</span>
                                     <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
                                     <span>{user?.username}</span>
                                 </div>
-                            </div>
-                            <Link to={user?.role === 'ADMIN' ? '/admin-dashboard' : '/dashboard'} className="px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-lg hover:bg-slate-800 hover:text-white transition-all text-xs uppercase">
-                                Dashboard
-                            </Link>
-                        </header>
+                            }
+                        />
 
                         {renderCustomerStep()}
                         {renderReceiptDetailsStep()}
