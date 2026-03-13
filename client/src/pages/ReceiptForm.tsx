@@ -557,7 +557,7 @@ const ReceiptForm: React.FC = () => {
                             .map(p => ({ value: p.name, label: p.name }));
                         return (
                             <div key={item.id} className="grid grid-cols-12 gap-2 items-end border-b pb-4 last:border-0 hover:bg-slate-50 transition-colors">
-                                <div className={`${user?.role === 'CLIENT' ? 'col-span-12 md:col-span-5' : 'col-span-12 md:col-span-7'}`}>
+                                <div className={`${isClientMode ? 'col-span-12 md:col-span-5' : 'col-span-12 md:col-span-7'}`}>
                                     <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">Test Name</label>
                                     <SearchableDropdown ref={el => itemRefs.current[item.id] = el} options={dropdownOptions} value={item.name} onChange={name => handlePackageSelect(item.id, name)} onKeyDown={e => handleTestKeyDown(e, item.id)} placeholder="Choose Package..." disabled={!selectedListId} />
                                 </div>
