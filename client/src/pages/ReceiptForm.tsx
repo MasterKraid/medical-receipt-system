@@ -188,6 +188,11 @@ const ReceiptForm: React.FC = () => {
             if (mobileValue.length <= 10) {
                 customerData.mobile = mobileValue;
             }
+        } else if (name === 'age') {
+            const ageVal = value.replace(/[^0-9]/g, '');
+            if (ageVal === '' || (parseInt(ageVal) >= 0 && parseInt(ageVal) <= 100)) {
+                customerData.age = ageVal;
+            }
         } else if (name === 'prefix') {
             handlePrefixChange(value);
             return;
@@ -376,10 +381,6 @@ const ReceiptForm: React.FC = () => {
                 alert("Please provide either Age or Date of Birth.");
                 return;
             }
-            if (!details.referred_by.trim()) {
-                alert("Please specify who referred this customer (e.g., 'Self' or Doctor Name).");
-                return;
-            }
         } else if (step === 2) {
             if (!selectedLabId) {
                 alert("Please select a laboratory.");
@@ -482,19 +483,31 @@ const ReceiptForm: React.FC = () => {
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex gap-2 md:col-span-2">
-                    <CleanSelect options={prefixOptions.map(p => ({ value: p, label: p }))} value={newCustomer.prefix || ''} onChange={handlePrefixChange} disabled={selectedCustomer !== null} className="w-24" />
+                    <CleanSelect options={prefixOptions.map(p => ({ value: p, label: p }))} value={newCustomer.prefix || ''} onChange={handlePrefixChange} disabled={selectedCustomer !== null} className="w-20" />
                     <input ref={nameRef} onKeyDown={e => handleCustomerKeyDown(e, mobileRef)} type="text" name="name" placeholder="Full Name" value={newCustomer.name} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required className="flex-grow p-3 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-50 transition-all text-sm font-medium" />
                 </div>
-                <input ref={mobileRef} onKeyDown={e => handleCustomerKeyDown(e, ageRef)} type="tel" name="mobile" placeholder="Mobile (Optional)" value={newCustomer.mobile} onChange={handleCustomerChange} disabled={selectedCustomer !== null} pattern="\d{10}" className="p-3 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-50 text-sm" />
-                <div className="grid grid-cols-2 gap-2">
-                    <input ref={ageRef} onKeyDown={e => handleCustomerKeyDown(e, referredByRef)} type="number" name="age" placeholder="Age" max="120" value={newCustomer.age} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-3 border border-slate-200 rounded-xl text-sm" />
-                    <input type="date" name="dob" value={newCustomer.dob} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-3 border border-slate-200 rounded-xl text-sm" />
+                
+                {/* Mobile Specific Layout: Mobile + Gender on one line */}
+                <div className="grid grid-cols-[1.5fr_1fr] md:grid-cols-1 gap-2 md:col-span-1">
+                    <input ref={mobileRef} onKeyDown={e => handleCustomerKeyDown(e, ageRef)} type="tel" name="mobile" placeholder="Mobile (Optional)" value={newCustomer.mobile} onChange={handleCustomerChange} disabled={selectedCustomer !== null} pattern="\d{10}" className="p-3 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-50 text-sm w-full" />
+                    <CleanSelect options={[{ value: 'Male', label: 'Male' }, { value: 'Female', label: 'Female' }]} value={newCustomer.gender || ''} onChange={val => setNewCustomer({ ...newCustomer, gender: val as 'Male' | 'Female' })} disabled={isGenderDisabled || selectedCustomer !== null} placeholder="Gender" />
                 </div>
-                <div className="md:col-span-2">
-                    <div className="grid grid-cols-2 gap-2">
-                        <CleanSelect options={[{ value: 'Male', label: 'Male' }, { value: 'Female', label: 'Female' }]} value={newCustomer.gender || ''} onChange={val => setNewCustomer({ ...newCustomer, gender: val as 'Male' | 'Female' })} disabled={isGenderDisabled || selectedCustomer !== null} placeholder="Gender" />
-                        <input ref={referredByRef} onKeyDown={e => handleCustomerKeyDown(e, 'tests')} type="text" value={details.referred_by} onChange={e => setDetails({ ...details, referred_by: e.target.value })} className="p-3 border border-slate-200 rounded-xl text-sm" placeholder="Self or Doctor Name" />
+
+                <div className="grid grid-cols-2 gap-2 md:col-span-1">
+                    <div className="relative">
+                        <input ref={ageRef} onKeyDown={e => handleCustomerKeyDown(e, referredByRef)} type="number" name="age" placeholder="Age" max="100" value={newCustomer.age} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="w-full p-3 border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-blue-50" />
                     </div>
+                    <div className="relative">
+                        <input type="date" name="dob" value={newCustomer.dob} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-3 border border-slate-200 rounded-xl text-sm w-full outline-none focus:ring-4 focus:ring-blue-50" />
+                        {isMobileView && !newCustomer.dob && (
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">mm/dd/yyyy</span>
+                        )}
+                    </div>
+                </div>
+
+                <div className="md:col-span-2 pt-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 px-1">Referred By / Doctor</label>
+                    <input ref={referredByRef} onKeyDown={e => handleCustomerKeyDown(e, 'tests')} type="text" value={details.referred_by || ''} onChange={e => setDetails({ ...details, referred_by: e.target.value })} className="w-full p-3 border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-blue-50" placeholder="Self or Doctor Name" />
                 </div>
             </div>
         </fieldset>

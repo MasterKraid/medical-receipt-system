@@ -122,6 +122,11 @@ const EstimateForm: React.FC = () => {
             if (mobileValue.length <= 10) {
                 customerData.mobile = mobileValue;
             }
+        } else if (name === 'age') {
+            const ageVal = value.replace(/[^0-9]/g, '');
+            if (ageVal === '' || (parseInt(ageVal) >= 0 && parseInt(ageVal) <= 100)) {
+                customerData.age = ageVal;
+            }
         } else if (name === 'prefix') {
             handlePrefixChange(value);
             return;
@@ -374,7 +379,7 @@ const EstimateForm: React.FC = () => {
                                 value={newCustomer.prefix || ''}
                                 onChange={handlePrefixChange}
                                 disabled={selectedCustomer !== null}
-                                className="w-24"
+                                className="w-20"
                             />
                             <input type="text" name="name" placeholder="Customer Name" value={newCustomer.name} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required className="p-2.5 border border-slate-300 rounded-lg disabled:bg-slate-100 disabled:text-slate-500 flex-grow outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm w-full" />
                         </div>
