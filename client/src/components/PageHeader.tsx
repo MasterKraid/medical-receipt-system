@@ -38,23 +38,38 @@ const PageHeader: React.FC<{ title: string, subtitle?: React.ReactNode, showBack
                     <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 min-w-[250px]">
                         <i className="fa-solid fa-user-tie text-indigo-500 text-sm"></i>
                         <span className="text-xs font-bold text-indigo-800 uppercase tracking-wider whitespace-nowrap">Acting As:</span>
-                        <div className="flex-1">
-                            <SearchableDropdown
-                                options={[
-                                    { value: '', label: '-- Self (Default) --' },
-                                    ...clients.map(c => ({ value: c.id.toString(), label: c.alias || c.username }))
-                                ]}
-                                value={actingAsClient ? (actingAsClient.alias || actingAsClient.username) : ''}
-                                onChange={(clientId) => {
-                                    if (!clientId || clientId === '') {
+                        <div className="flex-1 flex items-center gap-2">
+                            <div className="flex-1">
+                                <SearchableDropdown
+                                    options={[
+                                        { value: '', label: '-- Self (Default) --' },
+                                        ...clients.map(c => ({ value: c.id.toString(), label: c.alias || c.username }))
+                                    ]}
+                                    value={actingAsClient ? (actingAsClient.alias || actingAsClient.username) : ''}
+                                    onChange={(clientId) => {
+                                        if (!clientId || clientId === '') {
+                                            setActingAsClient(null);
+                                        } else {
+                                            const client = clients.find(c => c.id.toString() === clientId);
+                                            if (client) setActingAsClient(client);
+                                        }
+                                        setTimeout(() => window.location.reload(), 100);
+                                    }}
+                                    placeholder="Search client..."
+                                />
+                            </div>
+                            {actingAsClient && (
+                                <button
+                                    onClick={() => {
                                         setActingAsClient(null);
-                                    } else {
-                                        const client = clients.find(c => c.id.toString() === clientId);
-                                        if (client) setActingAsClient(client);
-                                    }
-                                }}
-                                placeholder="Search client..."
-                            />
+                                        setTimeout(() => window.location.reload(), 100);
+                                    }}
+                                    className="flex items-center justify-center w-6 h-6 rounded-full bg-rose-100 text-rose-600 hover:bg-rose-200 hover:text-rose-700 transition-colors shrink-0"
+                                    title="Exit Acting As"
+                                >
+                                    <i className="fa-solid fa-times text-xs"></i>
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}

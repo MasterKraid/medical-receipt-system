@@ -281,11 +281,15 @@ router.get('/customers/search', isAuthenticated, (req, res) => {
 
 router.get('/package-lists/for-lab/:labId', isAuthenticated, (req, res) => {
     const user = (req.session as any).user as User;
+    const actingAsId = req.headers['x-acting-as-client-id'];
+    const effectiveUserId = (actingAsId && (user.role === 'ADMIN' || user.master_data_entry)) ? parseInt(actingAsId as string) : user.id;
+    const isActuallyActingAs = !!(actingAsId && (user.role === 'ADMIN' || user.master_data_entry));
+
     try {
-        const query = user.role === 'ADMIN'
+        const query = (user.role === 'ADMIN' && !isActuallyActingAs)
             ? `SELECT pl.* FROM package_lists pl JOIN lab_package_lists lpl ON pl.id = lpl.package_list_id WHERE lpl.lab_id = ?`
             : `SELECT pl.* FROM package_lists pl JOIN lab_package_lists lpl ON pl.id = lpl.package_list_id JOIN user_package_list_access ula ON pl.id = ula.package_list_id WHERE lpl.lab_id = ? AND ula.user_id = ?`;
-        const params = user.role === 'ADMIN' ? [req.params.labId] : [req.params.labId, user.id];
+        const params = (user.role === 'ADMIN' && !isActuallyActingAs) ? [req.params.labId] : [req.params.labId, effectiveUserId];
         res.json(db.prepare(query).all(params));
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });
@@ -328,8 +332,12 @@ router.get('/branches', isAdmin, (req, res) => res.json(db.prepare('SELECT * FRO
 router.get('/labs', isAuthenticated, (req, res) => {
     const user = (req.session as any).user as User;
     let labs: Lab[];
+    const actingAsId = req.headers['x-acting-as-client-id'];
+    const effectiveUserId = (actingAsId && (user.role === 'ADMIN' || user.master_data_entry)) ? parseInt(actingAsId as string) : user.id;
+    const isActuallyActingAs = !!(actingAsId && (user.role === 'ADMIN' || user.master_data_entry));
+
     try {
-        if (user.role === 'ADMIN') {
+        if (user.role === 'ADMIN' && !isActuallyActingAs) {
             labs = db.prepare('SELECT * FROM labs').all() as Lab[];
         } else {
             labs = db.prepare(`
@@ -338,7 +346,7 @@ router.get('/labs', isAuthenticated, (req, res) => {
                 JOIN lab_package_lists lpl ON l.id = lpl.lab_id 
                 JOIN user_package_list_access upla ON lpl.package_list_id = upla.package_list_id 
                 WHERE upla.user_id = ?
-            `).all(user.id) as Lab[];
+            `).all(effectiveUserId) as Lab[];
         }
 
         labs.forEach(lab => {

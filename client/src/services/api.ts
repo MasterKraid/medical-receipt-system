@@ -8,6 +8,22 @@ async function apiFetch(url: string, options: RequestInit = {}) {
     ...options.headers,
   };
 
+  // NEW: Add Acting As header if present in session
+  const actingAs = sessionStorage.getItem('actingAsClient');
+  if (actingAs) {
+    try {
+      const client = JSON.parse(actingAs);
+      if (client && client.id) {
+        options.headers = {
+          ...options.headers,
+          'X-Acting-As-Client-Id': client.id.toString()
+        };
+      }
+    } catch (e) {
+      console.warn("Failed to parse actingAsClient from session", e);
+    }
+  }
+
   const response = await fetch(`/api${url}`, options); // Prepends /api to use the Vite proxy
 
   if (!response.ok) {
