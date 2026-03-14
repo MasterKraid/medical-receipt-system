@@ -11,3 +11,44 @@
         @apply bg-transparent border-none outline-none text-sm text-gray-800 placeholder-gray-400 flex-grow py-2;
     }
 }
+
+/* --- Dark Mode Smart Invert --- */
+html.dark {
+  /* 
+    invert(1) flips white to black. 
+    brightness(1.125) and contrast(0.8) mathematically lifts the 0.0 black background to a soft 0.1 dark gray, 
+    while keeping the 1.0 white text perfectly pure white!
+    saturate(1.5) ensures colors remain beautifully vibrant.
+  */
+  filter: invert(1) hue-rotate(180deg) brightness(1.125) contrast(0.8) saturate(1.5);
+}
+
+/* Preserve images, SVGs, and specific elements by inverting them back */
+html.dark img,
+html.dark svg,
+html.dark .no-invert,
+html.dark [data-no-invert] {
+  /* This exactly reverses the math above: 1/1.5 saturate, 1/0.8 contrast, 1/1.125 brightness */
+  filter: saturate(0.667) contrast(1.25) brightness(0.889) hue-rotate(180deg) invert(1);
+}
+
+/* Ensure backgrounds of images don't look weird if they were transparent */
+html.dark img {
+  mix-blend-mode: multiply;
+}
+
+/* Fix shadows that got inverted (they become white glows otherwise) */
+html.dark .shadow-lg,
+html.dark .shadow-xl,
+html.dark .shadow-md,
+html.dark .shadow-sm {
+  box-shadow: 0 4px 6px -1px rgba(255, 255, 255, 0.1), 0 2px 4px -1px rgba(255, 255, 255, 0.06);
+}
+
+/* Ensure printing never uses the dark mode filter */
+@media print {
+  html, html.dark {
+    filter: none !important;
+    background-color: white !important;
+  }
+}

@@ -69,7 +69,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
             </div>
             {/* Credit layer - visually below everyone else but above the body background layer if z-0 isn't working */}
-            <div className="fixed bottom-4 right-4 text-xs text-gray-400 opacity-60 flex items-center gap-1 font-medium z-0 pointer-events-none select-none">
+            <div className="fixed bottom-4 right-4 text-xs text-slate-500 opacity-90 flex items-center gap-1 font-medium z-0 pointer-events-none select-none">
                 <i className="fa-brands fa-creative-commons"></i> Studio Kivx | Created By Tathagata S.
             </div>
         </div>
