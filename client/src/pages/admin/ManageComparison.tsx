@@ -156,16 +156,16 @@ const ManageComparison: React.FC = () => {
 
     return (
         <div className="p-3 sm:p-6 max-w-7xl mx-auto space-y-6">
-            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-slate-200">
+            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
                 <PageHeader title="Manage Estimate Comparison" showActingAs={false} />
 
                 {/* File Upload Section */}
-                <fieldset className="border-2 border-slate-200 p-4 md:p-6 rounded-xl mb-10">
+                <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl mb-10 min-w-0">
                     <legend className="px-3 flex items-center gap-2">
                         <div className="w-7 h-7 rounded bg-indigo-600 flex items-center justify-center text-white shadow-sm">
                             <i className="fa-solid fa-file-excel text-xs"></i>
                         </div>
-                        <span className="text-base md:text-lg font-bold text-slate-800 uppercase">Mass Import Excel</span>
+                        <span className="text-base md:text-lg font-bold text-gray-800 uppercase">Mass Import Excel</span>
                     </legend>
                     <div className="flex flex-col md:flex-row gap-6">
                         <div className="flex-1 text-slate-600 text-sm">
@@ -196,12 +196,12 @@ const ManageComparison: React.FC = () => {
                 </fieldset>
 
                 {/* Manual Sync Section */}
-                <fieldset className="border-2 border-slate-200 p-4 md:p-6 rounded-xl">
+                <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl min-w-0">
                     <legend className="px-3 flex items-center gap-2">
-                        <div className="w-7 h-7 rounded bg-yellow-500 flex items-center justify-center text-white shadow-sm">
+                        <div className="w-7 h-7 rounded bg-gray-800 flex items-center justify-center text-white shadow-sm">
                             <i className="fa-solid fa-pen-to-square text-xs"></i>
                         </div>
-                        <span className="text-base md:text-lg font-bold text-slate-800 uppercase">Manual Data Sync</span>
+                        <span className="text-base md:text-lg font-bold text-gray-800 uppercase">Manual Records Sync</span>
                     </legend>
                     
                     {/* Add Lab Form */}
@@ -236,50 +236,67 @@ const ManageComparison: React.FC = () => {
                     {/* Add New Test Form */}
                     {labs.length > 0 && (
                         <div className="bg-yellow-50/50 p-4 rounded-lg border border-yellow-100 mb-6">
-                            <h3 className="text-sm font-bold text-yellow-800 uppercase tracking-widest mb-3">Add Single Test Entry (Row)</h3>
-                            <form onSubmit={handleAddTest} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                                <div className="md:col-span-3 space-y-1">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">Test Name</label>
-                                    <input value={newTestName} onChange={e => setNewTestName(e.target.value)} required placeholder="e.g. Lipid Profile" className="w-full p-2 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-yellow-400 text-sm" />
-                                </div>
-                                <div className="md:col-span-7 grid gap-2" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(100px, 1fr))` }}>
-                                    {labs.map(lab => (
-                                        <div key={lab.id} className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-500 uppercase ml-1 truncate block" title={lab.name}>{lab.name} (₹)</label>
-                                            <input type="number" step="0.01" value={newTestPrices[lab.id] || ''} onChange={e => setNewTestPrices({ ...newTestPrices, [lab.id]: e.target.value })} placeholder="0.00" className="w-full p-2 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-yellow-400 text-sm" />
+                            <form onSubmit={handleAddTest} className="flex flex-col gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                                    <div className="md:col-span-12 lg:col-span-4 space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">New Test Name</label>
+                                        <div className="relative">
+                                            <i className="fa-solid fa-flask absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                                            <input value={newTestName} onChange={e => setNewTestName(e.target.value)} required placeholder="e.g. Lipid Profile" className="w-full pl-9 p-2 border border-gray-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-yellow-50 text-sm font-bold" />
                                         </div>
-                                    ))}
+                                    </div>
+                                    <div className="md:col-span-12 lg:col-span-8 overflow-x-auto pb-2 custom-scrollbar-minimal">
+                                        <div className="flex gap-3 min-w-max p-1">
+                                            {labs.map(lab => (
+                                                <div key={lab.id} className="w-32 space-y-1">
+                                                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-1 truncate block" title={lab.name}>{lab.name} (₹)</label>
+                                                    <div className="relative">
+                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]">₹</span>
+                                                        <input type="number" step="0.01" value={newTestPrices[lab.id] || ''} onChange={e => setNewTestPrices({ ...newTestPrices, [lab.id]: e.target.value })} placeholder="0.00" className="w-full pl-6 p-2 border border-gray-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-yellow-50 text-xs font-mono" />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
-                                <button type="submit" className="md:col-span-2 w-full px-4 py-2 bg-yellow-500 text-white font-bold rounded-lg hover:bg-yellow-600 transition-all shadow-sm flex items-center justify-center gap-2 text-sm h-[38px]">
-                                    <i className="fa-solid fa-plus-circle"></i> Add Test
-                                </button>
+                                <div className="flex justify-end">
+                                    <button type="submit" className="px-6 py-2 bg-yellow-500 text-white font-bold rounded-lg hover:bg-yellow-600 transition-all shadow-sm flex items-center justify-center gap-2 text-sm h-[38px] w-full md:w-auto">
+                                        <i className="fa-solid fa-plus-circle"></i> Add Single Record
+                                    </button>
+                                </div>
                             </form>
                         </div>
                     )}
 
                     {/* Existing Data Table */}
-                    <div className="mb-4 flex flex-col md:flex-row justify-between items-end gap-2">
-                         <div className="relative w-full md:w-64">
-                            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                            <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search tests..." className="w-full pl-9 p-2 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-50 outline-none transition-all text-sm" />
+                    <div className="relative flex flex-col pt-4">
+                        <div className="md:absolute static top-0 right-0 md:-translate-y-2 mb-4 md:mb-0 flex justify-end order-1 md:order-none">
+                            <div className="search-container w-full md:w-64 bg-white shadow-sm md:shadow-none">
+                                <i className="fa-solid fa-magnifying-glass text-gray-700 text-xs mr-2"></i>
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                    placeholder="Search mapping records..."
+                                    className="search-input"
+                                />
+                            </div>
                         </div>
-                        <div className="text-xs font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-                            Total Tests: {tests.length}
-                        </div>
+                        <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest mb-4 order-2">Master Mapping Directory</h3>
                     </div>
 
-                    <div className="overflow-x-auto rounded-lg border border-slate-200 shadow-sm max-h-[60vh] overflow-y-auto">
+                    <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm max-h-[60vh] overflow-y-auto custom-scrollbar-minimal">
                         <table className="w-full min-w-max text-sm divide-y divide-slate-200">
-                            <thead className="bg-slate-50 sticky top-0 z-20">
+                            <thead className="bg-gray-50 sticky top-0 z-20">
                                 <tr>
-                                    <th className="p-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest min-w-[200px] border-r border-slate-200 bg-slate-50 shadow-[0_1px_0_0_#e2e8f0]">Test Name</th>
+                                    <th className="p-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest min-w-[200px] border-r border-gray-200 bg-gray-50 shadow-[0_1px_0_0_#e2e8f0]">Test Name</th>
                                     {labs.map(lab => (
-                                        <th key={lab.id} className="p-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest w-28 whitespace-nowrap bg-slate-50 shadow-[0_1px_0_0_#e2e8f0]" title={lab.name}>{lab.name}</th>
+                                        <th key={lab.id} className="p-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest w-28 whitespace-nowrap bg-gray-50 shadow-[0_1px_0_0_#e2e8f0]" title={lab.name}>{lab.name}</th>
                                     ))}
-                                    <th className="p-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-widest w-24 border-l border-slate-200 bg-slate-50 sticky right-0 shadow-[0_1px_0_0_#e2e8f0,-1px_0_0_0_#e2e8f0]">Actions</th>
+                                    <th className="p-3 text-center text-[10px] font-bold text-gray-500 uppercase tracking-widest w-24 border-l border-gray-200 bg-gray-50 sticky right-0 shadow-[0_1px_0_0_#e2e8f0,-1px_0_0_0_#e2e8f0]">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 bg-white">
+                            <tbody className="divide-y divide-gray-100 bg-white">
                                 {isLoading ? (
                                     <tr><td colSpan={labs.length + 2} className="text-center py-8 text-slate-400 italic">Loading comparison data...</td></tr>
                                 ) : filteredTests.length === 0 ? (

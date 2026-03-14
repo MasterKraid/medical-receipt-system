@@ -103,129 +103,164 @@ const ManageReports: React.FC = () => {
     };
 
     return (
-        <div className="max-w-6xl mx-auto my-10 p-6 bg-white rounded-xl shadow-lg">
-            <PageHeader title="Manage Lab Reports" showActingAs={false} />
+        <div className="p-3 sm:p-6 max-w-7xl mx-auto space-y-6">
+            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
+                <PageHeader title="Lab Reports Management" showActingAs={false} />
 
-            <div className="grid md:grid-cols-3 gap-6">
-                <div className="md:col-span-1">
-                    <form onSubmit={handleUpload} className="bg-slate-50 p-5 rounded-xl border border-slate-200">
-                        <h2 className="text-lg font-bold text-slate-800 mb-4 inline-flex items-center gap-2">
-                            <i className="fa-solid fa-cloud-arrow-up text-indigo-500"></i> Upload New Report
-                        </h2>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <div className="lg:col-span-4 min-w-0">
+                        <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl min-w-0">
+                            <legend className="px-3 flex items-center gap-2">
+                                <div className="w-7 h-7 rounded bg-indigo-600 flex items-center justify-center text-white shadow-sm">
+                                    <i className="fa-solid fa-cloud-arrow-up text-xs"></i>
+                                </div>
+                                <span className="text-base md:text-lg font-bold text-gray-800 uppercase">Upload Report</span>
+                            </legend>
 
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Assign to Client</label>
-                                <SearchableDropdown
-                                    options={[
-                                        { value: '', label: 'Select a Client...' },
-                                        ...clients.map(c => ({ value: c.id.toString(), label: c.alias || c.username }))
-                                    ]}
-                                    value={clients.find(c => c.id.toString() === selectedClientId)?.alias || clients.find(c => c.id.toString() === selectedClientId)?.username || ''}
-                                    onChange={(val) => setSelectedClientId(val)}
-                                    placeholder="Search client..."
-                                />
-                            </div>
+                            <form onSubmit={handleUpload} className="space-y-4">
+                                <div className="space-y-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Assign to Client</label>
+                                        <SearchableDropdown
+                                            options={[
+                                                { value: '', label: 'Select a Client...' },
+                                                ...clients.map(c => ({ value: c.id.toString(), label: c.alias || c.username }))
+                                            ]}
+                                            value={clients.find(c => c.id.toString() === selectedClientId)?.alias || clients.find(c => c.id.toString() === selectedClientId)?.username || ''}
+                                            onChange={(val) => setSelectedClientId(val)}
+                                            placeholder="Search client..."
+                                        />
+                                    </div>
 
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Patient/Customer Name</label>
-                                <input
-                                    type="text"
-                                    value={customerName}
-                                    onChange={(e) => setCustomerName(e.target.value)}
-                                    placeholder="e.g. John Doe"
-                                    className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    required
-                                />
-                            </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Patient/Customer Name</label>
+                                        <div className="relative">
+                                            <i className="fa-solid fa-user absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                                            <input
+                                                type="text"
+                                                value={customerName}
+                                                onChange={(e) => setCustomerName(e.target.value)}
+                                                placeholder="e.g. John Doe"
+                                                className="w-full pl-9 p-2 border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-indigo-50 transition-all outline-none text-sm font-bold"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
 
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">PDF File</label>
-                                <input
-                                    type="file"
-                                    accept=".pdf,application/pdf"
-                                    onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
-                                    className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-                                    required
-                                />
-                            </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Select PDF File</label>
+                                        <input
+                                            type="file"
+                                            accept=".pdf,application/pdf"
+                                            onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
+                                            className="w-full p-2 border border-gray-200 rounded-lg text-xs bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-50 file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-[10px] file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer"
+                                            required
+                                        />
+                                    </div>
 
-                            <button
-                                type="submit"
-                                disabled={uploading}
-                                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors flex justify-center items-center gap-2"
-                            >
-                                {uploading ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-upload"></i>}
-                                {uploading ? 'Uploading...' : 'Upload Report'}
-                            </button>
-                        </div>
-                    </form>
-                </div>
+                                    <div className="pt-2">
+                                        <button
+                                            type="submit"
+                                            disabled={uploading}
+                                            className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-all shadow-sm flex justify-center items-center gap-2 text-sm"
+                                        >
+                                            {uploading ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>}
+                                            {uploading ? 'Processing...' : 'Upload Report'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </fieldset>
+                    </div>
 
-                <div className="md:col-span-2">
-                    {loading ? (
-                        <div className="text-center py-10"><i className="fa-solid fa-spinner fa-spin text-2xl text-slate-400"></i></div>
-                    ) : (
-                        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                            <table className="w-full text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-slate-50 border-b border-slate-200">
-                                        <th className="p-3 text-xs font-bold text-slate-500 uppercase">Assigned To</th>
-                                        <th className="p-3 text-xs font-bold text-slate-500 uppercase">Patient</th>
-                                        <th className="p-3 text-xs font-bold text-slate-500 uppercase">Date</th>
-                                        <th className="p-3 text-xs font-bold text-slate-500 uppercase">Status</th>
-                                        <th className="p-3 text-right"></th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 text-sm">
-                                    {reports.map(report => (
-                                        <tr key={report.id} className="hover:bg-slate-50">
-                                            <td className="p-3 font-medium text-slate-800">{report.alias || report.username}</td>
-                                            <td className="p-3 text-slate-600">{report.customer_name}</td>
-                                            <td className="p-3 text-slate-500">{report.uploaded_at.split(' | ')[0]}</td>
-                                            <td className="p-3">
-                                                {report.is_read ? (
-                                                    <span className="text-green-600 font-medium text-xs"><i className="fa-solid fa-check mr-1"></i> Read</span>
-                                                ) : (
-                                                    <span className="text-orange-500 font-medium text-xs"><i className="fa-solid fa-envelope mr-1"></i> Unread</span>
-                                                )}
-                                            </td>
-                                            <td className="p-3 text-right space-x-2">
-                                                <a
-                                                    href={report.file_path}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 transition-colors"
-                                                    title="View PDF"
-                                                >
-                                                    <i className="fa-solid fa-eye"></i>
-                                                </a>
-                                                <button
-                                                    onClick={() => handleDownload(report)}
-                                                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
-                                                    title="Download PDF"
-                                                >
-                                                    <i className="fa-solid fa-download"></i>
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(report.id)}
-                                                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-                                                    title="Delete"
-                                                >
-                                                    <i className="fa-solid fa-trash-can"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {reports.length === 0 && (
-                                        <tr>
-                                            <td colSpan={5} className="p-6 text-center text-slate-500 italic">No reports uploaded yet.</td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+                    <div className="lg:col-span-8 min-w-0">
+                        <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl min-w-0 h-full">
+                            <legend className="px-3 flex items-center gap-2">
+                                <div className="w-7 h-7 rounded bg-gray-800 flex items-center justify-center text-white shadow-sm">
+                                    <i className="fa-solid fa-folder-open text-xs"></i>
+                                </div>
+                                <span className="text-base md:text-lg font-bold text-gray-800 uppercase">Report Directory</span>
+                            </legend>
+
+                            {loading ? (
+                                <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-3">
+                                    <i className="fa-solid fa-spinner fa-spin text-3xl"></i>
+                                    <span className="text-xs font-bold uppercase tracking-widest italic">Retrieving secure records...</span>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm max-h-[60vh] overflow-y-auto custom-scrollbar-minimal">
+                                    <table className="w-full min-w-[800px] text-left border-collapse">
+                                        <thead className="bg-gray-50 sticky top-0 z-10">
+                                            <tr className="border-b border-gray-200">
+                                                <th className="p-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-4">Assigned To</th>
+                                                <th className="p-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Patient Name</th>
+                                                <th className="p-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Upload Date</th>
+                                                <th className="p-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Status</th>
+                                                <th className="p-3 text-right pr-4">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 text-sm">
+                                            {reports.map(report => (
+                                                <tr key={report.id} className="hover:bg-gray-50/50 transition-colors group">
+                                                    <td className="p-3 pl-4">
+                                                        <div className="font-bold text-gray-800">{report.alias || report.username}</div>
+                                                        <div className="text-[10px] text-gray-400 font-mono italic">REF: #{report.id.toString().padStart(4, '0')}</div>
+                                                    </td>
+                                                    <td className="p-3 text-gray-600 font-medium">{report.customer_name}</td>
+                                                    <td className="p-3 text-gray-500 text-xs">{report.uploaded_at.split(' | ')[0]}</td>
+                                                    <td className="p-3">
+                                                        {report.is_read ? (
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-600 border border-green-100">
+                                                                <i className="fa-solid fa-check-circle mr-1"></i> READ
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-orange-50 text-orange-600 border border-orange-100 animate-pulse">
+                                                                <i className="fa-solid fa-envelope mr-1"></i> UNREAD
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3 text-right pr-4">
+                                                        <div className="flex justify-end gap-1.5">
+                                                            <a
+                                                                href={report.file_path}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-blue-600 hover:text-white rounded border border-gray-100 transition-all shadow-sm"
+                                                                title="View PDF"
+                                                            >
+                                                                <i className="fa-solid fa-eye text-xs"></i>
+                                                            </a>
+                                                            <button
+                                                                onClick={() => handleDownload(report)}
+                                                                className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-indigo-600 hover:text-white rounded border border-gray-100 transition-all shadow-sm"
+                                                                title="Download PDF"
+                                                            >
+                                                                <i className="fa-solid fa-download text-xs"></i>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDelete(report.id)}
+                                                                className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-red-600 hover:text-white rounded border border-gray-100 transition-all shadow-sm"
+                                                                title="Delete"
+                                                            >
+                                                                <i className="fa-solid fa-trash-can text-xs"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {reports.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={5} className="p-10 text-center text-gray-400 italic text-xs uppercase font-bold tracking-widest">
+                                                        No digital reports found in directory.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </fieldset>
+                    </div>
                 </div>
             </div>
         </div>
