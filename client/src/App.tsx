@@ -21,6 +21,7 @@ import TransactionHistoryPage from './pages/TransactionHistoryPage';
 import ManageReports from './pages/admin/ManageReports';
 import ManageComparison from './pages/admin/ManageComparison';
 import ClientReports from './pages/ClientReports';
+import ClientRatelist from './pages/ClientRatelist';
 import ReloadPrompt from './components/ReloadPrompt';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement; roles?: string[] }> = ({ children, roles }) => {
@@ -56,6 +57,7 @@ const AppRoutes: React.FC = () => {
 
       <Route path="/transactions" element={<ProtectedRoute roles={['CLIENT']}><TransactionHistoryPage /></ProtectedRoute>} />
       <Route path="/reports" element={<ProtectedRoute roles={['CLIENT']}><ClientReports /></ProtectedRoute>} />
+      <Route path="/my-ratelist" element={<ProtectedRoute roles={['CLIENT']}><ClientRatelist /></ProtectedRoute>} />
 
       <Route path="/admin/users" element={<AdminRoute><ManageUsers /></AdminRoute>} />
       <Route path="/admin/users/edit/:id" element={<AdminRoute><EditUser /></AdminRoute>} />

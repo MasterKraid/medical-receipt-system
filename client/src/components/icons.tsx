@@ -40,3 +40,7 @@ export const WalletIcon: React.FC<{ className?: string }> = ({ className }) => (
 export const LogoutIcon: React.FC<{ className?: string }> = ({ className }) => (
     <i className={`fa-solid fa-sign-out-alt ${className}`}></i>
 );
+
+export const RatelistIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <i className={`fa-solid fa-tags ${className}`}></i>
+);
