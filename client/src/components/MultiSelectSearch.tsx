@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 interface Option {
     value: string;
     label: string;
+    b2b?: number;
+    mrp?: number;
 }
 
 interface MultiSelectSearchProps {
@@ -40,8 +42,11 @@ const MultiSelectSearch: React.FC<MultiSelectSearchProps> = ({
                 setSearchTerm('');
             }
         };
+
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
     }, []);
 
     // Reset highlight when search changes
@@ -65,7 +70,7 @@ const MultiSelectSearch: React.FC<MultiSelectSearchProps> = ({
         } else {
             onChange([...selectedValues, value]);
         }
-        setSearchTerm('');
+        // setSearchTerm(''); // Remove auto-clear after selection
         inputRef.current?.focus();
     };
 
@@ -94,6 +99,12 @@ const MultiSelectSearch: React.FC<MultiSelectSearchProps> = ({
         }
     };
 
+    const clearSearch = () => {
+        setSearchTerm('');
+        setIsOpen(false);
+        inputRef.current?.blur();
+    };
+
     return (
         <div className="relative min-w-0" ref={wrapperRef}>
             <div className="relative">
@@ -110,22 +121,31 @@ const MultiSelectSearch: React.FC<MultiSelectSearchProps> = ({
                     }}
                     onFocus={() => {
                         setIsOpen(true);
-                        // Calculate exact offset to scroll to top with ~40px padding
-                        setTimeout(() => {
-                            if (wrapperRef.current) {
-                                const y = wrapperRef.current.getBoundingClientRect().top + window.scrollY - 40;
-                                window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
-                            }
-                        }, 500);
+                        // Auto-scroll to top on mobile to avoid keyboard covering results
+                        if (window.innerWidth < 768) {
+                            setTimeout(() => {
+                                if (wrapperRef.current) {
+                                    const y = wrapperRef.current.getBoundingClientRect().top + window.scrollY - 40;
+                                    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+                                }
+                            }, 300);
+                        }
                     }}
                     onKeyDown={handleKeyDown}
                     placeholder={placeholder}
                     disabled={disabled}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl outline-none focus:ring-4 focus:ring-blue-100 transition-all text-sm shadow-sm"
+                    className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-xl outline-none focus:ring-4 focus:ring-blue-100 transition-all text-sm shadow-sm"
                 />
+                <button
+                    onClick={clearSearch}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                    title="Clear search and close"
+                >
+                    <i className="fa-solid fa-circle-xmark"></i>
+                </button>
             </div>
             {isOpen && filteredOptions.length > 0 && (
-                <ul ref={listRef} className="absolute z-50 w-full bg-white border border-gray-200 mt-1 rounded-xl shadow-2xl max-h-64 overflow-y-auto">
+                <ul ref={listRef} className="absolute z-50 w-full bg-white border border-gray-200 mt-1 rounded-xl shadow-2xl max-h-96 overflow-y-auto">
                     {filteredOptions.map((option, index) => {
                         const isSelected = selectedValues.includes(option.value);
                         return (
@@ -137,9 +157,21 @@ const MultiSelectSearch: React.FC<MultiSelectSearchProps> = ({
                                     index === highlightedIndex ? 'bg-blue-50' : 'hover:bg-gray-50'
                                 }`}
                             >
-                                <span className={`${isSelected ? 'font-bold text-blue-700' : 'text-gray-700'} break-words min-w-0 pr-4 flex-1`}>
-                                    {option.label}
-                                </span>
+                                <div className="flex flex-col flex-1 min-w-0 pr-4">
+                                    <span className={`${isSelected ? 'font-bold text-blue-700' : 'text-gray-700'} break-words min-w-0`}>
+                                        {option.label}
+                                    </span>
+                                    {(option.b2b !== undefined || option.mrp !== undefined) && (
+                                        <div className="flex gap-3 text-[10px] mt-0.5 opacity-70">
+                                            {option.b2b !== undefined && (
+                                                <span className="font-bold text-green-600">B2B: ₹{option.b2b}</span>
+                                            )}
+                                            {option.mrp !== undefined && (
+                                                <span className="font-bold text-slate-500">MRP: ₹{option.mrp}</span>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                                 {isSelected && (
                                     <i className="fa-solid fa-check text-blue-600 font-bold"></i>
                                 )}

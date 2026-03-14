@@ -200,7 +200,12 @@ const ClientRatelist: React.FC = () => {
     );
 
     const renderStep3 = () => {
-        const dropdownOptions = packages.map(p => ({ value: p.name, label: p.name }));
+        const dropdownOptions = packages.map(p => ({ 
+            value: p.name, 
+            label: p.name,
+            b2b: p.b2b_price,
+            mrp: p.mrp
+        }));
         
         return (
             <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl space-y-4 text-left w-full min-w-0">
@@ -227,6 +232,8 @@ const ClientRatelist: React.FC = () => {
                     </span>
                 </div>
 
+                {/* Hide selected tests list as requested */}
+                {/* 
                 {selectedTests.length > 0 && (
                     <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
                         {selectedTests.map(testName => (
@@ -242,6 +249,7 @@ const ClientRatelist: React.FC = () => {
                         ))}
                     </div>
                 )}
+                */}
                 
                 <div className="pt-4 flex justify-between">
                     <button onClick={() => setStep(prevStep())} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">Back</button>
@@ -296,28 +304,43 @@ const ClientRatelist: React.FC = () => {
                 <table className="min-w-full text-sm table-fixed">
                     <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
-                            <th className="p-4 text-left font-bold text-slate-600 uppercase tracking-wider text-xs">Test Name</th>
-                            {showB2B && <th className="p-4 text-right font-bold text-slate-600 uppercase tracking-wider text-xs w-24">B2B</th>}
-                            {showMRP && <th className="p-4 text-right font-bold text-slate-600 uppercase tracking-wider text-xs w-24">MRP</th>}
+                            <th className="px-2 py-3 md:p-4 text-left font-bold text-slate-600 uppercase tracking-wider text-[10px] md:text-xs">Test Name</th>
+                            {showB2B && <th className="px-2 py-3 md:p-4 text-right font-bold text-slate-600 uppercase tracking-wider text-[10px] md:text-xs w-16 md:w-20">B2B</th>}
+                            {showMRP && <th className="px-2 py-3 md:p-4 text-right font-bold text-slate-600 uppercase tracking-wider text-[10px] md:text-xs w-16 md:w-20">MRP</th>}
+                            <th className="px-2 py-3 md:p-4 text-center font-bold text-slate-600 uppercase tracking-wider text-xs w-8 md:w-12"></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
                         {calculations.selectedPackages.map((pkg, idx) => (
                             <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                                <td className="p-4 font-medium text-slate-800 break-words line-clamp-2">{pkg.name}</td>
-                                {showB2B && <td className="p-4 text-right font-bold text-green-700 bg-green-50/30">₹{pkg.b2b_price.toFixed(0)}</td>}
-                                {showMRP && <td className="p-4 text-right font-bold text-slate-700">₹{pkg.mrp.toFixed(0)}</td>}
+                                <td className="px-2 py-3 md:p-4 font-medium text-slate-800 break-words line-clamp-2 leading-tight text-[11px] md:text-sm">{pkg.name}</td>
+                                {showB2B && <td className="px-2 py-3 md:p-4 text-right font-bold text-green-700 bg-green-50/30 text-[11px] md:text-sm whitespace-nowrap">₹{pkg.b2b_price.toFixed(0)}</td>}
+                                {showMRP && <td className="px-2 py-3 md:p-4 text-right font-bold text-slate-700 text-[11px] md:text-sm whitespace-nowrap">₹{pkg.mrp.toFixed(0)}</td>}
+                                <td className="px-2 py-3 md:p-4 text-center">
+                                    <button 
+                                        onClick={() => setSelectedTests(prev => prev.filter(t => t !== pkg.name))}
+                                        className="text-red-400 hover:text-red-600 transition-colors p-1"
+                                        title="Remove Test"
+                                    >
+                                        <i className="fa-solid fa-trash-can text-sm"></i>
+                                    </button>
+                                </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
 
-            <div className="pt-6 flex justify-between items-center border-t border-slate-200">
-                <button onClick={() => setStep(prevStep())} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">Edit Tests</button>
+            <div className="pt-6 flex justify-between items-center border-t border-slate-200 gap-3">
+                <button 
+                    onClick={() => setStep(prevStep())} 
+                    className="px-4 md:px-6 py-2 md:py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors text-xs md:text-sm whitespace-nowrap"
+                >
+                    Edit Tests
+                </button>
                 <button 
                     onClick={() => navigate('/dashboard')} 
-                    className="px-8 py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 shadow-xl shadow-slate-200 transition-all active:scale-95"
+                    className="px-5 md:px-8 py-2.5 md:py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 shadow-xl shadow-slate-200 transition-all active:scale-95 text-xs md:text-sm whitespace-nowrap"
                 >
                     Exit to Dashboard
                 </button>
@@ -328,34 +351,23 @@ const ClientRatelist: React.FC = () => {
     return (
         <div className="min-h-screen bg-slate-50 pb-12">
             <div className="max-w-4xl mx-auto px-4 pt-10">
-                <div className="bg-white p-4 sm:p-8 rounded-2xl shadow-xl shadow-slate-100/50 border border-slate-100 text-left pb-[60vh] max-w-full overflow-hidden">
-                    <PageHeader title="My Ratelist" backLink="/dashboard" />
-                    
-                    {/* Progress Indicators */}
-                    <div className="mb-10 overflow-x-auto pb-6 pt-6 hide-scrollbar">
-                        <div className="flex justify-between items-center min-w-[500px] px-2 relative">
-                            <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-200 -z-10 rounded-full -translate-y-1/2"></div>
-                            
-                            <div className={`absolute top-1/2 left-0 h-1 bg-blue-600 -z-10 transition-all duration-300 rounded-full -translate-y-1/2`} style={{ width: `${((step - 1) / 3) * 100}%` }}></div>
-
-                            {[1, 2, 3, 4].map(s => (
-                                <div key={s} className="flex flex-col items-center gap-2 relative bg-white px-2 cursor-pointer" onClick={() => { if (s < step) setStep(s); }}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-all shadow-sm ${
-                                        step > s ? 'bg-blue-600 text-white ring-4 ring-blue-50' :
-                                        step === s ? 'bg-blue-600 text-white ring-4 ring-blue-200 shadow-md scale-110' :
-                                        'bg-white text-slate-400 border-2 border-slate-200'
-                                    }`}>
-                                        {step > s ? <i className="fa-solid fa-check"></i> : s}
-                                    </div>
-                                    <span className={`text-[10px] font-bold uppercase tracking-widest ${step >= s ? 'text-blue-800' : 'text-slate-400'}`}>
-                                        {s === 1 ? 'Lab' : s === 2 ? 'Options' : s === 3 ? 'Tests' : 'Summary'}
-                                    </span>
-                                </div>
-                            ))}
+                <div className="bg-white rounded-3xl shadow-2xl border border-slate-50 flex flex-col min-h-[80vh] overflow-hidden">
+                    <header className="p-4 border-b border-slate-100 flex justify-between items-center bg-white z-20">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xs">
+                                <i className="fa-solid fa-tags"></i>
+                            </div>
+                            <h2 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Step {step} of 4</h2>
                         </div>
-                    </div>
-
-                    <div className="mt-4">
+                        <button type="button" onClick={() => navigate('/dashboard')} className="text-slate-400 hover:text-red-500 transition-colors">
+                            <i className="fa-solid fa-circle-xmark text-xl"></i>
+                        </button>
+                    </header>
+                    
+                    <div className="p-5 flex-grow overflow-y-auto pb-[20vh]">
+                        <div className="mb-4">
+                            <PageHeader title="My Ratelist" showBackLink={false} />
+                        </div>
                         {step === 1 && renderStep1()}
                         {step === 2 && renderStep2()}
                         {step === 3 && renderStep3()}
