@@ -75,7 +75,7 @@ This system requires Node.js (v18+) and npm.
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd medical-receipt-system
+cd project-lisp
 
 # Use the comprehensive install script to setup both environments
 npm run postinstall

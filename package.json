@@ -1,7 +1,7 @@
 
 {
-  "name": "medical-receipt-system-fullstack",
-  "version": "1.0.0",
+  "name": "project-lisp",
+  "version": "9.0.0-beta",
   "private": true,
   "scripts": {
     "install:server": "cd server && npm install",
