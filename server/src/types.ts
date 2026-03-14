@@ -80,8 +80,12 @@ export interface Customer {
     prefix?: string;
     name: string;
     mobile?: string;
+    email?: string;
     dob?: string;
     age?: number;
+    age_years?: number;
+    age_months?: number;
+    age_days?: number;
     gender?: 'Male' | 'Female';
     created_at: string;
     updated_at: string;

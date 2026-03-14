@@ -40,7 +40,7 @@ const ReceiptForm: React.FC = () => {
     const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
-    const [newCustomer, setNewCustomer] = useState({ prefix: 'Mr.', name: '', mobile: '', dob: '', age: '', gender: 'Male' as 'Male' | 'Female' });
+    const [newCustomer, setNewCustomer] = useState({ prefix: 'Mr.', name: '', mobile: '', email: '', dob: '', age: '', age_years: '', age_months: '', age_days: '', gender: 'Male' as 'Male' | 'Female' | 'Other' });
     const [isGenderDisabled, setIsGenderDisabled] = useState(true);
 
     const [items, setItems] = useState<ItemRow[]>([{ id: Date.now(), name: '', mrp: 0, b2b_price: 0, discount: 0, isFromDb: false }]);
@@ -134,8 +134,12 @@ const ReceiptForm: React.FC = () => {
             prefix,
             name: customer.name,
             mobile: customer.mobile || '',
+            email: customer.email || '',
             dob: customer.dob || '',
             age: customer.age?.toString() || '',
+            age_years: customer.age_years?.toString() || '',
+            age_months: customer.age_months?.toString() || '',
+            age_days: customer.age_days?.toString() || '',
             gender
         });
 
@@ -148,7 +152,7 @@ const ReceiptForm: React.FC = () => {
 
     const clearCustomer = () => {
         setSelectedCustomer(null);
-        setNewCustomer({ prefix: 'Mr.', name: '', mobile: '', dob: '', age: '', gender: 'Male' });
+        setNewCustomer({ prefix: 'Mr.', name: '', mobile: '', email: '', dob: '', age: '', age_years: '', age_months: '', age_days: '', gender: 'Male' });
         setIsGenderDisabled(true);
         setCustomerMode('new');
     }
@@ -188,10 +192,49 @@ const ReceiptForm: React.FC = () => {
             if (mobileValue.length <= 10) {
                 customerData.mobile = mobileValue;
             }
-        } else if (name === 'age') {
+        } else if (name === 'age' || name === 'age_years') {
             const ageVal = value.replace(/[^0-9]/g, '');
-            if (ageVal === '' || (parseInt(ageVal) >= 0 && parseInt(ageVal) <= 100)) {
+            if (ageVal === '' || (parseInt(ageVal) >= 0 && parseInt(ageVal) <= 120)) {
                 customerData.age = ageVal;
+                // Keep age_years perfectly completely synced with 'age' field for backward compatibility
+                customerData.age_years = ageVal;
+            }
+        } else if (name === 'age_months') {
+            const val = value.replace(/[^0-9]/g, '');
+            if (val === '' || (parseInt(val) >= 0 && parseInt(val) <= 11)) {
+                customerData.age_months = val;
+            }
+        } else if (name === 'age_days') {
+            const val = value.replace(/[^0-9]/g, '');
+            if (val === '' || (parseInt(val) >= 0 && parseInt(val) <= 31)) {
+                customerData.age_days = val;
+            }
+        } else if (name === 'dob') {
+            customerData.dob = value;
+            if (value) {
+                // Auto calculate age
+                const birthDate = new Date(value);
+                const today = new Date();
+                let years = today.getFullYear() - birthDate.getFullYear();
+                let months = today.getMonth() - birthDate.getMonth();
+                let days = today.getDate() - birthDate.getDate();
+
+                if (days < 0) {
+                    months--;
+                    const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+                    days += prevMonth.getDate();
+                }
+                if (months < 0) {
+                    years--;
+                    months += 12;
+                }
+
+                if (years >= 0 && months >= 0 && days >= 0) {
+                    customerData.age = years.toString();
+                    customerData.age_years = years.toString();
+                    customerData.age_months = months.toString();
+                    customerData.age_days = days.toString();
+                }
             }
         } else if (name === 'prefix') {
             handlePrefixChange(value);
@@ -240,9 +283,10 @@ const ReceiptForm: React.FC = () => {
         }
     };
 
-    const validateAge = (age: string) => {
-        const num = parseInt(age);
-        return !isNaN(num) && num >= 0 && num <= 100;
+    const validateAge = (age_years: string) => {
+        if (!age_years) return true; // Optional if DOB is given
+        const num = parseInt(age_years);
+        return !isNaN(num) && num >= 0 && num <= 120;
     }
 
     const calculations = useMemo(() => {
@@ -287,8 +331,8 @@ const ReceiptForm: React.FC = () => {
             return;
         }
 
-        if (newCustomer.age && !validateAge(newCustomer.age)) {
-            alert("Age must be between 0 and 100.");
+        if (newCustomer.age_years && !validateAge(newCustomer.age_years)) {
+            alert("Age must be between 0 and 120.");
             return;
         }
 
@@ -352,7 +396,7 @@ const ReceiptForm: React.FC = () => {
         if (window.confirm("Are you sure you want to discard this receipt? All entered data will be lost.")) {
             // Reset everything
             setItems([{ id: Date.now(), name: '', mrp: 0, b2b_price: 0, discount: 0, isFromDb: false }]);
-            setNewCustomer({ prefix: 'Mr.', name: '', mobile: '', dob: '', age: '', gender: 'Male' });
+            setNewCustomer({ prefix: 'Mr.', name: '', mobile: '', email: '', dob: '', age: '', age_years: '', age_months: '', age_days: '', gender: 'Male' });
             setSelectedCustomer(null);
             setCustomerSearch('');
             setCustomerMode('new');
@@ -377,8 +421,8 @@ const ReceiptForm: React.FC = () => {
                 alert("Please enter the customer's name.");
                 return;
             }
-            if (!newCustomer.age.trim() && !newCustomer.dob.trim()) {
-                alert("Please provide either Age or Date of Birth.");
+            if (!newCustomer.age_years.trim() && !newCustomer.dob.trim()) {
+                alert("Please provide either Age (Years) or Date of Birth.");
                 return;
             }
         } else if (step === 2) {
@@ -486,28 +530,78 @@ const ReceiptForm: React.FC = () => {
                     <CleanSelect options={prefixOptions.map(p => ({ value: p, label: p }))} value={newCustomer.prefix || ''} onChange={handlePrefixChange} disabled={selectedCustomer !== null} className="w-20" />
                     <input ref={nameRef} onKeyDown={e => handleCustomerKeyDown(e, mobileRef)} type="text" name="name" placeholder="Full Name" value={newCustomer.name} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required className="flex-grow p-3 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-50 transition-all text-sm font-medium" />
                 </div>
-                
-                {/* Mobile Specific Layout: Mobile + Gender on one line */}
-                <div className="grid grid-cols-[1.5fr_1fr] md:grid-cols-1 gap-2 md:col-span-1">
-                    <input ref={mobileRef} onKeyDown={e => handleCustomerKeyDown(e, ageRef)} type="tel" name="mobile" placeholder="Mobile (Optional)" value={newCustomer.mobile} onChange={handleCustomerChange} disabled={selectedCustomer !== null} pattern="\d{10}" className="p-3 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-50 text-sm w-full" />
-                    <CleanSelect options={[{ value: 'Male', label: 'Male' }, { value: 'Female', label: 'Female' }]} value={newCustomer.gender || ''} onChange={val => setNewCustomer({ ...newCustomer, gender: val as 'Male' | 'Female' })} disabled={isGenderDisabled || selectedCustomer !== null} placeholder="Gender" />
+
+                {/* Gender Section */}
+                <div className="md:col-span-2 pt-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Gender</label>
+                    <div className="flex items-center gap-3 bg-white p-1.5 rounded-lg border border-slate-200 shadow-sm w-fit">
+                        {(['Male', 'Female', 'Other'] as const).map(option => (
+                            <button
+                                key={option}
+                                type="button"
+                                disabled={isGenderDisabled || selectedCustomer !== null}
+                                onClick={() => setNewCustomer({ ...newCustomer, gender: option })}
+                                className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${newCustomer.gender === option
+                                    ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
+                                    : 'text-slate-500 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed'
+                                    }`}
+                            >
+                                {option}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 md:col-span-1">
-                    <div className="relative">
-                        <input ref={ageRef} onKeyDown={e => handleCustomerKeyDown(e, referredByRef)} type="number" name="age" placeholder="Age" max="100" value={newCustomer.age} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="w-full p-3 border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-blue-50" />
-                    </div>
-                    <div className="relative">
-                        <input type="date" name="dob" value={newCustomer.dob} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-3 border border-slate-200 rounded-xl text-sm w-full outline-none focus:ring-4 focus:ring-blue-50" />
-                        {isMobileView && !newCustomer.dob && (
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">mm/dd/yyyy</span>
-                        )}
+                <div className="md:col-span-2 pt-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 px-1">Age | DOB</label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex gap-2">
+                            <input ref={ageRef} onKeyDown={e => handleCustomerKeyDown(e, referredByRef)} type="number" name="age_years" placeholder="Years" max="120" value={newCustomer.age_years} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="w-1/3 p-3 border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-blue-50 text-center" />
+                            <input type="number" name="age_months" placeholder="Months" max="11" value={newCustomer.age_months} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="w-1/3 p-3 border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-blue-50 text-center" />
+                            <input type="number" name="age_days" placeholder="Days" max="31" value={newCustomer.age_days} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="w-1/3 p-3 border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-blue-50 text-center" />
+                        </div>
+                        <div className="relative">
+                            <input type="date" name="dob" value={newCustomer.dob} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-3 border border-slate-200 rounded-xl text-sm w-full outline-none focus:ring-4 focus:ring-blue-50" />
+                            {isMobileView && !newCustomer.dob && (
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">mm/dd/yyyy</span>
+                            )}
+                        </div>
                     </div>
                 </div>
 
                 <div className="md:col-span-2 pt-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 px-1">Referred By / Doctor</label>
-                    <input ref={referredByRef} onKeyDown={e => handleCustomerKeyDown(e, 'tests')} type="text" value={details.referred_by || ''} onChange={e => setDetails({ ...details, referred_by: e.target.value })} className="w-full p-3 border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-blue-50" placeholder="Self or Doctor Name" />
+                    <input ref={referredByRef} onKeyDown={e => handleCustomerKeyDown(e, 'tests')} type="text" value={details.referred_by || ''} onChange={e => setDetails({ ...details, referred_by: e.target.value })} className="w-full p-3 border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-blue-50" placeholder="Self" />
+                </div>
+
+                {/* Contact Section: Mobile & Email */}
+                <div className="md:col-span-2 pt-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Contact</label>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {/* Mobile Input */}
+                        <input
+                            ref={mobileRef}
+                            onKeyDown={e => handleCustomerKeyDown(e, ageRef)}
+                            type="tel"
+                            name="mobile"
+                            placeholder="Mobile No. (Optional)"
+                            value={newCustomer.mobile}
+                            onChange={handleCustomerChange}
+                            disabled={selectedCustomer !== null}
+                            pattern="\d{10}"
+                            className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-50 text-sm bg-white"
+                        />
+                        {/* Email Input */}
+                        <input
+                            type="email"
+                            name="email"
+                            placeholder="Email Address (Optional)"
+                            value={newCustomer.email || ''}
+                            onChange={handleCustomerChange}
+                            disabled={selectedCustomer !== null}
+                            className="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-4 focus:ring-blue-50 text-sm bg-white"
+                        />
+                    </div>
                 </div>
             </div>
         </fieldset>
@@ -669,7 +763,9 @@ const ReceiptForm: React.FC = () => {
                             <div className="p-4 bg-slate-50 rounded-xl space-y-1">
                                 <p className="font-bold text-slate-800">{newCustomer.prefix} {newCustomer.name}</p>
                                 <p className="text-sm text-slate-500">{newCustomer.mobile || 'No Mobile'}</p>
-                                <p className="text-sm text-slate-500">{newCustomer.age || 'N/A'} yrs • {newCustomer.gender}</p>
+                                <p className="text-sm text-slate-500">
+                                    {newCustomer.age_years || '0'}Y {newCustomer.age_months || '0'}M {newCustomer.age_days || '0'}D • {newCustomer.gender}
+                                </p>
                             </div>
                         </section>
 

@@ -28,7 +28,7 @@ const EstimateForm: React.FC = () => {
     const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
-    const [newCustomer, setNewCustomer] = useState({ prefix: 'Mr.', name: '', mobile: '', dob: '', age: '', gender: 'Male' as 'Male' | 'Female' });
+    const [newCustomer, setNewCustomer] = useState({ prefix: 'Mr.', name: '', mobile: '', email: '', dob: '', age: '', age_years: '', age_months: '', age_days: '', gender: 'Male' as 'Male' | 'Female' | 'Other' });
     const [isGenderDisabled, setIsGenderDisabled] = useState(true);
 
     const [selectedTestIds, setSelectedTestIds] = useState<Set<number>>(new Set());
@@ -68,8 +68,12 @@ const EstimateForm: React.FC = () => {
             prefix,
             name: customer.name,
             mobile: customer.mobile || '',
+            email: customer.email || '',
             dob: customer.dob || '',
             age: customer.age?.toString() || '',
+            age_years: customer.age_years?.toString() || '',
+            age_months: customer.age_months?.toString() || '',
+            age_days: customer.age_days?.toString() || '',
             gender
         });
 
@@ -82,7 +86,7 @@ const EstimateForm: React.FC = () => {
 
     const clearCustomer = () => {
         setSelectedCustomer(null);
-        setNewCustomer({ prefix: 'Mr.', name: '', mobile: '', dob: '', age: '', gender: 'Male' });
+        setNewCustomer({ prefix: 'Mr.', name: '', mobile: '', email: '', dob: '', age: '', age_years: '', age_months: '', age_days: '', gender: 'Male' });
         setIsGenderDisabled(true);
         setCustomerMode('new');
     }
@@ -122,10 +126,48 @@ const EstimateForm: React.FC = () => {
             if (mobileValue.length <= 10) {
                 customerData.mobile = mobileValue;
             }
-        } else if (name === 'age') {
+        } else if (name === 'age' || name === 'age_years') {
             const ageVal = value.replace(/[^0-9]/g, '');
-            if (ageVal === '' || (parseInt(ageVal) >= 0 && parseInt(ageVal) <= 100)) {
+            if (ageVal === '' || (parseInt(ageVal) >= 0 && parseInt(ageVal) <= 120)) {
                 customerData.age = ageVal;
+                customerData.age_years = ageVal;
+            }
+        } else if (name === 'age_months') {
+            const val = value.replace(/[^0-9]/g, '');
+            if (val === '' || (parseInt(val) >= 0 && parseInt(val) <= 11)) {
+                customerData.age_months = val;
+            }
+        } else if (name === 'age_days') {
+            const val = value.replace(/[^0-9]/g, '');
+            if (val === '' || (parseInt(val) >= 0 && parseInt(val) <= 31)) {
+                customerData.age_days = val;
+            }
+        } else if (name === 'dob') {
+            customerData.dob = value;
+            if (value) {
+                // Auto calculate age
+                const birthDate = new Date(value);
+                const today = new Date();
+                let years = today.getFullYear() - birthDate.getFullYear();
+                let months = today.getMonth() - birthDate.getMonth();
+                let days = today.getDate() - birthDate.getDate();
+
+                if (days < 0) {
+                    months--;
+                    const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+                    days += prevMonth.getDate();
+                }
+                if (months < 0) {
+                    years--;
+                    months += 12;
+                }
+
+                if (years >= 0 && months >= 0 && days >= 0) {
+                    customerData.age = years.toString();
+                    customerData.age_years = years.toString();
+                    customerData.age_months = months.toString();
+                    customerData.age_days = days.toString();
+                }
             }
         } else if (name === 'prefix') {
             handlePrefixChange(value);
@@ -203,7 +245,7 @@ const EstimateForm: React.FC = () => {
 
     const handleDiscard = () => {
         if (window.confirm("Are you sure you want to discard this comparison?")) {
-            setNewCustomer({ prefix: 'Mr.', name: '', mobile: '', dob: '', age: '', gender: 'Male' });
+            setNewCustomer({ prefix: 'Mr.', name: '', mobile: '', email: '', dob: '', age: '', age_years: '', age_months: '', age_days: '', gender: 'Male' });
             setSelectedCustomer(null);
             setCustomerSearch('');
             setCustomerMode('new');
@@ -237,7 +279,7 @@ const EstimateForm: React.FC = () => {
                             <h3 className="font-bold text-lg text-indigo-800 border-b pb-1">Patient Information</h3>
                             <p><strong>Name:</strong> {newCustomer.prefix} {newCustomer.name}</p>
                             <p><strong>Mobile:</strong> {newCustomer.mobile || 'N/A'}</p>
-                            <p><strong>Age/Gender:</strong> {newCustomer.age || 'N/A'} / {newCustomer.gender}</p>
+                            <p><strong>Age/Gender:</strong> {newCustomer.age_years || '0'}Y {newCustomer.age_months || '0'}M {newCustomer.age_days || '0'}D / {newCustomer.gender}</p>
                         </section>
                         <section className="space-y-2">
                             <h3 className="font-bold text-lg text-indigo-800 border-b pb-1">Details</h3>
@@ -383,27 +425,74 @@ const EstimateForm: React.FC = () => {
                             />
                             <input type="text" name="name" placeholder="Customer Name" value={newCustomer.name} onChange={handleCustomerChange} disabled={selectedCustomer !== null} required className="p-2.5 border border-slate-300 rounded-lg disabled:bg-slate-100 disabled:text-slate-500 flex-grow outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm w-full" />
                         </div>
-                        <input type="tel" name="mobile" placeholder="Mobile No. (Optional)" value={newCustomer.mobile} onChange={handleCustomerChange} disabled={selectedCustomer !== null} pattern="\d{10}" title="Must be 10 digits" className="p-2.5 border border-slate-300 rounded-lg disabled:bg-slate-100 disabled:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm w-full" />
+                        {/* Gender Section */}
+                        <div className="lg:col-span-4 mt-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Gender</label>
+                            <div className="flex items-center gap-3 bg-white p-1.5 rounded-lg border border-slate-200 shadow-sm w-fit">
+                                {(['Male', 'Female', 'Other'] as const).map(option => (
+                                    <button
+                                        key={option}
+                                        type="button"
+                                        disabled={isGenderDisabled || selectedCustomer !== null}
+                                        onClick={() => setNewCustomer({ ...newCustomer, gender: option })}
+                                        className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${newCustomer.gender === option
+                                                ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
+                                                : 'text-slate-500 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed'
+                                            }`}
+                                    >
+                                        {option}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
 
-                        <div className="flex gap-2">
-                            <input type="number" name="age" placeholder="Age" max="120" value={newCustomer.age} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="p-2.5 border border-slate-300 rounded-lg disabled:bg-slate-100 disabled:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm w-20" />
-                            <div className="flex-1 relative">
-                                <CleanSelect
-                                    options={[
-                                        { value: 'Male', label: 'Male' },
-                                        { value: 'Female', label: 'Female' }
-                                    ]}
-                                    value={newCustomer.gender || ''}
-                                    onChange={val => setNewCustomer({ ...newCustomer, gender: val as any })}
-                                    disabled={isGenderDisabled || selectedCustomer !== null}
-                                    placeholder="Gender"
-                                />
+                        <div className="lg:col-span-4 mt-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Age | DOB</label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="flex gap-2">
+                                    <input type="number" name="age_years" placeholder="Years" max="120" value={newCustomer.age_years} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="w-1/3 p-2.5 border border-slate-300 rounded-lg disabled:bg-slate-100 disabled:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm text-center" />
+                                    <input type="number" name="age_months" placeholder="Months" max="11" value={newCustomer.age_months} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="w-1/3 p-2.5 border border-slate-300 rounded-lg disabled:bg-slate-100 disabled:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm text-center" />
+                                    <input type="number" name="age_days" placeholder="Days" max="31" value={newCustomer.age_days} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="w-1/3 p-2.5 border border-slate-300 rounded-lg disabled:bg-slate-100 disabled:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm text-center" />
+                                </div>
+                                <div className="flex gap-2">
+                                    <div className="flex-1 relative">
+                                        <input type="date" name="dob" value={newCustomer.dob} onChange={handleCustomerChange} disabled={selectedCustomer !== null} className="w-full p-2.5 border border-slate-300 rounded-lg disabled:bg-slate-100 disabled:text-slate-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm" />
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         <div className="lg:col-span-4">
                             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block">Referred By / Doctor</label>
                             <input type="text" value={details.referred_by} onChange={e => setDetails({ ...details, referred_by: e.target.value })} className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm" placeholder="Doctor Name or leave blank for 'Self'" />
+                        </div>
+
+                        {/* Contact Section: Mobile & Email */}
+                        <div className="lg:col-span-4 mt-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Contact</label>
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {/* Mobile Input */}
+                                <input
+                                    type="tel"
+                                    name="mobile"
+                                    placeholder="Mobile No. (Optional)"
+                                    value={newCustomer.mobile}
+                                    onChange={handleCustomerChange}
+                                    disabled={selectedCustomer !== null}
+                                    pattern="\d{10}"
+                                    className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
+                                />
+                                {/* Email Input */}
+                                <input
+                                    type="email"
+                                    name="email"
+                                    placeholder="Email Address (Optional)"
+                                    value={newCustomer.email || ''}
+                                    onChange={handleCustomerChange}
+                                    disabled={selectedCustomer !== null}
+                                    className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm bg-white"
+                                />
+                            </div>
                         </div>
                     </div>
                 </fieldset>

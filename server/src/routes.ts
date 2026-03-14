@@ -120,22 +120,42 @@ const handleCustomerData = (customer_data: any, user_id: number): number => {
     // SCENARIO 1: An existing customer was selected from the search.
     // We have an ID and should ONLY update this customer.
     if (customer_data.id) {
-        db.prepare(`UPDATE customers SET prefix = ?, name = ?, mobile = ?, dob = ?, age = ?, gender = ?, updated_at = ? WHERE id = ?`)
-            .run(customer_data.prefix, customer_data.name, customer_data.mobile, customer_data.dob, customer_data.age ? parseInt(customer_data.age, 10) : null, customer_data.gender, getISTDateTimeString(), customer_data.id);
+        db.prepare(`UPDATE customers SET prefix = ?, name = ?, mobile = ?, email = ?, dob = ?, age = ?, age_years = ?, age_months = ?, age_days = ?, gender = ?, updated_at = ? WHERE id = ?`)
+            .run(
+                customer_data.prefix, 
+                customer_data.name, 
+                customer_data.mobile, 
+                customer_data.email, 
+                customer_data.dob, 
+                customer_data.age ? parseInt(customer_data.age, 10) : null, 
+                customer_data.age_years !== '' && customer_data.age_years !== undefined ? parseInt(customer_data.age_years, 10) : null,
+                customer_data.age_months !== '' && customer_data.age_months !== undefined ? parseInt(customer_data.age_months, 10) : null,
+                customer_data.age_days !== '' && customer_data.age_days !== undefined ? parseInt(customer_data.age_days, 10) : null,
+                customer_data.gender, 
+                getISTDateTimeString(), 
+                customer_data.id
+            );
         return customer_data.id;
     }
 
-    // SCENARIO 2: This is a new customer entry (no ID provided).
-    // We check if the mobile number exists, but we ALLOW duplicates now per new requirement.
-    // However, if we find an exact match on mobile AND name, we could potentially just return that ID?
-    // For now, the instruction is simply "phone number is not a must... and more than one person should be allowed".
-    // So we just proceed to create.
-
-
     // SCENARIO 3: The mobile number is unique, so we can safely create a new customer.
     const now = getISTDateTimeString();
-    const result = db.prepare(`INSERT INTO customers (prefix, name, mobile, dob, age, gender, created_at, updated_at, created_by_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(customer_data.prefix, customer_data.name, customer_data.mobile, customer_data.dob, customer_data.age ? parseInt(customer_data.age, 10) : null, customer_data.gender, now, now, user_id);
+    const result = db.prepare(`INSERT INTO customers (prefix, name, mobile, email, dob, age, age_years, age_months, age_days, gender, created_at, updated_at, created_by_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(
+            customer_data.prefix, 
+            customer_data.name, 
+            customer_data.mobile, 
+            customer_data.email, 
+            customer_data.dob, 
+            customer_data.age ? parseInt(customer_data.age, 10) : null, 
+            customer_data.age_years !== '' && customer_data.age_years !== undefined ? parseInt(customer_data.age_years, 10) : null,
+            customer_data.age_months !== '' && customer_data.age_months !== undefined ? parseInt(customer_data.age_months, 10) : null,
+            customer_data.age_days !== '' && customer_data.age_days !== undefined ? parseInt(customer_data.age_days, 10) : null,
+            customer_data.gender, 
+            now, 
+            now, 
+            user_id
+        );
     return result.lastInsertRowid as number;
 };
 
@@ -388,7 +408,7 @@ router.get('/customers', isAuthenticated, (req, res) => {
             ...c,
             display_id: `CUST-${String(c.id).padStart(10, '0')}`,
             dob_formatted: c.dob ? new Date(c.dob).toLocaleDateString('en-GB') : 'N/A',
-            display_age: c.age ? `${c.age} yrs` : 'N/A',
+            display_age: c.age_years !== null ? `${c.age_years}Y ${c.age_months || '0'}M ${c.age_days || '0'}D` : (c.age ? `${c.age} yrs` : 'N/A'),
             display_created_at: c.created_at.split(' | ')[0]
         }));
         res.json(formattedCustomers);
@@ -675,10 +695,10 @@ router.get('/customers/:id', isAdmin, (req, res) => {
 });
 
 router.put('/customers/:id', isAdmin, (req, res) => {
-    const { prefix, name, mobile, dob, age, gender } = req.body;
+    const { prefix, name, mobile, email, dob, age, age_years, age_months, age_days, gender } = req.body;
     try {
-        db.prepare('UPDATE customers SET prefix=?, name=?, mobile=?, dob=?, age=?, gender=?, updated_at=? WHERE id=?')
-            .run(prefix, name, mobile, dob, age, gender, getISTDateTimeString(), req.params.id);
+        db.prepare('UPDATE customers SET prefix=?, name=?, mobile=?, email=?, dob=?, age=?, age_years=?, age_months=?, age_days=?, gender=?, updated_at=? WHERE id=?')
+            .run(prefix, name, mobile, email, dob, age, age_years, age_months, age_days, gender, getISTDateTimeString(), req.params.id);
         res.status(204).send();
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });

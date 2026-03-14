@@ -36,10 +36,10 @@ const LoginPage: React.FC = () => {
 
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100 p-4">
+    <div className="flex justify-center items-center min-h-screen bg-gray-100 p-4 relative">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm p-8 bg-white shadow-xl rounded-xl"
+        className="w-full max-w-sm p-8 bg-white shadow-xl rounded-xl relative z-10"
       >
         <div className="flex justify-center mb-6">
           <img src="/company-logo.png" alt="Company Logo" className="h-16" />
@@ -88,8 +88,8 @@ const LoginPage: React.FC = () => {
           Login
         </button>
       </form>
-      <div className="fixed bottom-4 right-4 text-xs text-gray-400 opacity-70 flex items-center gap-1 font-medium z-50">
-        <i className="fa-brands fa-creative-commons"></i> Studio Kivix | Created By Tathagata S.
+      <div className="fixed bottom-4 right-4 text-xs text-gray-400 opacity-60 flex items-center gap-1 font-medium z-0 pointer-events-none select-none">
+        <i className="fa-brands fa-creative-commons"></i> Studio Kivx | Created By Tathagata S.
       </div>
     </div>
   );

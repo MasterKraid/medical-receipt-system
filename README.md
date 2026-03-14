@@ -106,6 +106,6 @@ This project wouldn't be possible without the extensive open-source community. S
 
 <br />
 <p align="right">
-  <strong>Studio Kivix</strong><br />
+  <strong>Studio Kivx</strong><br />
   <em>Created By Tathagata S.</em>
 </p>
