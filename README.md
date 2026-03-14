@@ -74,8 +74,8 @@ This system requires Node.js (v18+) and npm.
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd project-lisp
+git clone git@github.com:MasterKraid/Project-LISP.git
+cd Project-LISP
 
 # Use the comprehensive install script to setup both environments
 npm run postinstall
