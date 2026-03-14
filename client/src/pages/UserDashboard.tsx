@@ -86,6 +86,9 @@ const UserDashboard: React.FC = () => {
           Logout
         </button>
       </div>
+      <div className="fixed bottom-4 right-4 text-xs text-gray-400 opacity-70 flex items-center gap-1 font-medium z-50">
+        <i className="fa-brands fa-creative-commons"></i> Studio Kivix | Created By Tathagata S.
+      </div>
     </div>
   );
 };
