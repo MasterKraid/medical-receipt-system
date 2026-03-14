@@ -154,4 +154,9 @@ export const apiService = {
     }).then(res => res.ok ? res.json() : Promise.reject('Upload failed'));
   },
   getComparisonData: (): Promise<{ tests: any[]; labs: any[]; prices: any[] }> => apiFetch('/comparison/data'),
+  addComparisonTest: (name: string, prices: { lab_id: number; price: number }[]): Promise<{ id: number; message: string }> => apiFetch('/comparison/tests', { method: 'POST', body: JSON.stringify({ name, prices }) }),
+  updateComparisonTest: (id: number, name: string, prices: { lab_id: number; price: number }[]): Promise<{ message: string }> => apiFetch(`/comparison/tests/${id}`, { method: 'PUT', body: JSON.stringify({ name, prices }) }),
+  deleteComparisonTest: (id: number): Promise<void> => apiFetch(`/comparison/tests/${id}`, { method: 'DELETE' }),
+  addComparisonLab: (name: string): Promise<{ id: number; message: string }> => apiFetch('/comparison/labs', { method: 'POST', body: JSON.stringify({ name }) }),
+  deleteComparisonLab: (id: number): Promise<void> => apiFetch(`/comparison/labs/${id}`, { method: 'DELETE' }),
 };

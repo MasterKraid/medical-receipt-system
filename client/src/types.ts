@@ -136,3 +136,19 @@ export interface LabReport {
     alias?: string;
     username?: string;
 }
+
+export interface ComparisonTest {
+    id: number;
+    name: string;
+}
+
+export interface ComparisonLab {
+    id: number;
+    name: string;
+}
+
+export interface ComparisonPrice {
+    test_id: number;
+    lab_id: number;
+    price: number;
+}

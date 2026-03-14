@@ -987,4 +987,91 @@ router.get('/comparison/data', isAuthenticated, (req, res) => {
     }
 });
 
+router.post('/comparison/tests', isAdmin, (req, res) => {
+    const { name, prices } = req.body; // prices is [{ lab_id, price }]
+    if (!name || typeof name !== 'string') return res.status(400).json({ message: "Test name is required" });
+
+    try {
+        const transaction = db.transaction(() => {
+            const insertTest = db.prepare('INSERT INTO comparison_tests (name) VALUES (?)');
+            const testResult = insertTest.run(name);
+            const newTestId = testResult.lastInsertRowid;
+
+            if (prices && Array.isArray(prices)) {
+                const insertPrice = db.prepare('INSERT INTO comparison_prices (test_id, lab_id, price) VALUES (?, ?, ?)');
+                for (const p of prices) {
+                    if (p.lab_id && typeof p.price === 'number') {
+                        insertPrice.run(newTestId, p.lab_id, p.price);
+                    }
+                }
+            }
+            return newTestId;
+        });
+
+        const newId = transaction();
+        res.status(201).json({ id: newId, message: 'Test created successfully' });
+    } catch (e: any) {
+        res.status(e.message.includes("UNIQUE constraint failed") ? 409 : 500).json({ message: e.message.includes("UNIQUE") ? "Test already exists" : e.message });
+    }
+});
+
+router.put('/comparison/tests/:id', isAdmin, (req, res) => {
+    const testId = req.params.id;
+    const { name, prices } = req.body;
+    
+    if (!name || typeof name !== 'string') return res.status(400).json({ message: "Test name is required" });
+
+    try {
+        const transaction = db.transaction(() => {
+            // Update name
+            db.prepare('UPDATE comparison_tests SET name = ? WHERE id = ?').run(name, testId);
+
+            // Update prices by clearing existing and inserting new
+            if (prices && Array.isArray(prices)) {
+                db.prepare('DELETE FROM comparison_prices WHERE test_id = ?').run(testId);
+                const insertPrice = db.prepare('INSERT INTO comparison_prices (test_id, lab_id, price) VALUES (?, ?, ?)');
+                for (const p of prices) {
+                    if (p.lab_id && typeof p.price === 'number') {
+                        insertPrice.run(testId, p.lab_id, p.price);
+                    }
+                }
+            }
+        });
+        transaction();
+        res.json({ message: 'Test updated successfully' });
+    } catch (e: any) {
+        res.status(e.message.includes("UNIQUE constraint failed") ? 409 : 500).json({ message: e.message.includes("UNIQUE") ? "Test name already exists" : e.message });
+    }
+});
+
+router.delete('/comparison/tests/:id', isAdmin, (req, res) => {
+    try {
+        db.prepare('DELETE FROM comparison_tests WHERE id = ?').run(req.params.id); // prices cascade delete
+        res.status(204).end();
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
+});
+
+router.post('/comparison/labs', isAdmin, (req, res) => {
+    const { name } = req.body;
+    if (!name || typeof name !== 'string') return res.status(400).json({ message: "Lab name is required" });
+
+    try {
+        const result = db.prepare('INSERT INTO comparison_labs (name) VALUES (?)').run(name.trim());
+        res.status(201).json({ id: result.lastInsertRowid, message: 'Lab created successfully' });
+    } catch (e: any) {
+        res.status(e.message.includes("UNIQUE constraint failed") ? 409 : 500).json({ message: e.message.includes("UNIQUE") ? "Lab already exists" : e.message });
+    }
+});
+
+router.delete('/comparison/labs/:id', isAdmin, (req, res) => {
+    try {
+        db.prepare('DELETE FROM comparison_labs WHERE id = ?').run(req.params.id); // prices cascade delete
+        res.status(204).end();
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
+});
+
 export default router;
