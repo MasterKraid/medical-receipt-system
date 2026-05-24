@@ -1,5 +1,8 @@
 import React from 'react';
 
+declare const html2canvas: any;
+declare const jspdf: any;
+
 interface ShareDownloadButtonProps {
     elementIdToCapture: string;
     fileName: string;

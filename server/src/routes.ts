@@ -334,7 +334,7 @@ router.get('/customers/search', isAuthenticated, (req, res) => {
     try {
         const searchTerm = `%${q}%`;
         const idSearch = `CUST-${'0'.repeat(10 - q.length)}${q}`;
-        res.json(db.prepare(`SELECT * FROM customers WHERE name LIKE ? OR mobile LIKE ? OR 'CUST-' || printf('%010d', id) LIKE ? LIMIT 10`).all(searchTerm, searchTerm, idSearch));
+        res.json(db.prepare(`SELECT * FROM customers WHERE is_deleted = 0 AND (name LIKE ? OR mobile LIKE ? OR 'CUST-' || printf('%010d', id) LIKE ?) LIMIT 10`).all(searchTerm, searchTerm, idSearch));
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });
 
@@ -439,8 +439,8 @@ router.get('/customers', isAuthenticated, (req, res) => {
     const user = (req.session as any).user as User;
     try {
         const query = user.role === 'ADMIN'
-            ? `SELECT * FROM customers ORDER BY id DESC`
-            : `SELECT * FROM customers WHERE created_by_user_id = ? ORDER BY id DESC`;
+            ? `SELECT * FROM customers WHERE is_deleted = 0 ORDER BY id DESC`
+            : `SELECT * FROM customers WHERE is_deleted = 0 AND created_by_user_id = ? ORDER BY id DESC`;
         const params = user.role === 'ADMIN' ? [] : [user.id];
         const customers = db.prepare(query).all(...params) as Customer[];
         const formattedCustomers: FormattedCustomer[] = customers.map((c: Customer) => ({
@@ -815,8 +815,19 @@ router.delete('/admin/transactions/:id/delete', isAdmin, (req, res) => {
 
 router.delete('/admin/receipts/:id', isAdmin, (req, res) => {
     try {
-        // Simple delete - only remove receipt entry
-        db.prepare('DELETE FROM receipts WHERE id = ?').run(req.params.id);
+        const transactionResult = db.transaction(() => {
+            // 1. Find the associated transaction
+            const tx = db.prepare('SELECT * FROM transactions WHERE receipt_id = ?').get(req.params.id) as Transaction;
+            if (tx) {
+                // 2. Refund/Deduct the wallet balance
+                db.prepare('UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?').run(tx.amount_deducted, tx.user_id);
+                // 3. Delete transaction record
+                db.prepare('DELETE FROM transactions WHERE id = ?').run(tx.id);
+            }
+            // 4. Delete receipt entry
+            db.prepare('DELETE FROM receipts WHERE id = ?').run(req.params.id);
+        });
+        transactionResult();
         res.status(204).send();
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });
@@ -842,49 +853,7 @@ router.delete('/admin/receipts/:id/revert', isAdmin, (req, res) => {
 
 router.delete('/admin/customers/:id', isAdmin, (req, res) => {
     try {
-        const customerId = req.params.id;
-        const transactionResult = db.transaction(() => {
-            // A. Find all B2B receipt deduction transactions for this customer's receipts
-            const transactionsToRevert = db.prepare(`
-                SELECT * FROM transactions 
-                WHERE type = 'RECEIPT_DEDUCTION' 
-                  AND receipt_id IN (SELECT id FROM receipts WHERE customer_id = ?)
-            `).all(customerId) as Transaction[];
-
-            // B. Revert each of those transactions to restore client wallet balances
-            transactionsToRevert.forEach(tx => {
-                db.prepare('UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?')
-                    .run(tx.amount_deducted, tx.user_id);
-            });
-
-            // C. Delete all transactions linked to customer's receipts
-            db.prepare(`
-                DELETE FROM transactions 
-                WHERE receipt_id IN (SELECT id FROM receipts WHERE customer_id = ?)
-            `).run(customerId);
-
-            // 1. Delete all receipt items associated with customer receipts
-            db.prepare(`
-                DELETE FROM receipt_items 
-                WHERE receipt_id IN (SELECT id FROM receipts WHERE customer_id = ?)
-            `).run(customerId);
-
-            // 2. Delete all receipts for the customer
-            db.prepare('DELETE FROM receipts WHERE customer_id = ?').run(customerId);
-
-            // 3. Delete all estimate items associated with customer estimates
-            db.prepare(`
-                DELETE FROM estimate_items 
-                WHERE estimate_id IN (SELECT id FROM estimates WHERE customer_id = ?)
-            `).run(customerId);
-
-            // 4. Delete all estimates for the customer
-            db.prepare('DELETE FROM estimates WHERE customer_id = ?').run(customerId);
-
-            // 5. Delete the customer
-            db.prepare('DELETE FROM customers WHERE id = ?').run(customerId);
-        });
-        transactionResult();
+        db.prepare('UPDATE customers SET is_deleted = 1 WHERE id = ?').run(req.params.id);
         res.status(204).send();
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });

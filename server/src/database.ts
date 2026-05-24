@@ -68,6 +68,19 @@ try {
     console.error("Migration check failed for customers email:", error);
 }
 
+// MIGRATION: Check if 'customers' table has 'is_deleted'
+try {
+    const tableInfo = db.prepare("PRAGMA table_info(customers)").all() as any[];
+    const hasIsDeleted = tableInfo.some(col => col.name === 'is_deleted');
+
+    if (tableInfo.length > 0 && !hasIsDeleted) {
+        console.log("Migrating database: Adding is_deleted column to customers...");
+        db.prepare("ALTER TABLE customers ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT 0").run();
+    }
+} catch (error) {
+    console.error("Migration check failed for customers is_deleted:", error);
+}
+
 console.log('Database connected at', dbPath);
 
 const schema = `
@@ -164,6 +177,7 @@ const schema = `
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         created_by_user_id INTEGER NOT NULL,
+        is_deleted BOOLEAN NOT NULL DEFAULT 0,
         FOREIGN KEY (created_by_user_id) REFERENCES users(id)
     );
     

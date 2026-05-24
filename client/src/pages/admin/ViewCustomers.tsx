@@ -111,7 +111,7 @@ const ViewCustomers: React.FC = () => {
                                                             </Link>
                                                             <button
                                                                 onClick={async () => {
-                                                                    if (window.confirm(`Are you sure you want to delete customer ${cust.name}? This action cannot be undone.`)) {
+                                                                    if (window.confirm(`Are you sure you want to delete customer ${cust.name}? This will remove them from the directory, but preserve all their receipt and ledger history. This action cannot be undone. Do you want to proceed?`)) {
                                                                         try {
                                                                             await apiService.deleteCustomer(cust.id);
                                                                             loadCustomers();
