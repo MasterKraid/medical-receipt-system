@@ -178,7 +178,6 @@ const ReceiptView: React.FC = () => {
         if (!pdf) return;
 
         const fileName = `Receipt-RCPT-${String(data.receipt.id).padStart(6, '0')}.pdf`;
-        const fallbackUrl = window.location.href;
 
         try {
             const pdfBlob = pdf.output('blob');
@@ -191,16 +190,14 @@ const ReceiptView: React.FC = () => {
                     text: `Money Receipt for ${data.customer.prefix || ''} ${data.customer.name} (Amount: ₹${formattedData.finalAmountFormatted})`,
                 });
             } else {
-                await navigator.clipboard.writeText(fallbackUrl);
-                alert("PDF file sharing is not supported by your browser. The receipt link has been copied to your clipboard!");
+                alert("PDF file sharing is not supported by your browser.");
             }
-        } catch (err) {
-            console.warn("Share failed, copying link", err);
-            try {
-                await navigator.clipboard.writeText(fallbackUrl);
-                alert("Receipt URL link copied to clipboard!");
-            } catch (clipErr) {
-                alert("Failed to share or copy receipt link.");
+        } catch (err: any) {
+            if (err && err.name === 'AbortError') {
+                console.log("Sharing was dismissed by the user.");
+            } else {
+                console.warn("Share failed", err);
+                alert("An error occurred while sharing the document.");
             }
         }
     };
