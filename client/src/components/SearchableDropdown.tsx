@@ -53,7 +53,8 @@ const SearchableDropdown = forwardRef<SearchableDropdownHandle, SearchableDropdo
                 if (searchTerm === currentLabel || searchTerm === '') {
                     return true;
                 }
-                return option.label.toLowerCase().includes(searchTerm.toLowerCase());
+                return option.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                       option.value.toLowerCase().includes(searchTerm.toLowerCase());
             });
 
         useEffect(() => {

@@ -52,7 +52,7 @@ const AdminDashboard: React.FC = () => {
                                 <li><DashboardLink to="/admin/users" icon={<UsersIcon />} text="Manage Users" /></li>
                                 <li><DashboardLink to="/admin/wallet" icon={<WalletIcon />} text="Manage Wallets" /></li>
                                 <li><DashboardLink to="/admin/reports" icon={<ViewIcon />} text="Manage Reports" /></li>
-                                <li><DashboardLink to="/admin/receipt-report" icon={<ReceiptIcon />} text="Client Receipt Report" /></li>
+                                <li><DashboardLink to="/admin/receipt-report" icon={<ReceiptIcon />} text="Business Intelligence" /></li>
                                 <li><DashboardLink to="/admin/comparison" icon={<EstimateIcon />} text="Comparison Data" /></li>
                             </ul>
                         </fieldset>

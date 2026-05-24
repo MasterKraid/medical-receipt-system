@@ -1,0 +1,723 @@
+import { Router } from 'express';
+import bcrypt from 'bcryptjs';
+import path from 'path';
+import fs from 'fs';
+import ExcelJS from 'exceljs';
+import { db } from '../database';
+import { User, Lab, Receipt, Estimate, Customer, Branch, PackageList, FormattedCustomer, Document, Transaction, Package, LabReport } from '../types';
+import { isAdmin, isAuthenticated, getISTDateTimeString, upload, excelUpload } from './shared';
+
+const router = Router();
+
+// --- ADMIN-ONLY ROUTES ---
+
+router.get('/users', isAdmin, (req, res) => res.json(db.prepare('SELECT id, username, alias, branchId, role, master_data_entry FROM users').all()));
+router.get('/branches', isAdmin, (req, res) => res.json(db.prepare('SELECT * FROM branches').all()));
+router.get('/labs', isAuthenticated, (req, res) => {
+    const user = (req.session as any).user as User;
+    let labs: Lab[];
+    const actingAsId = req.headers['x-acting-as-client-id'];
+    const effectiveUserId = (actingAsId && (user.role === 'ADMIN' || user.master_data_entry)) ? parseInt(actingAsId as string) : user.id;
+    const isActuallyActingAs = !!(actingAsId && (user.role === 'ADMIN' || user.master_data_entry));
+
+    try {
+        if (user.role === 'ADMIN' && !isActuallyActingAs) {
+            labs = db.prepare('SELECT * FROM labs').all() as Lab[];
+        } else {
+            labs = db.prepare(`
+                SELECT DISTINCT l.* 
+                FROM labs l 
+                JOIN lab_package_lists lpl ON l.id = lpl.lab_id 
+                JOIN user_package_list_access upla ON lpl.package_list_id = upla.package_list_id 
+                WHERE upla.user_id = ?
+            `).all(effectiveUserId) as Lab[];
+        }
+
+        labs.forEach(lab => {
+            lab.assigned_list_ids = db.prepare('SELECT package_list_id from lab_package_lists WHERE lab_id = ?').all(lab.id).map((r: any) => r.package_list_id);
+        });
+        res.json(labs);
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
+});
+router.get('/package-lists', isAdmin, (req, res) => res.json(db.prepare('SELECT p.*, (SELECT COUNT(*) FROM packages WHERE package_list_id = p.id) as package_count FROM package_lists p').all()));
+router.get('/client-wallets', isAuthenticated, (req, res) => {
+    const user = (req.session as any).user as User;
+    if (user.role !== 'ADMIN' && !user.master_data_entry) {
+        return res.status(403).json({ message: "Forbidden: Master Data Entry access required." });
+    }
+    const query = req.query.q as string;
+    let clients;
+    if (query) {
+        const searchTerm = `%${query}%`;
+        clients = db.prepare("SELECT * FROM users WHERE role = 'CLIENT' AND (username LIKE ? OR alias LIKE ?)").all(searchTerm, searchTerm);
+    } else {
+        clients = db.prepare("SELECT * FROM users WHERE role = 'CLIENT'").all();
+    }
+    res.json(clients);
+});
+
+// --- ADMIN GET ROUTES (continued) ---
+
+router.get('/customers', isAuthenticated, (req, res) => {
+    const user = (req.session as any).user as User;
+    try {
+        const query = user.role === 'ADMIN'
+            ? `SELECT * FROM customers WHERE is_deleted = 0 ORDER BY id DESC`
+            : `SELECT * FROM customers WHERE is_deleted = 0 AND created_by_user_id = ? ORDER BY id DESC`;
+        const params = user.role === 'ADMIN' ? [] : [user.id];
+        const customers = db.prepare(query).all(...params) as Customer[];
+        const formattedCustomers: FormattedCustomer[] = customers.map((c: Customer) => ({
+            ...c,
+            display_id: `CUST-${String(c.id).padStart(10, '0')}`,
+            dob_formatted: c.dob ? new Date(c.dob).toLocaleDateString('en-GB') : 'N/A',
+            display_age: c.age_years !== null ? `${c.age_years}Y ${c.age_months || '0'}M ${c.age_days || '0'}D` : (c.age ? `${c.age} yrs` : 'N/A'),
+            display_created_at: c.created_at.split(' | ')[0]
+        }));
+        res.json(formattedCustomers);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.get('/admin/receipts', isAdmin, (req, res) => {
+    try {
+        const receipts = db.prepare(`
+            SELECT r.id, r.created_at, c.name as customer_name, c.id as customer_id, c.prefix, r.amount_final, 
+                   u.alias as user_alias, u.username as username, r.acting_as_client_id, r.created_by_user_id,
+                   cl.alias as client_alias, cl.username as client_username
+            FROM receipts r 
+            JOIN customers c ON r.customer_id = c.id 
+            JOIN users u ON r.created_by_user_id = u.id 
+            LEFT JOIN users cl ON r.acting_as_client_id = cl.id
+            ORDER BY r.id DESC
+        `).all() as any[];
+        const formatted: Document[] = receipts.map(r => {
+            let creator = r.user_alias || r.username;
+            if (r.acting_as_client_id) {
+                const clientName = r.client_alias || r.client_username;
+                creator = `${clientName} [M.ENTRY BY - ${creator}]`;
+            }
+            return {
+                id: r.id,
+                display_doc_id: `RCPT-${String(r.id).padStart(6, '0')}`,
+                display_date: `${r.created_at.split(' | ')[0]} ${r.created_at.split(' | ')[1]}`,
+                customer_name: `${r.prefix || ''} ${r.customer_name}`,
+                display_customer_id: `CUST-${String(r.customer_id).padStart(10, '0')}`,
+                display_amount: `₹${r.amount_final.toFixed(2)}`,
+                created_by_user: creator,
+                acting_as_client_id: r.acting_as_client_id || undefined,
+                created_by_user_id: r.created_by_user_id
+            };
+        });
+        res.json(formatted);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.get('/admin/estimates', isAdmin, (req, res) => {
+    try {
+        const estimates = db.prepare(`
+            SELECT e.id, e.created_at, c.name as customer_name, c.id as customer_id, c.prefix, e.amount_after_discount, u.alias as user_alias, u.username as username
+            FROM estimates e JOIN customers c ON e.customer_id = c.id JOIN users u ON e.created_by_user_id = u.id ORDER BY e.id DESC
+        `).all() as any[];
+        const formatted: Document[] = estimates.map(e => ({
+            id: e.id,
+            display_doc_id: `EST-${String(e.id).padStart(6, '0')}`,
+            display_date: `${e.created_at.split(' | ')[0]} ${e.created_at.split(' | ')[1]}`,
+            customer_name: `${e.prefix || ''} ${e.customer_name}`,
+            display_customer_id: `CUST-${String(e.customer_id).padStart(10, '0')}`,
+            display_amount: `₹${e.amount_after_discount.toFixed(2)}`,
+            created_by_user: e.user_alias || e.username
+        }));
+        res.json(formatted);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+// --- ADMIN C-UD (CREATE, UPDATE, DELETE) ROUTES ---
+
+// Users Management
+router.get('/users/:id', isAdmin, (req, res) => {
+    try {
+        const user = db.prepare('SELECT id, username, alias, branchId, role, master_data_entry FROM users WHERE id = ?').get(req.params.id) as User;
+        if (user) {
+            user.assigned_list_ids = db.prepare('SELECT package_list_id FROM user_package_list_access WHERE user_id = ?').all(req.params.id).map((r: any) => r.package_list_id);
+        }
+        res.json(user);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.post('/users', isAdmin, (req, res) => {
+    const { username, alias, password, password_hash, branchId, role, assigned_list_ids, master_data_entry } = req.body;
+    const plainPassword = password || password_hash;
+    const passwordHashed = bcrypt.hashSync(plainPassword, 10);
+    const transaction = db.transaction(() => {
+        const result = db.prepare('INSERT INTO users (username, alias, password_hash, branchId, role, master_data_entry) VALUES (?, ?, ?, ?, ?, ?)').run(username, alias, passwordHashed, branchId, role, master_data_entry ? 1 : 0);
+        const userId = result.lastInsertRowid;
+        const insertAccess = db.prepare('INSERT INTO user_package_list_access (user_id, package_list_id) VALUES (?, ?)');
+        assigned_list_ids.forEach((listId: number) => insertAccess.run(userId, listId));
+    });
+    try {
+        transaction();
+        res.status(201).json({ message: 'User created successfully' });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.put('/users/:id', isAdmin, (req, res) => {
+    const { username, alias, password, password_hash, branchId, role, assigned_list_ids, master_data_entry } = req.body;
+    const plainPassword = password || password_hash;
+    const transaction = db.transaction(() => {
+        if (plainPassword) {
+            const passwordHashed = bcrypt.hashSync(plainPassword, 10);
+            db.prepare('UPDATE users SET username=?, alias=?, password_hash=?, branchId=?, role=?, master_data_entry=? WHERE id=?').run(username, alias, passwordHashed, branchId, role, master_data_entry ? 1 : 0, req.params.id);
+        } else {
+            db.prepare('UPDATE users SET username=?, alias=?, branchId=?, role=?, master_data_entry=? WHERE id=?').run(username, alias, branchId, role, master_data_entry ? 1 : 0, req.params.id);
+        }
+        db.prepare('DELETE FROM user_package_list_access WHERE user_id = ?').run(req.params.id);
+        const insertAccess = db.prepare('INSERT INTO user_package_list_access (user_id, package_list_id) VALUES (?, ?)');
+        (assigned_list_ids || []).forEach((listId: number) => insertAccess.run(req.params.id, listId));
+    });
+    try {
+        transaction();
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.delete('/users/:id', isAdmin, (req, res) => {
+    try {
+        // Prevent self-deletion
+        if ((req.session as any).user.id == req.params.id) {
+            return res.status(400).json({ message: "You cannot delete your own account." });
+        }
+        db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+// Branch Management
+router.post('/branches', isAdmin, (req, res) => {
+    const { name, address, phone } = req.body;
+    try {
+        db.prepare('INSERT INTO branches (name, address, phone) VALUES (?, ?, ?)').run(name, address, phone);
+        res.status(201).json({ message: 'Branch created' });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.put('/branches/:id', isAdmin, (req, res) => {
+    const { name, address, phone } = req.body;
+    try {
+        db.prepare('UPDATE branches SET name=?, address=?, phone=? WHERE id=?').run(name, address, phone, req.params.id);
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+// Lab Management
+router.post('/labs', isAdmin, (req, res) => {
+    try {
+        db.prepare('INSERT INTO labs (name) VALUES (?)').run(req.body.name);
+        res.status(201).json({ message: 'Lab created' });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.delete('/labs/:id', isAdmin, (req, res) => {
+    try {
+        db.prepare('DELETE FROM labs WHERE id = ?').run(req.params.id);
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.put('/labs/:id/lists', isAdmin, (req, res) => {
+    const labId = req.params.id;
+    const listIds = req.body.listIds as number[];
+    const transaction = db.transaction(() => {
+        db.prepare('DELETE FROM lab_package_lists WHERE lab_id = ?').run(labId);
+        const insert = db.prepare('INSERT INTO lab_package_lists (lab_id, package_list_id) VALUES (?, ?)');
+        listIds.forEach(listId => insert.run(labId, listId));
+    });
+    try {
+        transaction();
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.put('/labs/:id/logo', isAdmin, (req, res) => {
+    const parsedLabId = parseInt(req.params.id, 10);
+    if (isNaN(parsedLabId)) {
+        return res.status(400).json({ message: "Invalid Lab ID" });
+    }
+    const { logoBase64 } = req.body;
+
+    if (!logoBase64) return res.status(400).json({ message: "Logo data is required" });
+
+    try {
+        // Extract base64 content
+        const matches = logoBase64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (!matches || matches.length !== 3) {
+            return res.status(400).json({ message: "Invalid base64 string" });
+        }
+
+        const mimeType = matches[1];
+        const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedMimeTypes.includes(mimeType)) {
+            return res.status(400).json({ message: "Disallowed file type. Only JPEG, PNG, GIF, and WEBP are allowed." });
+        }
+
+        const extension = mimeType.split('/')[1] === 'jpeg' ? 'jpg' : mimeType.split('/')[1];
+        const buffer = Buffer.from(matches[2], 'base64');
+        const fileName = `lab_${parsedLabId}_${Date.now()}.${extension}`;
+        const relativePath = `/lab_logos/${fileName}`;
+        const absolutePath = path.join(__dirname, '..', '..', 'public', 'lab_logos', fileName);
+
+        // Ensure directory exists
+        const dir = path.dirname(absolutePath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+        fs.writeFileSync(absolutePath, buffer);
+
+        // Update database
+        db.prepare('UPDATE labs SET logo_path = ? WHERE id = ?').run(relativePath, parsedLabId);
+
+        res.json({ logoPath: relativePath });
+    } catch (error: any) {
+        console.error("Upload failed:", error);
+        res.status(500).json({ message: "Failed to upload logo: " + error.message });
+    }
+});
+
+// Package List & Package Management
+router.post('/package-lists', isAdmin, (req, res) => {
+    try {
+        db.prepare('INSERT INTO package_lists (name) VALUES (?)').run(req.body.name);
+        res.status(201).json({ message: 'List created' });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.delete('/package-lists/:id', isAdmin, (req, res) => {
+    try {
+        db.prepare('DELETE FROM package_lists WHERE id = ?').run(req.params.id);
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.post('/package-lists/:id/upload', isAdmin, (req, res) => {
+    const listId = req.params.id;
+    const packages = req.body.packages as any[];
+    const transaction = db.transaction(() => {
+        let inserted = 0, updated = 0;
+        const selectPkg = db.prepare('SELECT id FROM packages WHERE package_list_id = ? AND name = ?');
+        const updatePkg = db.prepare('UPDATE packages SET mrp = ?, b2b_price = ? WHERE id = ?');
+        const insertPkg = db.prepare('INSERT INTO packages (name, mrp, b2b_price, package_list_id) VALUES (?, ?, ?, ?)');
+        packages.forEach(pkg => {
+            const existing = selectPkg.get(listId, pkg.name) as Package;
+            if (existing) {
+                updatePkg.run(pkg.mrp, pkg.b2b_price, existing.id);
+                updated++;
+            } else {
+                insertPkg.run(pkg.name, pkg.mrp, pkg.b2b_price, listId);
+                inserted++;
+            }
+        });
+        return { inserted, updated };
+    });
+    try {
+        res.json(transaction());
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.post('/packages', isAdmin, (req, res) => {
+    const { name, mrp, b2b_price, package_list_id } = req.body;
+    try {
+        const result = db.prepare('INSERT INTO packages (name, mrp, b2b_price, package_list_id) VALUES (?, ?, ?, ?)').run(name, mrp, b2b_price, package_list_id);
+        res.status(201).json({ id: result.lastInsertRowid, ...req.body });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.put('/packages/:id', isAdmin, (req, res) => {
+    const { name, mrp, b2b_price } = req.body;
+    try {
+        db.prepare('UPDATE packages SET name = ?, mrp = ?, b2b_price = ? WHERE id = ?').run(name, mrp, b2b_price, req.params.id);
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+// Wallet Management
+router.put('/wallets/update', isAdmin, (req, res) => {
+    const { clientId, action, amount, notes } = req.body;
+    const transaction = db.transaction(() => {
+        const client = db.prepare('SELECT wallet_balance FROM users WHERE id = ?').get(clientId) as User;
+        if (!client) throw new Error("Client not found");
+        let amountChange = 0;
+        let type: Transaction['type'] = 'ADMIN_CREDIT';
+        if (action === 'add') {
+            amountChange = Number(amount);
+            type = 'ADMIN_CREDIT';
+        } else if (action === 'deduct') {
+            amountChange = -Number(amount);
+            type = 'ADMIN_DEBIT';
+        } else if (action === 'settle') {
+            amountChange = -client.wallet_balance;
+            type = 'SETTLEMENT';
+        }
+        db.prepare('UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?').run(amountChange, clientId);
+
+        const newBalanceObj = db.prepare('SELECT wallet_balance FROM users WHERE id = ?').get(clientId) as { wallet_balance: number };
+
+        db.prepare('INSERT INTO transactions (user_id, date, type, amount_deducted, balance_snapshot, notes) VALUES (?, ?, ?, ?, ?, ?)')
+            .run(clientId, getISTDateTimeString(), type, -amountChange, newBalanceObj.wallet_balance, notes);
+    });
+    try {
+        transaction();
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.put('/wallets/permissions', isAdmin, (req, res) => {
+    const { clientId, allow, until } = req.body;
+    try {
+        db.prepare('UPDATE users SET allow_negative_balance = ?, negative_balance_allowed_until = ? WHERE id = ?').run(allow ? 1 : 0, allow ? until : null, clientId);
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+// Customer Management
+router.get('/customers/:id', isAdmin, (req, res) => {
+    try {
+        res.json(db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id));
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.put('/customers/:id', isAdmin, (req, res) => {
+    const { prefix, name, mobile, email, dob, age, age_years, age_months, age_days, gender } = req.body;
+    try {
+        db.prepare('UPDATE customers SET prefix=?, name=?, mobile=?, email=?, dob=?, age=?, age_years=?, age_months=?, age_days=?, gender=?, updated_at=? WHERE id=?')
+            .run(prefix, name, mobile, email, dob, age, age_years, age_months, age_days, gender, getISTDateTimeString(), req.params.id);
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+// --- TRANSACTION & DOCUMENT MANAGEMENT (ADMIN ONLY) ---
+
+router.delete('/admin/transactions/:id/revert', isAdmin, (req, res) => {
+    try {
+        const transactionResult = db.transaction(() => {
+            const tx = db.prepare('SELECT * FROM transactions WHERE id = ?').get(req.params.id) as Transaction;
+            if (!tx) throw new Error("Transaction not found");
+
+            // 1. If it's a receipt deduction, delete the receipt and its items
+            if (tx.type === 'RECEIPT_DEDUCTION' && tx.receipt_id) {
+                db.prepare('DELETE FROM receipts WHERE id = ?').run(tx.receipt_id);
+            }
+
+            // 2. Revert wallet balance
+            if (tx.type === 'SETTLEMENT') {
+                db.prepare('UPDATE users SET wallet_balance = ? WHERE id = ?').run((tx.balance_snapshot || 0) + tx.amount_deducted, tx.user_id);
+            } else {
+                db.prepare('UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?').run(tx.amount_deducted, tx.user_id);
+            }
+
+            // 3. Delete the transaction record
+            db.prepare('DELETE FROM transactions WHERE id = ?').run(req.params.id);
+        });
+        transactionResult();
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.delete('/admin/transactions/:id/delete', isAdmin, (req, res) => {
+    try {
+        const transactionResult = db.transaction(() => {
+            const tx = db.prepare('SELECT * FROM transactions WHERE id = ?').get(req.params.id) as Transaction;
+            if (!tx) throw new Error("Transaction not found");
+
+            // 1. Revert wallet balance
+            db.prepare('UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?').run(tx.amount_deducted, tx.user_id);
+
+            // 2. Delete transaction record (Keep the receipt!)
+            db.prepare('DELETE FROM transactions WHERE id = ?').run(req.params.id);
+        });
+        transactionResult();
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.delete('/admin/receipts/:id', isAdmin, (req, res) => {
+    try {
+        const transactionResult = db.transaction(() => {
+            const tx = db.prepare('SELECT * FROM transactions WHERE receipt_id = ?').get(req.params.id) as Transaction;
+            if (tx) {
+                db.prepare('UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?').run(tx.amount_deducted, tx.user_id);
+                db.prepare('DELETE FROM transactions WHERE id = ?').run(tx.id);
+            }
+            db.prepare('DELETE FROM receipts WHERE id = ?').run(req.params.id);
+        });
+        transactionResult();
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.delete('/admin/receipts/:id/revert', isAdmin, (req, res) => {
+    try {
+        const transactionResult = db.transaction(() => {
+            const tx = db.prepare('SELECT * FROM transactions WHERE receipt_id = ?').get(req.params.id) as Transaction;
+            if (tx) {
+                db.prepare('UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?').run(tx.amount_deducted, tx.user_id);
+                db.prepare('DELETE FROM transactions WHERE id = ?').run(tx.id);
+            }
+            db.prepare('DELETE FROM receipts WHERE id = ?').run(req.params.id);
+        });
+        transactionResult();
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.delete('/admin/customers/:id', isAdmin, (req, res) => {
+    try {
+        db.prepare('UPDATE customers SET is_deleted = 1 WHERE id = ?').run(req.params.id);
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.get('/admin/transactions/user/:userId', isAdmin, (req, res) => {
+    try {
+        const txs = db.prepare('SELECT * FROM transactions WHERE user_id = ? ORDER BY id DESC').all(req.params.userId) as Transaction[];
+        res.json(txs);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+// --- LAB REPORTS ENDPOINTS ---
+
+router.post('/reports/upload', isAdmin, upload.single('report'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'No PDF file uploaded.' });
+    }
+    const { client_id, customer_name } = req.body;
+    if (!client_id || !customer_name) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ message: 'Missing client_id or customer_name.' });
+    }
+
+    try {
+        const relativePath = `/lab_reports/${req.file.filename}`;
+        const result = db.prepare(`INSERT INTO lab_reports (client_id, customer_name, file_path, uploaded_at) VALUES (?, ?, ?, ?)`)
+            .run(client_id, customer_name, relativePath, getISTDateTimeString());
+
+        res.status(201).json({
+            message: 'Report uploaded successfully',
+            reportId: result.lastInsertRowid
+        });
+    } catch (e: any) {
+        fs.unlinkSync(req.file.path);
+        res.status(500).json({ message: e.message });
+    }
+});
+
+router.get('/reports', isAdmin, (req, res) => {
+    try {
+        const reports = db.prepare(`
+            SELECT lr.*, u.alias, u.username 
+            FROM lab_reports lr 
+            JOIN users u ON lr.client_id = u.id 
+            ORDER BY lr.id DESC
+        `).all() as any[];
+
+        res.json(reports);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.get('/reports/client', isAuthenticated, (req, res) => {
+    const user = (req.session as any).user as User;
+    if (user.role !== 'CLIENT') {
+        return res.status(403).json({ message: 'Forbidden' });
+    }
+    try {
+        const reports = db.prepare('SELECT * FROM lab_reports WHERE client_id = ? ORDER BY id DESC').all(user.id) as any[];
+        res.json(reports);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.put('/reports/:id/read', isAuthenticated, (req, res) => {
+    try {
+        db.prepare('UPDATE lab_reports SET is_read = 1 WHERE id = ?').run(req.params.id);
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.delete('/reports/:id', isAdmin, (req, res) => {
+    try {
+        const report = db.prepare('SELECT file_path FROM lab_reports WHERE id = ?').get(req.params.id) as any;
+        if (report) {
+            const absolutePath = path.join(__dirname, '..', '..', 'public', report.file_path);
+            if (fs.existsSync(absolutePath)) {
+                fs.unlinkSync(absolutePath);
+            }
+            db.prepare('DELETE FROM lab_reports WHERE id = ?').run(req.params.id);
+        }
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+// --- ESTIMATE COMPARISON ENDPOINTS ---
+
+router.post('/comparison/upload', isAdmin, excelUpload.single('sheet'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ message: 'No Excel file uploaded.' });
+
+    try {
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.readFile(req.file.path);
+        const worksheet = workbook.worksheets[0];
+
+        if (!worksheet) throw new Error("Excel file is empty");
+
+        const headers: { [key: number]: string } = {};
+        let isFirstRow = true;
+
+        const transaction = db.transaction(() => {
+            db.prepare('DELETE FROM comparison_prices').run();
+            db.prepare('DELETE FROM comparison_tests').run();
+            db.prepare('DELETE FROM comparison_labs').run();
+
+            const insertTest = db.prepare('INSERT INTO comparison_tests (name) VALUES (?)');
+            const insertLab = db.prepare('INSERT INTO comparison_labs (name) VALUES (?)');
+            const insertPrice = db.prepare('INSERT INTO comparison_prices (test_id, lab_id, price) VALUES (?, ?, ?)');
+
+            const labNameToId: { [key: string]: number } = {};
+
+            worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+                if (isFirstRow) {
+                    row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+                        if (colNumber > 1) {
+                            const labName = cell.value?.toString().trim() || `Lab ${colNumber}`;
+                            headers[colNumber] = labName;
+
+                            const result = insertLab.run(labName);
+                            labNameToId[labName] = result.lastInsertRowid as number;
+                        }
+                    });
+                    isFirstRow = false;
+                } else {
+                    const testName = row.getCell(1).value?.toString().trim();
+                    if (!testName) return;
+
+                    const testResult = insertTest.run(testName);
+                    const testId = testResult.lastInsertRowid as number;
+
+                    row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+                        if (colNumber > 1 && headers[colNumber]) {
+                            const priceStr = cell.value?.toString().replace(/[^0-9.]/g, '');
+                            const price = parseFloat(priceStr || '0');
+                            const labId = labNameToId[headers[colNumber]];
+
+                            if (labId && !isNaN(price)) {
+                                insertPrice.run(testId, labId, price);
+                            }
+                        }
+                    });
+                }
+            });
+        });
+
+        transaction();
+        fs.unlinkSync(req.file.path);
+        res.status(201).json({ message: 'Comparison data uploaded successfully' });
+    } catch (e: any) {
+        if (req.file) fs.unlinkSync(req.file.path);
+        res.status(500).json({ message: `Upload failed: ${e.message}` });
+    }
+});
+
+router.get('/comparison/data', isAuthenticated, (req, res) => {
+    try {
+        const tests = db.prepare('SELECT * FROM comparison_tests ORDER BY name ASC').all();
+        const labs = db.prepare('SELECT * FROM comparison_labs ORDER BY id ASC').all();
+        const prices = db.prepare('SELECT * FROM comparison_prices').all();
+
+        res.json({ tests, labs, prices });
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
+});
+
+router.post('/comparison/tests', isAdmin, (req, res) => {
+    const { name, prices } = req.body;
+    if (!name || typeof name !== 'string') return res.status(400).json({ message: "Test name is required" });
+
+    try {
+        const transaction = db.transaction(() => {
+            const insertTest = db.prepare('INSERT INTO comparison_tests (name) VALUES (?)');
+            const testResult = insertTest.run(name);
+            const newTestId = testResult.lastInsertRowid;
+
+            if (prices && Array.isArray(prices)) {
+                const insertPrice = db.prepare('INSERT INTO comparison_prices (test_id, lab_id, price) VALUES (?, ?, ?)');
+                for (const p of prices) {
+                    if (p.lab_id && typeof p.price === 'number') {
+                        insertPrice.run(newTestId, p.lab_id, p.price);
+                    }
+                }
+            }
+            return newTestId;
+        });
+
+        const newId = transaction();
+        res.status(201).json({ id: newId, message: 'Test created successfully' });
+    } catch (e: any) {
+        res.status(e.message.includes("UNIQUE constraint failed") ? 409 : 500).json({ message: e.message.includes("UNIQUE") ? "Test already exists" : e.message });
+    }
+});
+
+router.put('/comparison/tests/:id', isAdmin, (req, res) => {
+    const testId = req.params.id;
+    const { name, prices } = req.body;
+    
+    if (!name || typeof name !== 'string') return res.status(400).json({ message: "Test name is required" });
+
+    try {
+        const transaction = db.transaction(() => {
+            db.prepare('UPDATE comparison_tests SET name = ? WHERE id = ?').run(name, testId);
+
+            if (prices && Array.isArray(prices)) {
+                db.prepare('DELETE FROM comparison_prices WHERE test_id = ?').run(testId);
+                const insertPrice = db.prepare('INSERT INTO comparison_prices (test_id, lab_id, price) VALUES (?, ?, ?)');
+                for (const p of prices) {
+                    if (p.lab_id && typeof p.price === 'number') {
+                        insertPrice.run(testId, p.lab_id, p.price);
+                    }
+                }
+            }
+        });
+        transaction();
+        res.json({ message: 'Test updated successfully' });
+    } catch (e: any) {
+        res.status(e.message.includes("UNIQUE constraint failed") ? 409 : 500).json({ message: e.message.includes("UNIQUE") ? "Test name already exists" : e.message });
+    }
+});
+
+router.delete('/comparison/tests/:id', isAdmin, (req, res) => {
+    try {
+        db.prepare('DELETE FROM comparison_tests WHERE id = ?').run(req.params.id);
+        res.status(204).end();
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
+});
+
+router.post('/comparison/labs', isAdmin, (req, res) => {
+    const { name } = req.body;
+    if (!name || typeof name !== 'string') return res.status(400).json({ message: "Lab name is required" });
+
+    try {
+        const result = db.prepare('INSERT INTO comparison_labs (name) VALUES (?)').run(name.trim());
+        res.status(201).json({ id: result.lastInsertRowid, message: 'Lab created successfully' });
+    } catch (e: any) {
+        res.status(e.message.includes("UNIQUE constraint failed") ? 409 : 500).json({ message: e.message.includes("UNIQUE") ? "Lab already exists" : e.message });
+    }
+});
+
+router.delete('/comparison/labs/:id', isAdmin, (req, res) => {
+    try {
+        db.prepare('DELETE FROM comparison_labs WHERE id = ?').run(req.params.id);
+        res.status(204).end();
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
+});
+
+export default router;
