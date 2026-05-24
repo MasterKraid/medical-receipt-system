@@ -293,6 +293,10 @@ router.get('/receipts/:id', isAuthenticated, (req, res) => {
             if (receipt.created_by_user_id !== user.id && receipt.acting_as_client_id !== user.id) {
                 return res.status(403).json({ message: "Forbidden: You do not have permission to view this receipt." });
             }
+        } else if (user.role === 'GENERAL_EMPLOYEE') {
+            if (receipt.branch_id !== user.branchId) {
+                return res.status(403).json({ message: "Forbidden: You do not have permission to view receipts from other branches." });
+            }
         }
 
         const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(receipt.customer_id) as Customer;
@@ -311,6 +315,10 @@ router.get('/estimates/:id', isAuthenticated, (req, res) => {
         if (user.role === 'CLIENT') {
             if (estimate.created_by_user_id !== user.id) {
                 return res.status(403).json({ message: "Forbidden: You do not have permission to view this estimate." });
+            }
+        } else if (user.role === 'GENERAL_EMPLOYEE') {
+            if (estimate.branch_id !== user.branchId) {
+                return res.status(403).json({ message: "Forbidden: You do not have permission to view estimates from other branches." });
             }
         }
 

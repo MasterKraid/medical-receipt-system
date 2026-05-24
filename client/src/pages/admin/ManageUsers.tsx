@@ -82,7 +82,7 @@ const ManageUsers: React.FC = () => {
             return;
         }
         try {
-            await apiService.createUser({ username, alias, password_hash: password, branchId: parseInt(branchId), role: role as any, assigned_list_ids: Array.from(assignedLists), master_data_entry: masterDataEntry ? 1 : 0 });
+            await apiService.createUser({ username, alias, password: password, branchId: parseInt(branchId), role: role as any, assigned_list_ids: Array.from(assignedLists), master_data_entry: masterDataEntry ? 1 : 0 });
             // Reset form
             setUsername(''); setAlias(''); setPassword(''); setBranchId(''); setRole('GENERAL_EMPLOYEE'); setAssignedLists(new Set()); setMasterDataEntry(false);
             fetchData();

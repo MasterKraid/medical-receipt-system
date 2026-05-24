@@ -82,7 +82,7 @@ const EditUser: React.FC = () => {
         const updatedUserData = { ...user, assigned_list_ids: Array.from(assignedLists) };
 
         if (password) {
-            (updatedUserData as any).password_hash = password;
+            (updatedUserData as any).password = password;
         }
 
         try {

@@ -53,7 +53,6 @@ const PageHeader: React.FC<{ title: string, subtitle?: React.ReactNode, showBack
                                             const client = clients.find(c => c.id.toString() === clientId);
                                             if (client) setActingAsClient(client);
                                         }
-                                        setTimeout(() => window.location.reload(), 100);
                                     }}
                                     placeholder="Search client..."
                                 />
@@ -62,7 +61,6 @@ const PageHeader: React.FC<{ title: string, subtitle?: React.ReactNode, showBack
                                 <button
                                     onClick={() => {
                                         setActingAsClient(null);
-                                        setTimeout(() => window.location.reload(), 100);
                                     }}
                                     className="flex items-center justify-center w-6 h-6 rounded-full bg-rose-100 text-rose-600 hover:bg-rose-200 hover:text-rose-700 transition-colors shrink-0"
                                     title="Exit Acting As"

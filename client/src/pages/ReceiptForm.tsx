@@ -104,7 +104,7 @@ const ReceiptForm: React.FC = () => {
                 }
             });
         }
-    }, [selectedLabId, user]);
+    }, [selectedLabId, user, actingAsClient]);
 
     useEffect(() => {
         setPackages([]);
