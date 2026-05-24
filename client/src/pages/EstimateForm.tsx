@@ -78,7 +78,7 @@ const EstimateForm: React.FC = () => {
             gender
         });
 
-        const isLocked = ['Mr.', 'Master.', 'B/O', 'S/O', 'Mrs.', 'Miss.', 'Ms.'].includes(prefix);
+        const isLocked = ['Mr.', 'Master.', 'B/O', 'S/O', 'Mrs.', 'Miss.', 'Ms.', 'Baby.'].includes(prefix);
         setIsGenderDisabled(isLocked);
 
         setCustomerSearch('');
@@ -107,6 +107,7 @@ const EstimateForm: React.FC = () => {
             case 'Mrs.':
             case 'Miss.':
             case 'Ms.':
+            case 'Baby.':
                 customerData.gender = 'Female';
                 isGenderLocked = true;
                 break;
@@ -173,6 +174,8 @@ const EstimateForm: React.FC = () => {
         } else if (name === 'prefix') {
             handlePrefixChange(value);
             return;
+        } else if (name === 'name') {
+            customerData.name = value.toUpperCase();
         } else {
             customerData = { ...customerData, [name]: value };
         }

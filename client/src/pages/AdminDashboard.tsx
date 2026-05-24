@@ -18,8 +18,9 @@ const AdminDashboard: React.FC = () => {
                                 <div className="flex flex-col items-center md:items-end bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm text-gray-600 w-full md:w-auto md:min-w-[200px]">
                                     <div className="font-semibold text-gray-800 mb-1 text-base">
                                         <i className="fa-solid fa-user-shield mr-2"></i>
-                                        {user.username}
+                                        {user.alias || user.username}
                                     </div>
+                                    <div className="text-xs text-slate-400 font-mono mb-1">UID: #{user.id.toString().padStart(4, '0')}</div>
                                     {branch && (
                                         <div className="mb-2"><i className="fa-solid fa-building mr-2"></i>{branch.name}</div>
                                     )}

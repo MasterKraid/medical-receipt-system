@@ -8,7 +8,7 @@ const ReceiptReport: React.FC = () => {
     const [clients, setClients] = useState<User[]>([]);
     const [receipts, setReceipts] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
-    
+
     // Filter states
     const [selectedClientId, setSelectedClientId] = useState<string>('');
     const [startDate, setStartDate] = useState<string>('');
@@ -38,7 +38,7 @@ const ReceiptReport: React.FC = () => {
         return receipts.filter(r => {
             if (selectedClientId) {
                 const clientIdNum = parseInt(selectedClientId, 10);
-                const matchesClient = r.acting_as_client_id === clientIdNum || 
+                const matchesClient = r.acting_as_client_id === clientIdNum ||
                     (!r.acting_as_client_id && r.created_by_user_id === clientIdNum);
                 if (!matchesClient) return false;
             }
@@ -48,7 +48,7 @@ const ReceiptReport: React.FC = () => {
                 if (parts[0]) {
                     const [day, month, year] = parts[0].split('/').map(Number);
                     const rDate = new Date(year, month - 1, day);
-                    
+
                     if (startDate) {
                         const start = new Date(startDate);
                         start.setHours(0, 0, 0, 0);
@@ -73,7 +73,7 @@ const ReceiptReport: React.FC = () => {
             const amt = parseFloat(r.display_amount.replace('₹', '').replace(/,/g, '')) || 0;
             groups[dateStr] = (groups[dateStr] || 0) + amt;
         });
-        
+
         return Object.entries(groups)
             .map(([date, amount]) => {
                 const [d, m, y] = date.split('/').map(Number);
@@ -87,7 +87,7 @@ const ReceiptReport: React.FC = () => {
         filteredReceipts.forEach(r => {
             const client = r.created_by_user || 'Direct Entry';
             const amt = parseFloat(r.display_amount.replace('₹', '').replace(/,/g, '')) || 0;
-            
+
             // Clean up the client name string
             const cleanName = client.split(' [M.ENTRY')[0];
             groups[cleanName] = (groups[cleanName] || 0) + amt;
@@ -136,28 +136,28 @@ const ReceiptReport: React.FC = () => {
                 </div>
             );
         }
-        
+
         const width = 600;
-        const height = 200;
+        const height = 325;
         const paddingLeft = 40;
         const paddingRight = 20;
         const paddingTop = 20;
         const paddingBottom = 30;
-        
+
         const minAmt = 0;
         const maxAmt = Math.max(...revenueByDate.map(d => d.amount), 1000) * 1.1; // 10% ceiling room
-        
+
         const points = revenueByDate.map((d, i) => {
             const x = paddingLeft + (i / (revenueByDate.length - 1 || 1)) * (width - paddingLeft - paddingRight);
             const y = height - paddingBottom - ((d.amount - minAmt) / (maxAmt - minAmt)) * (height - paddingTop - paddingBottom);
             return { x, y, ...d };
         });
-        
+
         let pathD = "";
         if (points.length > 0) {
             pathD = `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ');
         }
-        
+
         let areaD = "";
         if (points.length > 0) {
             areaD = `${pathD} L ${points[points.length - 1].x} ${height - paddingBottom} L ${points[0].x} ${height - paddingBottom} Z`;
@@ -168,11 +168,22 @@ const ReceiptReport: React.FC = () => {
                 <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible select-none">
                     <defs>
                         <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.25"/>
-                            <stop offset="100%" stopColor="#6366f1" stopOpacity="0.0"/>
+                            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.25" />
+                            <stop offset="100%" stopColor="#6366f1" stopOpacity="0.0" />
                         </linearGradient>
                     </defs>
-                    
+
+                    <style>{`
+                        .chart-point {
+                            transition: r 0.15s ease-in-out, stroke-width 0.15s ease-in-out, fill 0.15s ease-in-out;
+                        }
+                        .chart-point:hover {
+                            r: 6.5px;
+                            stroke-width: 3.5px;
+                            fill: #e0e7ff;
+                        }
+                    `}</style>
+
                     {/* Horizontal grid lines */}
                     {[0, 0.25, 0.5, 0.75, 1].map((ratio, index) => {
                         const y = paddingTop + ratio * (height - paddingTop - paddingBottom);
@@ -186,33 +197,31 @@ const ReceiptReport: React.FC = () => {
                             </g>
                         );
                     })}
-                    
+
                     {/* Area under curve */}
                     {areaD && <path d={areaD} fill="url(#areaGradient)" className="transition-all duration-500 ease-in-out" />}
-                    
+
                     {/* Line path */}
                     {pathD && <path d={pathD} fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-all duration-500 ease-in-out" />}
-                    
+
                     {/* Data dots */}
                     {points.map((p, i) => (
                         <g key={i} className="group cursor-pointer">
-                            <circle cx={p.x} cy={p.y} r="4" fill="#ffffff" stroke="#4f46e5" strokeWidth="2.5" className="transition-all duration-200 group-hover:scale-125" />
+                            <circle cx={p.x} cy={p.y} r="4" fill="#ffffff" stroke="#4f46e5" strokeWidth="2.5" className="chart-point" />
                             <title>{`${p.date}: ₹${p.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}</title>
                         </g>
                     ))}
-                    
+
                     {/* X Axis Labels */}
-                    <text x={paddingLeft} y={height - 8} fill="#94a3b8" fontSize="8" fontWeight="black" textAnchor="middle">
-                        {revenueByDate[0]?.date.split('/').slice(0, 2).join('/')}
-                    </text>
-                    {revenueByDate.length > 2 && (
-                        <text x={paddingLeft + (width - paddingLeft - paddingRight) / 2} y={height - 8} fill="#94a3b8" fontSize="8" fontWeight="black" textAnchor="middle">
-                            {revenueByDate[Math.floor(revenueByDate.length / 2)]?.date.split('/').slice(0, 2).join('/')}
-                        </text>
-                    )}
-                    <text x={width - paddingRight} y={height - 8} fill="#94a3b8" fontSize="8" fontWeight="black" textAnchor="middle">
-                        {revenueByDate[revenueByDate.length - 1]?.date.split('/').slice(0, 2).join('/')}
-                    </text>
+                    {points.map((p, i) => {
+                        const step = Math.max(1, Math.ceil(points.length / 6));
+                        if (i % step !== 0 && i !== points.length - 1) return null;
+                        return (
+                            <text key={i} x={p.x} y={height - 8} fill="#94a3b8" fontSize="8" fontWeight="black" textAnchor="middle">
+                                {p.date.split('/').slice(0, 2).join('/')}
+                            </text>
+                        );
+                    })}
                 </svg>
             </div>
         );
@@ -242,7 +251,7 @@ const ReceiptReport: React.FC = () => {
                                 <span className="text-indigo-600 font-black">₹{item.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                             </div>
                             <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                                <div 
+                                <div
                                     className="bg-indigo-600 h-full rounded-full transition-all duration-700 ease-out"
                                     style={{ width: `${pct}%` }}
                                 ></div>
@@ -275,23 +284,23 @@ const ReceiptReport: React.FC = () => {
                     <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
                         {/* Background ring */}
                         <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f1f5f9" strokeWidth="3" />
-                        
+
                         {ticketSizeBuckets.map((bucket, idx) => {
                             const pct = (bucket.count / totalTickets) * 100;
                             if (pct === 0) return null;
                             const strokeDasharray = `${pct} ${100 - pct}`;
                             const strokeDashoffset = 100 - accumulatedPercent;
                             accumulatedPercent += pct;
-                            
+
                             return (
-                                <circle 
+                                <circle
                                     key={idx}
-                                    cx="18" 
-                                    cy="18" 
-                                    r="15.915" 
-                                    fill="none" 
-                                    stroke={colors[idx % colors.length]} 
-                                    strokeWidth="3.2" 
+                                    cx="18"
+                                    cy="18"
+                                    r="15.915"
+                                    fill="none"
+                                    stroke={colors[idx % colors.length]}
+                                    strokeWidth="3.2"
                                     strokeDasharray={strokeDasharray}
                                     strokeDashoffset={strokeDashoffset}
                                     className="transition-all duration-500 ease-in-out"
@@ -304,7 +313,7 @@ const ReceiptReport: React.FC = () => {
                         <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Sales</span>
                     </div>
                 </div>
-                
+
                 <div className="flex-1 space-y-2 w-full">
                     {ticketSizeBuckets.map((bucket, idx) => {
                         const pct = totalTickets > 0 ? (bucket.count / totalTickets) * 100 : 0;
@@ -327,21 +336,21 @@ const ReceiptReport: React.FC = () => {
 
     return (
         <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
-            
+
             {/* Header Banner */}
             <div className="bg-slate-900 rounded-3xl p-4 sm:p-5 text-white relative overflow-hidden shadow-lg border border-slate-800 flex flex-row justify-between items-center gap-4">
                 <div className="absolute -right-24 -bottom-24 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl"></div>
                 <div className="absolute -left-16 -top-16 w-48 h-48 bg-emerald-500/5 rounded-full blur-2xl"></div>
-                
+
                 <div className="relative z-10">
                     <h1 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2.5">
                         <i className="fa-solid fa-chart-pie text-indigo-400"></i>
                         Business Intelligence
                     </h1>
                 </div>
-                
-                <Link 
-                    to="/admin-dashboard" 
+
+                <Link
+                    to="/admin-dashboard"
                     className="relative z-10 px-4 py-2 bg-slate-800 hover:bg-slate-700/80 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 border border-slate-700 whitespace-nowrap"
                 >
                     <i className="fa-solid fa-arrow-left"></i>
@@ -356,7 +365,7 @@ const ReceiptReport: React.FC = () => {
                     <h3 className="text-xs font-bold text-slate-800 uppercase tracking-widest">Filter & Refine Matrix</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    
+
                     {/* B2B Client Selector */}
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">B2B Client / Operator</label>
@@ -406,7 +415,7 @@ const ReceiptReport: React.FC = () => {
                 <>
                     {/* Highlight Metrics Cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        
+
                         <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-md flex justify-between items-center group hover:border-indigo-100 transition-all">
                             <div className="space-y-1.5">
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Transacted</span>
@@ -435,7 +444,7 @@ const ReceiptReport: React.FC = () => {
 
                         <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-md flex justify-between items-center group hover:border-purple-100 transition-all">
                             <div className="space-y-1.5">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mean Ticket Value</span>
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mean Transaction Value</span>
                                 <div className="flex items-baseline">
                                     <span className="text-2xl font-black text-slate-800">₹{averageAmount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
                                     <span className="text-xs font-bold text-slate-400 uppercase ml-1">mean</span>
@@ -450,7 +459,7 @@ const ReceiptReport: React.FC = () => {
 
                     {/* Custom SVG Charts Panel */}
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        
+
                         {/* Line Chart Card */}
                         <div className="lg:col-span-8 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-md space-y-4">
                             <div className="flex justify-between items-center">
@@ -467,7 +476,7 @@ const ReceiptReport: React.FC = () => {
 
                         {/* Side breakdown Charts */}
                         <div className="lg:col-span-4 grid grid-cols-1 gap-6">
-                            
+
                             {/* Bar Chart / Share Card */}
                             <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-md space-y-4">
                                 <div className="flex items-center gap-2">

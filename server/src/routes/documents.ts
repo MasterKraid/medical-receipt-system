@@ -13,7 +13,7 @@ const handleCustomerData = (customer_data: any, user_id: number): number => {
         if (existing) {
             const merged = {
                 prefix: customer_data.prefix !== undefined && customer_data.prefix !== '' ? customer_data.prefix : existing.prefix,
-                name: customer_data.name !== undefined && customer_data.name !== '' ? customer_data.name : existing.name,
+                name: customer_data.name !== undefined && customer_data.name !== '' ? customer_data.name.trim().toUpperCase() : existing.name,
                 mobile: customer_data.mobile !== undefined && customer_data.mobile !== '' ? customer_data.mobile : existing.mobile,
                 email: customer_data.email !== undefined && customer_data.email !== '' ? customer_data.email : existing.email,
                 dob: customer_data.dob !== undefined && customer_data.dob !== '' ? customer_data.dob : existing.dob,
@@ -47,7 +47,7 @@ const handleCustomerData = (customer_data: any, user_id: number): number => {
     const result = db.prepare(`INSERT INTO customers (prefix, name, mobile, email, dob, age, age_years, age_months, age_days, gender, created_at, updated_at, created_by_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
         .run(
             customer_data.prefix, 
-            customer_data.name, 
+            customer_data.name ? customer_data.name.trim().toUpperCase() : '', 
             customer_data.mobile, 
             customer_data.email, 
             customer_data.dob, 

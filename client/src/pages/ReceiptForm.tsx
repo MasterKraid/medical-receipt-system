@@ -201,7 +201,7 @@ const ReceiptForm: React.FC = () => {
             gender
         });
 
-        const isLocked = ['Mr.', 'Master.', 'B/O', 'S/O', 'Mrs.', 'Miss.', 'Ms.'].includes(prefix);
+        const isLocked = ['Mr.', 'Master.', 'B/O', 'S/O', 'Mrs.', 'Miss.', 'Ms.', 'Baby.'].includes(prefix);
         setIsGenderDisabled(isLocked);
 
         setCustomerSearch('');
@@ -230,6 +230,7 @@ const ReceiptForm: React.FC = () => {
             case 'Mrs.':
             case 'Miss.':
             case 'Ms.':
+            case 'Baby.':
                 customerData.gender = 'Female';
                 isGenderLocked = true;
                 break;
@@ -297,6 +298,8 @@ const ReceiptForm: React.FC = () => {
         } else if (name === 'prefix') {
             handlePrefixChange(value);
             return;
+        } else if (name === 'name') {
+            customerData.name = value.toUpperCase();
         } else {
             customerData = { ...customerData, [name]: value };
         }
@@ -979,7 +982,7 @@ const ReceiptForm: React.FC = () => {
                                     Back
                                 </button>
                             ) : (
-                                <Link to={user?.role === 'ADMIN' ? '/admin-dashboard' : '/dashboard'} className="py-4 bg-white border border-slate-200 text-slate-400 font-bold rounded-2xl text-center text-xs uppercase tracking-widest">
+                                <Link to={user?.role === 'ADMIN' ? '/admin-dashboard' : '/dashboard'} className="py-4 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800 hover:border-slate-300 transition-all font-bold rounded-2xl text-center text-xs uppercase tracking-widest flex items-center justify-center">
                                     Exit
                                 </Link>
                             )}

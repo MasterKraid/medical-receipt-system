@@ -388,7 +388,7 @@ router.put('/customers/:id', isAdmin, (req, res) => {
     const { prefix, name, mobile, email, dob, age, age_years, age_months, age_days, gender } = req.body;
     try {
         db.prepare('UPDATE customers SET prefix=?, name=?, mobile=?, email=?, dob=?, age=?, age_years=?, age_months=?, age_days=?, gender=?, updated_at=? WHERE id=?')
-            .run(prefix, name, mobile, email, dob, age, age_years, age_months, age_days, gender, getISTDateTimeString(), req.params.id);
+            .run(prefix, name ? name.trim().toUpperCase() : '', mobile, email, dob, age, age_years, age_months, age_days, gender, getISTDateTimeString(), req.params.id);
         res.status(204).send();
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });

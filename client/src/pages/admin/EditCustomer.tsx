@@ -45,6 +45,7 @@ const EditCustomer: React.FC = () => {
                 case 'Mrs.':
                 case 'Miss.':
                 case 'Ms.':
+                case 'Baby.':
                     newGender = 'Female';
                     isLocked = true;
                     break;
@@ -61,7 +62,10 @@ const EditCustomer: React.FC = () => {
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        if (customer) setCustomer({ ...customer, [name]: value });
+        if (customer) {
+            const val = name === 'name' ? value.toUpperCase() : value;
+            setCustomer({ ...customer, [name]: val });
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
