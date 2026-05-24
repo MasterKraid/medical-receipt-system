@@ -48,9 +48,13 @@ const SearchableDropdown = forwardRef<SearchableDropdownHandle, SearchableDropdo
 
         const filteredOptions = options
             .filter(option => option.label && option.label.trim() !== '')
-            .filter(option =>
-                option.label.toLowerCase().includes(searchTerm.toLowerCase())
-            );
+            .filter(option => {
+                const currentLabel = getLabelFromValue(value);
+                if (searchTerm === currentLabel || searchTerm === '') {
+                    return true;
+                }
+                return option.label.toLowerCase().includes(searchTerm.toLowerCase());
+            });
 
         useEffect(() => {
             setHighlightedIndex(-1);
@@ -117,16 +121,19 @@ const SearchableDropdown = forwardRef<SearchableDropdownHandle, SearchableDropdo
                     onChange={e => {
                         const newVal = e.target.value;
                         setSearchTerm(newVal);
-                        if (newVal.trim().length > 0) {
-                            setIsOpen(true);
-                        } else {
-                            setIsOpen(false);
-                        }
+                        setIsOpen(true);
+                    }}
+                    onFocus={e => {
+                        e.target.select();
+                        setIsOpen(true);
+                    }}
+                    onClick={() => {
+                        setIsOpen(true);
                     }}
                     onKeyDown={handleKeyDown}
                     placeholder={placeholder}
                     disabled={disabled}
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border rounded bg-white cursor-pointer"
                 />
                 {isOpen && filteredOptions.length > 0 && (
                     <ul ref={listRef} className="absolute z-10 w-full bg-white border mt-1 rounded shadow-lg max-h-60 overflow-y-auto">

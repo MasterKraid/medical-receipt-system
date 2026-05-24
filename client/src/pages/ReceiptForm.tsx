@@ -45,6 +45,7 @@ const ReceiptForm: React.FC = () => {
     const [newCustomer, setNewCustomer] = useState({ prefix: 'Mr.', name: '', mobile: '', email: '', dob: '', age: '', age_years: '', age_months: '', age_days: '', gender: 'Male' as 'Male' | 'Female' });
     const [isGenderDisabled, setIsGenderDisabled] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showB2BDetails, setShowB2BDetails] = useState(true);
 
     const [items, setItems] = useState<ItemRow[]>([{ id: Date.now(), name: '', mrp: 0, b2b_price: 0, discount: 0, isFromDb: false }]);
 
@@ -382,7 +383,7 @@ const ReceiptForm: React.FC = () => {
         }
 
         // Robust guard for mobile flow submission
-        if (isMobileView && step < 4) {
+        if (isMobileView && step < (isClientMode ? 3 : 4)) {
             nextStep();
             return;
         }
@@ -433,10 +434,11 @@ const ReceiptForm: React.FC = () => {
                 discount: isNaN(rest.discount) ? 0 : rest.discount
             })),
             ...details,
-            amount_received: details.amount_received.trim() === '' ? calculations.netPayable.toString() : details.amount_received,
+            payment_method: isClientMode ? 'B2B Wallet Deduction' : details.payment_method,
+            amount_received: isClientMode ? calculations.totalB2B.toString() : (details.amount_received.trim() === '' ? calculations.netPayable.toString() : details.amount_received),
             referred_by: details.referred_by || 'Self',
-            amount_final: calculations.netPayable,
-            amount_due: calculations.amountDue,
+            amount_final: isClientMode ? calculations.totalB2B : calculations.netPayable,
+            amount_due: isClientMode ? 0 : calculations.amountDue,
             total_mrp: calculations.totalMrp,
         };
 
@@ -704,11 +706,27 @@ const ReceiptForm: React.FC = () => {
             </div>
 
             <fieldset className="border-2 border-slate-200 p-4 rounded-xl space-y-4 order-2">
-                <legend className="px-2 font-bold text-lg text-slate-700">Select Tests</legend>
+                <legend className="px-2 font-bold text-lg text-slate-700 flex justify-between items-center w-full">
+                    <span>Select Tests</span>
+                    {isClientMode && (
+                        <button
+                            type="button"
+                            onClick={() => setShowB2BDetails(!showB2BDetails)}
+                            className={`px-3 py-1 text-xs font-bold rounded-lg border transition-all ${
+                                showB2BDetails 
+                                    ? 'bg-green-50 text-green-700 border-green-200' 
+                                    : 'bg-slate-50 text-slate-500 border-slate-200'
+                            }`}
+                        >
+                            <i className={`fa-solid ${showB2BDetails ? 'fa-eye' : 'fa-eye-slash'} mr-1.5`}></i>
+                            B2B Prices: {showB2BDetails ? 'SHOWING' : 'HIDDEN'}
+                        </button>
+                    )}
+                </legend>
 
                 <div className="hidden md:grid md:grid-cols-12 gap-2 text-xs font-black text-slate-400 uppercase tracking-tighter mb-2 px-1">
-                    <div className={`${isClientMode ? 'col-span-5' : 'col-span-7'}`}>Test Name/Package</div>
-                    {isClientMode && <div className="col-span-2 text-right">B2B Cost</div>}
+                    <div className={`${(isClientMode && showB2BDetails) ? 'col-span-5' : 'col-span-7'}`}>Test Name/Package</div>
+                    {isClientMode && showB2BDetails && <div className="col-span-2 text-right">B2B Cost</div>}
                     <div className="col-span-2 text-right">MRP (₹)</div>
                     <div className="col-span-1 text-right">Disc %</div>
                     <div className="col-span-1 text-right px-1">Disc ₹</div>
@@ -723,11 +741,11 @@ const ReceiptForm: React.FC = () => {
                             .map(p => ({ value: p.name, label: p.name }));
                         return (
                             <div key={item.id} className="grid grid-cols-12 gap-2 items-end border-b pb-4 last:border-0 hover:bg-slate-50 transition-colors">
-                                <div className={`${isClientMode ? 'col-span-12 md:col-span-5' : 'col-span-12 md:col-span-7'}`}>
+                                <div className={`${(isClientMode && showB2BDetails) ? 'col-span-12 md:col-span-5' : 'col-span-12 md:col-span-7'}`}>
                                     <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">Test Name</label>
                                     <SearchableDropdown ref={el => itemRefs.current[item.id] = el} options={dropdownOptions} value={item.name} onChange={name => handlePackageSelect(item.id, name)} onKeyDown={e => handleTestKeyDown(e, item.id)} placeholder="Choose Tests..." disabled={!selectedListId} />
                                 </div>
-                                {isClientMode && (
+                                {isClientMode && showB2BDetails && (
                                     <div className="col-span-3 md:col-span-2 text-right">
                                         <label className="md:hidden text-[10px] font-bold text-slate-400 uppercase mb-1 block">B2B</label>
                                         <div className="p-2.5 bg-green-50 text-green-700 rounded-xl font-bold text-xs border border-green-100">₹{item.b2b_price.toFixed(0)}</div>
@@ -926,7 +944,7 @@ const ReceiptForm: React.FC = () => {
                         {renderCustomerStep()}
                         {renderReceiptDetailsStep()}
                         {renderPackagesStep()}
-                        {renderPaymentStep()}
+                        {!isClientMode && renderPaymentStep()}
 
                         <div className="pt-6 border-t border-slate-100">
                             <button type="submit" className="w-full py-5 bg-blue-600 text-white font-black text-lg rounded-2xl hover:bg-blue-700 shadow-2xl shadow-blue-100 transform active:scale-[0.98] transition-all uppercase tracking-widest">
@@ -941,7 +959,7 @@ const ReceiptForm: React.FC = () => {
                                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xs">
                                     <i className="fa-solid fa-list-check"></i>
                                 </div>
-                                <h2 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Step {step} of 4</h2>
+                                <h2 className="font-bold text-slate-800 text-sm uppercase tracking-wide">Step {step} of {isClientMode ? 3 : 4}</h2>
                             </div>
                             <button type="button" onClick={handleDiscard} className="text-slate-400 hover:text-red-500 transition-colors">
                                 <i className="fa-solid fa-circle-xmark text-xl"></i>
@@ -952,7 +970,7 @@ const ReceiptForm: React.FC = () => {
                             {step === 1 && renderCustomerStep()}
                             {step === 2 && renderReceiptDetailsStep()}
                             {step === 3 && renderPackagesStep()}
-                            {step === 4 && renderPaymentStep()}
+                            {step === 4 && !isClientMode && renderPaymentStep()}
                         </div>
 
                         <footer className="p-6 bg-slate-50 rounded-b-3xl border-t border-slate-100 grid grid-cols-2 gap-4">
@@ -966,7 +984,7 @@ const ReceiptForm: React.FC = () => {
                                 </Link>
                             )}
 
-                            {step < 4 ? (
+                            {step < (isClientMode ? 3 : 4) ? (
                                 <button
                                     key="next-btn"
                                     type="button"

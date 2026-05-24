@@ -61,10 +61,15 @@ const ManageWallets: React.FC = () => {
     };
 
     const openHistoryModal = async (client: User) => {
-        setHistoryClient(client);
         setIsHistoryModalOpen(true);
         setIsLoadingHistory(true);
         try {
+            // First fetch latest client wallets to get the fresh balance
+            const freshClients = await apiService.getClientWallets(searchTerm);
+            setClients(freshClients);
+            const freshClient = freshClients.find(c => c.id === client.id) || client;
+            setHistoryClient(freshClient);
+
             const data = await apiService.getTransactionsByUser(client.id);
             setHistoryTransactions(data);
         } catch (error) {
@@ -78,7 +83,6 @@ const ManageWallets: React.FC = () => {
         try {
             await apiService.revertTransaction(txId);
             if (historyClient) openHistoryModal(historyClient);
-            fetchClients(searchTerm);
         } catch (error) {
             alert(`Error reverting: ${error}`);
         }
@@ -88,7 +92,6 @@ const ManageWallets: React.FC = () => {
         try {
             await apiService.deleteTransactionRecord(txId);
             if (historyClient) openHistoryModal(historyClient);
-            fetchClients(searchTerm);
         } catch (error) {
             alert(`Error deleting: ${error}`);
         }

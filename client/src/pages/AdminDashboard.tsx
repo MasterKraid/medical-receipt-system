@@ -2,6 +2,7 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import DashboardLink from '../components/DashboardLink';
+import PageHeader from '../components/PageHeader';
 import { ReceiptIcon, EstimateIcon, ViewIcon, CustomersIcon, LabsIcon, PackageListIcon, BranchesIcon, UsersIcon, WalletIcon, LogoutIcon } from '../components/icons';
 
 const AdminDashboard: React.FC = () => {
@@ -11,26 +12,27 @@ const AdminDashboard: React.FC = () => {
         <div className="relative min-h-screen bg-slate-50">
             <div className="max-w-4xl mx-auto py-10 px-4 relative z-10">
                 <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100">
-                    <header className="border-b border-gray-200 pb-6 mb-8">
-                        <div className="flex flex-col md:flex-row justify-between items-center md:items-start gap-4 text-center md:text-left">
-                            <h1 className="m-0 text-2xl md:text-3xl font-bold text-gray-800">Admin Dashboard</h1>
-                            {user && (
-                                <div className="flex flex-col items-center md:items-end bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm text-gray-600 w-full md:w-auto md:min-w-[200px]">
-                                    <div className="font-semibold text-gray-800 mb-1 text-base">
-                                        <i className="fa-solid fa-user-shield mr-2"></i>
+                    <PageHeader
+                        title="Admin Dashboard"
+                        showBackLink={false}
+                        subtitle={
+                            user && (
+                                <div className="flex flex-col items-start bg-gray-50 p-3 rounded-lg border border-gray-200 text-xs text-gray-600 min-w-[200px] mt-2">
+                                    <div className="font-semibold text-gray-800 mb-1 text-sm flex items-center gap-1.5">
+                                        <i className="fa-solid fa-user-shield text-indigo-500"></i>
                                         {user.username}
                                     </div>
                                     {branch && (
-                                        <div className="mb-2"><i className="fa-solid fa-building mr-2"></i>{branch.name}</div>
+                                        <div className="mb-1.5 flex items-center gap-1.5"><i className="fa-solid fa-building text-slate-400"></i>{branch.name}</div>
                                     )}
-                                    <div className="font-semibold text-xs bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full whitespace-nowrap">
-                                        <i className="fa-solid fa-crown mr-2"></i>
+                                    <div className="font-semibold text-[10px] bg-yellow-100 text-yellow-800 px-2.5 py-0.5 rounded-full whitespace-nowrap flex items-center gap-1.5 font-bold uppercase tracking-wider">
+                                        <i className="fa-solid fa-crown"></i>
                                         Administrator
                                     </div>
                                 </div>
-                            )}
-                        </div>
-                    </header>
+                            )
+                        }
+                    />
 
                     <nav className="relative">
                         <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl">

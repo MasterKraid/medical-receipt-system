@@ -103,128 +103,175 @@ const ReceiptView: React.FC = () => {
             @media print {
                 body { background: white !important; }
                 .no-print { display: none !important; }
-                .print-container { box-shadow: none !important; margin: 0 !important; padding: 10mm !important; }
+                .print-container { 
+                    box-shadow: none !important; 
+                    margin: 0 !important; 
+                    padding: 10mm !important; 
+                    width: 100% !important;
+                    max-width: 100% !important;
+                }
             }
             .print-container {
-                width: 210mm;
+                width: 100%;
+                max-width: 800px;
                 margin: 20px auto;
-                padding: 15mm;
+                padding: 20px;
                 background: white;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+                border-radius: 16px;
+                border: 1px border-gray-150;
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                 font-size: 10pt;
+            }
+            @media (min-width: 768px) {
+                .print-container {
+                    padding: 15mm;
+                }
             }
         `}</style>
             <div id="print-container" className="print-container">
                 {/* Header */}
                 <header className="text-center mb-4 pb-2 border-b">
                     <img src="/company-logo.png" alt="Company Logo" className="mx-auto h-16 mb-2" />
-                    <p className="text-xs text-gray-600">Dedicated To Care, Committed To Service</p>
+                    <p className="text-xs text-gray-600 font-medium">Dedicated To Care, Committed To Service</p>
                     {/* <div className="text-2xl font-bold text-gray-800">TREAT & CURE</div> */}
-                    <div className="text-xl font-bold uppercase tracking-wider mt-2">Money Receipt</div>
+                    <div className="text-xl font-bold uppercase tracking-wider mt-2 text-slate-800">Money Receipt</div>
                 </header>
 
                 {/* Meta Info */}
-                <div className="flex justify-between items-start mb-4 pb-2 border-b text-sm">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 pb-3 border-b text-sm text-slate-600">
                     <div>
-                        <h3 className="font-bold text-base">{branch.name}</h3>
-                        <p>Ph: {branch.phone}</p>
-                        <p className="whitespace-pre-line">{branch.address}</p>
+                        <h3 className="font-bold text-base text-slate-800">{branch.name}</h3>
+                        <p className="text-xs">Ph: {branch.phone}</p>
+                        <p className="text-xs whitespace-pre-line">{branch.address}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-left sm:text-right text-xs">
                         <p><strong>DATE & TIME:</strong> {formattedData.displayReceiptDate}</p>
-                        <p><strong>Receipt ID:</strong> RCPT-{String(receipt.id).padStart(6, '0')}</p>
+                        <p className="mt-1"><strong>Receipt ID:</strong> RCPT-{String(receipt.id).padStart(6, '0')}</p>
                     </div>
                 </div>
 
                 {/* Customer Details */}
-                <div className="grid grid-cols-2 gap-x-6 gap-y-1 mb-4 pb-2 border-b text-sm">
-                    <div><strong>CUSTOMER ID:</strong> CUST-{String(customer.id).padStart(10, '0')}</div>
-                    <div><strong>MOBILE NO:</strong> {customer.mobile || 'N/A'}</div>
-                    <div><strong>NAME:</strong> {customer.prefix || ''} {customer.name}</div>
-                    <div><strong>AGE/DOB:</strong> {customer.dob ? new Date(customer.dob).toLocaleDateString('en-GB') : (customer.age ? `${customer.age} yrs` : 'N/A')}</div>
-                    <div><strong>GENDER:</strong> {customer.gender || 'N/A'}</div>
-                    <div><strong>REFERRED BY DR.:</strong> {receipt.referred_by || 'N/A'}</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 mb-4 pb-3 border-b text-sm text-slate-600">
+                    <div><span className="font-bold text-slate-400 text-xs block uppercase">Customer ID</span> CUST-{String(customer.id).padStart(10, '0')}</div>
+                    <div><span className="font-bold text-slate-400 text-xs block uppercase">Mobile No</span> {customer.mobile || 'N/A'}</div>
+                    <div><span className="font-bold text-slate-400 text-xs block uppercase">Patient Name</span> <span className="font-bold text-slate-800">{customer.prefix || ''} {customer.name}</span></div>
+                    <div><span className="font-bold text-slate-400 text-xs block uppercase">Age / DOB</span> {customer.dob ? new Date(customer.dob).toLocaleDateString('en-GB') : (customer.age ? `${customer.age} yrs` : 'N/A')}</div>
+                    <div><span className="font-bold text-slate-400 text-xs block uppercase">Gender</span> {customer.gender || 'N/A'}</div>
+                    <div><span className="font-bold text-slate-400 text-xs block uppercase">Referred By Dr.</span> {receipt.referred_by || 'N/A'}</div>
                 </div>
 
                 {/* Items Table */}
-                <table className="w-full border-collapse border border-gray-300 mb-0 text-sm">
-                    <thead className="bg-gray-100">
-                        <tr>
-                            <th className="border p-2 text-left w-3/5">TEST / PACKAGE NAME</th>
-                            <th className="border p-2 text-right">ITEM DISC %</th>
-                            <th className="border p-2 text-right">MRP (₹)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {items.map((item, i) => (
-                            <tr key={i}>
-                                <td className="border p-2">{item.package_name}</td>
-                                <td className="border p-2 text-right">{item.discountPercentageFormatted}%</td>
-                                <td className="border p-2 text-right">{item.mrpFormatted}</td>
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse border border-gray-200 mb-0 text-sm">
+                        <thead className="bg-slate-50">
+                            <tr>
+                                <th className="border border-gray-200 p-2 text-left w-3/5 text-slate-600 font-bold uppercase text-[10px] tracking-wider">TEST / PACKAGE NAME</th>
+                                <th className="border border-gray-200 p-2 text-right text-slate-600 font-bold uppercase text-[10px] tracking-wider">ITEM DISC %</th>
+                                <th className="border border-gray-200 p-2 text-right text-slate-600 font-bold uppercase text-[10px] tracking-wider">MRP (₹)</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {items.map((item, i) => (
+                                <tr key={i} className="hover:bg-slate-50/50">
+                                    <td className="border border-gray-200 p-2 text-slate-700 font-medium">{item.package_name}</td>
+                                    <td className="border border-gray-200 p-2 text-right text-slate-500">{item.discountPercentageFormatted}%</td>
+                                    <td className="border border-gray-200 p-2 text-right text-slate-800 font-medium">{item.mrpFormatted}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
 
                 {/* Totals Table */}
-                <table className="w-full border-collapse border border-gray-300 -mt-px text-sm">
-                    <tbody>
-                        <tr>
-                            <td className="border p-2 w-2/5 align-top">
-                                NO OF TESTS: {receipt.num_tests || items.length}<br />
-                                Payment: {receipt.payment_method || 'N/A'}
-                            </td>
-                            <td className="border p-2 w-1/5 text-center align-middle">
-                                {receipt.logo_path && <img src={receipt.logo_path} alt="Lab Logo" className="max-h-16 max-w-24 inline-block" />}
-                            </td>
-                            <td className="border p-2 bg-gray-50 align-top text-right">
-                                TOTAL MRP<br />
-                                TOTAL DISCOUNT<br />
-                                <strong className="text-base">NET PAYABLE</strong><br />
-                                RECEIVED<br />
-                                <strong className="text-base">DUE</strong>
-                            </td>
-                            <td className="border p-2 bg-gray-50 align-top text-right font-mono">
-                                ₹{formattedData.totalMrpFormatted}<br />
-                                ₹{formattedData.totalDiscountFormatted}<br />
-                                <strong className="text-base">₹{formattedData.finalAmountFormatted}</strong><br />
-                                ₹{formattedData.amountReceivedFormatted}<br />
-                                <strong className="text-base">₹{formattedData.amountDueFormatted}</strong>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse border border-gray-200 -mt-px text-sm">
+                        <tbody>
+                            <tr className="flex flex-col md:table-row">
+                                <td className="border border-gray-200 p-3 md:w-2/5 align-top text-slate-600 space-y-1">
+                                    <div><strong>NO OF TESTS:</strong> {receipt.num_tests || items.length}</div>
+                                    <div><strong>PAYMENT:</strong> <span className="font-bold text-blue-600">{receipt.payment_method || 'N/A'}</span></div>
+                                </td>
+                                <td className="border border-gray-200 p-3 md:w-1/5 text-center align-middle">
+                                    {receipt.logo_path && <img src={receipt.logo_path} alt="Lab Logo" className="max-h-12 max-w-24 inline-block" />}
+                                </td>
+                                <td className="border border-gray-200 p-3 bg-slate-50/50 align-top text-right text-slate-500 space-y-1">
+                                    <div>TOTAL MRP</div>
+                                    <div>TOTAL DISCOUNT</div>
+                                    <div><strong className="text-slate-800">NET PAYABLE</strong></div>
+                                    <div>RECEIVED</div>
+                                    <div><strong className="text-slate-800">DUE</strong></div>
+                                </td>
+                                <td className="border border-gray-200 p-3 bg-slate-50/50 align-top text-right font-mono text-slate-700 space-y-1">
+                                    <div>₹{formattedData.totalMrpFormatted}</div>
+                                    <div>₹{formattedData.totalDiscountFormatted}</div>
+                                    <div><strong className="text-slate-900">₹{formattedData.finalAmountFormatted}</strong></div>
+                                    <div>₹{formattedData.amountReceivedFormatted}</div>
+                                    <div><strong className="text-blue-700">₹{formattedData.amountDueFormatted}</strong></div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
 
                 {/* Footer */}
-                <footer className="flex justify-between items-end mt-8 pt-2 border-t text-xs">
-                    <div className="w-3/5">
+                <footer className="flex flex-col sm:flex-row justify-between items-start sm:items-end mt-6 pt-3 border-t text-xs gap-4 text-slate-500">
+                    <div className="w-full sm:w-3/5">
                         <strong>Notes:</strong> {receipt.notes || 'This is the Finalized Receipt. Keep it for your records.'}
                     </div>
-                    <div className="pt-6 border-t border-dotted border-gray-600 min-w-[150px] text-center">SIGNATURE / STAMP</div>
+                    <div className="pt-4 border-t border-dotted border-gray-400 min-w-[150px] text-center uppercase tracking-wider font-bold text-slate-400">SIGNATURE / STAMP</div>
                 </footer>
             </div>
 
             {/* Action Buttons */}
-            <div className="action-buttons text-center my-5 no-print flex flex-wrap justify-center gap-2">
-                <button onClick={() => window.print()} className="px-5 py-2 cursor-pointer text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-all flex items-center gap-2 shadow-sm">
+            <div className="action-buttons text-center my-6 no-print flex flex-wrap justify-center gap-3 px-4">
+                <button onClick={() => window.print()} className="px-5 py-3 cursor-pointer text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-all flex items-center gap-2 shadow-sm font-bold text-xs uppercase tracking-wider">
                     <i className="fa-solid fa-print"></i> Print
                 </button>
+                
+                {/* Native Android/Mobile Share */}
+                <button 
+                    onClick={async () => {
+                        if (navigator.share) {
+                            try {
+                                const receiptNum = `RCPT-${String(receipt.id).padStart(6, '0')}`;
+                                await navigator.share({
+                                    title: `Receipt ${receiptNum}`,
+                                    text: `Money Receipt ${receiptNum} for ${customer.prefix || ''} ${customer.name} (Amount: ₹${formattedData.finalAmountFormatted}) is ready.`,
+                                    url: window.location.href,
+                                });
+                            } catch (err) {
+                                console.warn('Native share failed or dismissed', err);
+                            }
+                        } else {
+                            try {
+                                await navigator.clipboard.writeText(window.location.href);
+                                alert("Receipt URL link copied to clipboard!");
+                            } catch (err) {
+                                alert("Sharing not supported on this browser.");
+                            }
+                        }
+                    }}
+                    className="px-5 py-3 cursor-pointer text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-sm font-bold text-xs uppercase tracking-wider"
+                >
+                    <i className="fa-solid fa-share-nodes"></i> Share Receipt
+                </button>
+
                 <ShareDownloadButton elementIdToCapture="print-container" fileName={`Receipt-RCPT-${String(receipt.id).padStart(6, '0')}.pdf`} />
 
                 {user?.role === 'ADMIN' && (
                     <button
                         onClick={() => setIsChoiceModalOpen(true)}
-                        className="px-5 py-2 cursor-pointer text-white bg-red-600 rounded-md hover:bg-red-700 transition-all flex items-center gap-2 shadow-sm"
+                        className="px-5 py-3 cursor-pointer text-white bg-rose-600 rounded-xl hover:bg-rose-700 transition-all flex items-center gap-2 shadow-sm font-bold text-xs uppercase tracking-wider"
                     >
                         <i className="fa-solid fa-trash-can"></i> Delete / Revert
                     </button>
                 )}
 
-                <Link to="/receipt-form" className="px-5 py-2 cursor-pointer text-white bg-slate-800 rounded-md hover:bg-slate-900 transition-all flex items-center gap-2 shadow-sm">
+                <Link to="/receipt-form" className="px-5 py-3 cursor-pointer text-white bg-slate-800 rounded-xl hover:bg-slate-900 transition-all flex items-center gap-2 shadow-sm font-bold text-xs uppercase tracking-wider">
                     <i className="fa-solid fa-plus"></i> New Form
                 </Link>
-                <Link to={getDashboardLink()} className="px-5 py-2 cursor-pointer text-white bg-slate-100 text-slate-800 rounded-md hover:bg-slate-200 transition-all flex items-center gap-2 border border-slate-200">
+                <Link to={getDashboardLink()} className="px-5 py-3 cursor-pointer text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all flex items-center gap-2 border border-slate-200 font-bold text-xs uppercase tracking-wider">
                     <i className="fa-solid fa-house"></i> Dashboard
                 </Link>
             </div>
