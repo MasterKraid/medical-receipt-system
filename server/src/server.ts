@@ -95,7 +95,7 @@ app.use((req, res, next) => {
 });
 
 const csrfProtection = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || req.path === '/auth/login' || req.path === '/auth/login/') {
         return next();
     }
     const csrfHeader = req.headers['x-xsrf-token'] || req.headers['x-csrf-token'];

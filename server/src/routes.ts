@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
 import ExcelJS from 'exceljs';
+import crypto from 'crypto';
 import { db } from './database';
 import { User, Lab, Receipt, Estimate, Customer, Branch, PackageList, FormattedCustomer, Document, Transaction, Package, LabReport } from './types';
 
@@ -77,16 +78,22 @@ router.post('/auth/login', (req, res) => {
     const { username, password } = req.body;
     try {
         const userRow = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as User & { password_hash: string };
-        if (userRow && bcrypt.compareSync(password, userRow.password_hash)) {
-            const { password_hash, ...user } = userRow;
-            const branch = db.prepare('SELECT * FROM branches WHERE id = ?').get(user.branchId) as Branch;
-            const assigned_list_ids = db.prepare('SELECT package_list_id FROM user_package_list_access WHERE user_id = ?').all(user.id).map((row: any) => row.package_list_id);
-            const userSessionData = { ...user, assigned_list_ids };
-            (req.session as any).user = userSessionData;
-            res.json({ user: userSessionData, branch });
-        } else {
-            res.status(401).json({ message: 'Invalid username or password' });
+        if (userRow) {
+            const sha256 = (str: string) => crypto.createHash('sha256').update(str).digest('hex');
+            const isMatch = bcrypt.compareSync(password, userRow.password_hash) || 
+                            bcrypt.compareSync(sha256(password), userRow.password_hash);
+            
+            if (isMatch) {
+                const { password_hash, ...user } = userRow;
+                const branch = db.prepare('SELECT * FROM branches WHERE id = ?').get(user.branchId) as Branch;
+                const assigned_list_ids = db.prepare('SELECT package_list_id FROM user_package_list_access WHERE user_id = ?').all(user.id).map((row: any) => row.package_list_id);
+                const userSessionData = { ...user, assigned_list_ids };
+                (req.session as any).user = userSessionData;
+                res.json({ user: userSessionData, branch });
+                return;
+            }
         }
+        res.status(401).json({ message: 'Invalid username or password' });
     } catch (error: any) {
         res.status(500).json({ message: 'Server error during login: ' + error.message });
     }

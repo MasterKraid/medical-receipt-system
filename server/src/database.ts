@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 
 // Get the path to the 'data' directory, which is one level above the compiled '/dist' directory.
 const dataDir = path.resolve(__dirname, '..', 'data');
@@ -323,5 +324,36 @@ export function initDb() {
         transaction();
     } catch (err) {
         console.error('Seeding failed:', err);
+    }
+
+    // Migration: Update pre-existing seeded users from plaintext bcrypt to SHA-256 bcrypt
+    try {
+        const sha256 = (str: string) => crypto.createHash('sha256').update(str).digest('hex');
+
+        // Migrate admin
+        const admin = db.prepare('SELECT password_hash FROM users WHERE username = ?').get('admin') as { password_hash: string } | undefined;
+        if (admin && bcrypt.compareSync('password', admin.password_hash)) {
+            const hashedAdmin = bcrypt.hashSync(sha256('password'), 10);
+            db.prepare('UPDATE users SET password_hash = ? WHERE username = ?').run(hashedAdmin, 'admin');
+            console.log('Migrated admin user to SHA-256 bcrypt schema.');
+        }
+
+        // Migrate testuser
+        const testuser = db.prepare('SELECT password_hash FROM users WHERE username = ?').get('testuser') as { password_hash: string } | undefined;
+        if (testuser && bcrypt.compareSync('test', testuser.password_hash)) {
+            const hashedTest = bcrypt.hashSync(sha256('test'), 10);
+            db.prepare('UPDATE users SET password_hash = ? WHERE username = ?').run(hashedTest, 'testuser');
+            console.log('Migrated testuser to SHA-256 bcrypt schema.');
+        }
+
+        // Migrate client@b2b.com
+        const client = db.prepare('SELECT password_hash FROM users WHERE username = ?').get('client@b2b.com') as { password_hash: string } | undefined;
+        if (client && bcrypt.compareSync('client123', client.password_hash)) {
+            const hashedClient = bcrypt.hashSync(sha256('client123'), 10);
+            db.prepare('UPDATE users SET password_hash = ? WHERE username = ?').run(hashedClient, 'client@b2b.com');
+            console.log('Migrated client@b2b.com to SHA-256 bcrypt schema.');
+        }
+    } catch (e) {
+        console.error('Failed to run seeded users password hash migration:', e);
     }
 }
