@@ -126,7 +126,7 @@ const ManageReports: React.FC = () => {
                                                 { value: '', label: 'Select a Client...' },
                                                 ...clients.map(c => ({ value: c.id.toString(), label: c.alias || c.username }))
                                             ]}
-                                            value={clients.find(c => c.id.toString() === selectedClientId)?.alias || clients.find(c => c.id.toString() === selectedClientId)?.username || ''}
+                                            value={selectedClientId}
                                             onChange={(val) => setSelectedClientId(val)}
                                             placeholder="Search client..."
                                         />

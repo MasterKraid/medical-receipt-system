@@ -76,6 +76,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = () => {
+    apiService.logout().catch(e => console.warn("Failed to invalidate session on server", e));
     setUser(null);
     setBranch(null);
     setAuthError(null); // Clear errors on logout

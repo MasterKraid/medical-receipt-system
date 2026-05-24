@@ -4,10 +4,30 @@ import ChoiceModal from '../../components/ChoiceModal';
 import { apiService } from '../../services/api';
 import { User, Transaction } from '../../types';
 
+const parseISTDate = (istDateStr: string): Date | null => {
+    if (!istDateStr) return null;
+    const parts = istDateStr.split(' | ')[0].split('/');
+    if (parts.length !== 3) return null;
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1; // 0-based index
+    const year = parseInt(parts[2], 10);
+    return new Date(year, month, day);
+};
+
 const ManageWallets: React.FC = () => {
     const [clients, setClients] = useState<User[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Wallet Filters State
+    const [minBalance, setMinBalance] = useState('');
+    const [maxBalance, setMaxBalance] = useState('');
+    const [onlyNegative, setOnlyNegative] = useState(false);
+    const [onlyNegativeAllowed, setOnlyNegativeAllowed] = useState(false);
+
+    // Transaction Date Filters State
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
 
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [historyTransactions, setHistoryTransactions] = useState<Transaction[]>([]);
@@ -110,6 +130,15 @@ const ManageWallets: React.FC = () => {
         }
     }
 
+    const filteredClients = clients.filter(client => {
+        const balance = client.wallet_balance;
+        if (minBalance !== '' && balance < parseFloat(minBalance)) return false;
+        if (maxBalance !== '' && balance > parseFloat(maxBalance)) return false;
+        if (onlyNegative && balance >= 0) return false;
+        if (onlyNegativeAllowed && !client.allow_negative_balance) return false;
+        return true;
+    });
+
     return (
         <div className="p-3 sm:p-6 max-w-7xl mx-auto space-y-6">
             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
@@ -129,6 +158,49 @@ const ManageWallets: React.FC = () => {
                         </div>
                     </div>
 
+                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 order-2">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Min Balance (₹)</label>
+                            <input
+                                type="number"
+                                value={minBalance}
+                                onChange={e => setMinBalance(e.target.value)}
+                                placeholder="Min"
+                                className="w-full p-2 border border-slate-200 bg-white rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Max Balance (₹)</label>
+                            <input
+                                type="number"
+                                value={maxBalance}
+                                onChange={e => setMaxBalance(e.target.value)}
+                                placeholder="Max"
+                                className="w-full p-2 border border-slate-200 bg-white rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                            />
+                        </div>
+                        <div className="flex items-center gap-2 pt-5">
+                            <input
+                                type="checkbox"
+                                id="onlyNegativeCheckbox"
+                                checked={onlyNegative}
+                                onChange={e => setOnlyNegative(e.target.checked)}
+                                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+                            />
+                            <label htmlFor="onlyNegativeCheckbox" className="text-xs font-bold text-slate-600 cursor-pointer uppercase tracking-tight">Show Only Due</label>
+                        </div>
+                        <div className="flex items-center gap-2 pt-5">
+                            <input
+                                type="checkbox"
+                                id="onlyNegativeAllowedCheckbox"
+                                checked={onlyNegativeAllowed}
+                                onChange={e => setOnlyNegativeAllowed(e.target.checked)}
+                                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
+                            />
+                            <label htmlFor="onlyNegativeAllowedCheckbox" className="text-xs font-bold text-slate-600 cursor-pointer uppercase tracking-tight">Negative Allowed</label>
+                        </div>
+                    </div>
+
                     <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl order-2">
                         <legend className="px-3 flex items-center gap-2">
                             <div className="w-7 h-7 rounded bg-gray-800 flex items-center justify-center text-white shadow-sm">
@@ -142,13 +214,13 @@ const ManageWallets: React.FC = () => {
                                 <i className="fa-solid fa-spinner fa-spin text-xl text-gray-300 mb-2"></i>
                                 <p className="text-gray-400 italic text-sm">Accessing ledger records...</p>
                             </div>
-                        ) : clients.length === 0 ? (
+                        ) : filteredClients.length === 0 ? (
                             <div className="py-20 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                                <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No records match your search criteria</p>
+                                <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">No records match your filter criteria</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {clients.map(client => (
+                                {filteredClients.map(client => (
                                     <div key={client.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col">
                                         <div className={`absolute top-0 left-0 w-1 h-full ${client.wallet_balance < 0 ? 'bg-red-500' : 'bg-green-500'}`}></div>
 
@@ -282,48 +354,95 @@ const ManageWallets: React.FC = () => {
                                 </span>
                             </div>
 
+                            <div className="bg-slate-50 p-4 border-b border-gray-100 flex flex-col sm:flex-row gap-3 items-center justify-between px-6">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap"><i className="fa-solid fa-filter mr-1"></i> Filter By Date:</span>
+                                <div className="flex items-center gap-2 w-full sm:w-auto">
+                                    <input
+                                        type="date"
+                                        value={startDate}
+                                        onChange={e => setStartDate(e.target.value)}
+                                        className="p-1.5 border border-gray-200 bg-white rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-100 flex-grow sm:flex-grow-0"
+                                    />
+                                    <span className="text-xs text-gray-400 font-bold uppercase">To</span>
+                                    <input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={e => setEndDate(e.target.value)}
+                                        className="p-1.5 border border-gray-200 bg-white rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-100 flex-grow sm:flex-grow-0"
+                                    />
+                                    {(startDate || endDate) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => { setStartDate(''); setEndDate(''); }}
+                                            className="text-[10px] font-black text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded transition-colors uppercase shrink-0"
+                                        >
+                                            Clear
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
                             <div className="flex-grow overflow-y-auto p-4 space-y-3">
-                                {isLoadingHistory ? (
-                                    <div className="py-20 text-center"><i className="fa-solid fa-spinner fa-spin text-slate-300 mr-2"></i>Accessing history...</div>
-                                ) : historyTransactions.length === 0 ? (
-                                    <div className="py-20 text-center text-gray-400 italic">No transactions found.</div>
-                                ) : (
-                                    historyTransactions.map(tx => (
-                                        <div key={tx.id} className="p-4 border border-gray-100 rounded-xl hover:bg-slate-50 transition-colors flex justify-between items-center group">
-                                            <div className="flex-grow">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className={`w-2 h-2 rounded-full ${tx.amount_deducted > 0 ? 'bg-red-400' : 'bg-green-400'}`}></span>
-                                                    <p className="text-sm font-bold text-gray-800">
-                                                        {tx.type === 'RECEIPT_DEDUCTION' ? `Receipt #RCPT-${String(tx.receipt_id).padStart(6, '0')}` :
-                                                            tx.type === 'ADMIN_CREDIT' ? 'Credit Added' :
-                                                                tx.type === 'ADMIN_DEBIT' ? 'Funds Deducted' : 'Wallet Settlement'}
-                                                    </p>
+                                {(() => {
+                                    const filteredTransactions = historyTransactions.filter(tx => {
+                                        if (!startDate && !endDate) return true;
+                                        const txDate = parseISTDate(tx.date);
+                                        if (!txDate) return true;
+                                        if (startDate) {
+                                            const start = new Date(startDate);
+                                            start.setHours(0, 0, 0, 0);
+                                            if (txDate < start) return false;
+                                        }
+                                        if (endDate) {
+                                            const end = new Date(endDate);
+                                            end.setHours(23, 59, 59, 999);
+                                            if (txDate > end) return false;
+                                        }
+                                        return true;
+                                    });
+
+                                    return isLoadingHistory ? (
+                                        <div className="py-20 text-center"><i className="fa-solid fa-spinner fa-spin text-slate-300 mr-2"></i>Accessing history...</div>
+                                    ) : filteredTransactions.length === 0 ? (
+                                        <div className="py-20 text-center text-gray-400 italic">No transactions found matching your filters.</div>
+                                    ) : (
+                                        filteredTransactions.map(tx => (
+                                            <div key={tx.id} className="p-4 border border-gray-100 rounded-xl hover:bg-slate-50 transition-colors flex justify-between items-center group">
+                                                <div className="flex-grow">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className={`w-2 h-2 rounded-full ${tx.amount_deducted > 0 ? 'bg-red-400' : 'bg-green-400'}`}></span>
+                                                        <p className="text-sm font-bold text-gray-800">
+                                                            {tx.type === 'RECEIPT_DEDUCTION' ? `Receipt #RCPT-${String(tx.receipt_id).padStart(6, '0')}` :
+                                                                tx.type === 'ADMIN_CREDIT' ? 'Credit Added' :
+                                                                    tx.type === 'ADMIN_DEBIT' ? 'Funds Deducted' : 'Wallet Settlement'}
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-[10px] text-gray-400 font-bold uppercase">
+                                                        <span>{tx.date.split(' | ')[0]}</span>
+                                                        <span>•</span>
+                                                        <span className="text-gray-500 italic">{tx.notes || 'No reference notes'}</span>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-2 text-[10px] text-gray-400 font-bold uppercase">
-                                                    <span>{tx.date.split(' | ')[0]}</span>
-                                                    <span>•</span>
-                                                    <span className="text-gray-500 italic">{tx.notes || 'No reference notes'}</span>
+                                                <div className="text-right flex items-center gap-4">
+                                                    <div>
+                                                        <p className={`text-sm font-black ${tx.amount_deducted > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                                            {tx.amount_deducted > 0 ? '-' : '+'} ₹{Math.abs(tx.amount_deducted).toFixed(2)}
+                                                        </p>
+                                                        <p className="text-[9px] text-gray-400 font-mono">Bal: ₹{Number(tx.balance_snapshot || 0).toFixed(2)}</p>
+                                                    </div>
+                                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                                        <button onClick={() => {
+                                                            setPendingTxId(tx.id);
+                                                            setIsChoiceModalOpen(true);
+                                                        }} className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white border border-red-100 transition-all">
+                                                            <i className="fa-solid fa-trash-can text-xs"></i>
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div className="text-right flex items-center gap-4">
-                                                <div>
-                                                    <p className={`text-sm font-black ${tx.amount_deducted > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                                        {tx.amount_deducted > 0 ? '-' : '+'} ₹{Math.abs(tx.amount_deducted).toFixed(2)}
-                                                    </p>
-                                                    <p className="text-[9px] text-gray-400 font-mono">Bal: ₹{Number(tx.balance_snapshot || 0).toFixed(2)}</p>
-                                                </div>
-                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                                                    <button onClick={() => {
-                                                        setPendingTxId(tx.id);
-                                                        setIsChoiceModalOpen(true);
-                                                    }} className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white border border-red-100 transition-all">
-                                                        <i className="fa-solid fa-trash-can text-xs"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
+                                        ))
+                                    );
+                                })()}
                             </div>
                         </div>
                     </div>

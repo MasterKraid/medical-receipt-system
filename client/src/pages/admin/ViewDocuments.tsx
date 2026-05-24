@@ -48,11 +48,14 @@ const ViewDocuments: React.FC<ViewDocumentsProps> = ({ docType }) => {
     const handleAction = async (revert: boolean) => {
         if (!pendingDocId) return;
         try {
-            if (revert) await apiService.revertReceipt(pendingDocId);
-            else await apiService.deleteReceipt(pendingDocId);
+            if (docType === 'receipt') {
+                if (revert) await apiService.revertReceipt(pendingDocId);
+                else await apiService.deleteReceipt(pendingDocId);
+            }
 
-            // Refresh
-            const data = await apiService.getReceipts();
+            // Refresh correct docType
+            const fetcher = docType === 'receipt' ? apiService.getReceipts : apiService.getEstimates;
+            const data = await fetcher();
             setDocuments(data);
         } catch (err) {
             alert(`Action failed: ${err}`);
@@ -136,16 +139,21 @@ const ViewDocuments: React.FC<ViewDocumentsProps> = ({ docType }) => {
                                                         <i className="fa-solid fa-eye text-xs"></i>
                                                     </Link>
                                                     {docType === 'receipt' && (
-                                                        <button
-                                                            onClick={() => {
-                                                                setPendingDocId(doc.id);
-                                                                setIsChoiceModalOpen(true);
-                                                            }}
-                                                            className="w-8 h-8 inline-flex items-center justify-center bg-red-50 text-red-500 hover:bg-red-600 hover:text-white rounded border border-red-100 transition-all shadow-sm"
-                                                            title="Delete / Revert Receipt"
-                                                        >
-                                                            <i className="fa-solid fa-trash-can text-xs"></i>
-                                                        </button>
+                                                        <>
+                                                            <Link to={`/admin/receipts/edit/${doc.id}`} className="w-8 h-8 inline-flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-yellow-500 hover:text-white rounded border border-gray-100 transition-all shadow-sm" title="Edit Receipt">
+                                                                <i className="fa-solid fa-pen text-xs"></i>
+                                                            </Link>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setPendingDocId(doc.id);
+                                                                    setIsChoiceModalOpen(true);
+                                                                }}
+                                                                className="w-8 h-8 inline-flex items-center justify-center bg-red-50 text-red-500 hover:bg-red-600 hover:text-white rounded border border-red-100 transition-all shadow-sm"
+                                                                title="Delete / Revert Receipt"
+                                                            >
+                                                                <i className="fa-solid fa-trash-can text-xs"></i>
+                                                            </button>
+                                                        </>
                                                     )}
                                                 </td>
                                             </tr>

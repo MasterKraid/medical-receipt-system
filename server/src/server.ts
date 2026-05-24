@@ -50,16 +50,85 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
 const SessionStore = FileStore(session);
 
-// --- Middleware ---
-
-// Enable CORS
-app.use(cors({
-    origin: 'https://localhost:5173',
-    credentials: true
-}));
+// Enable CORS only if not in production or CORS_ORIGIN is explicitly provided
+if (process.env.NODE_ENV !== 'production' || process.env.CORS_ORIGIN) {
+    app.use(cors({
+        origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+        credentials: true
+    }));
+}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// --- Structured Server-Side Audit Log Middleware ---
+const auditDir = path.join(__dirname, '..', 'data');
+const auditFilePath = path.join(auditDir, 'audit.log');
+if (!fs.existsSync(auditDir)) {
+    fs.mkdirSync(auditDir, { recursive: true });
+}
+
+app.use((req, res, next) => {
+    if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+        const originalJson = res.json;
+        const originalSend = res.send;
+        let logged = false;
+
+        const logAudit = (body: any) => {
+            if (logged) return;
+            logged = true;
+            try {
+                const user = (req.session as any)?.user;
+                const username = user ? user.username : 'unauthenticated';
+                const userId = user ? user.id : null;
+                const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+
+                // Sanitize request body
+                let sanitizedBody = {};
+                if (req.body) {
+                    sanitizedBody = JSON.parse(JSON.stringify(req.body));
+                    const sensitiveKeys = ['password', 'password_hash', 'passwordConfirm', 'token', 'csrfToken', 'secret', 'logoBase64'];
+                    const redact = (obj: any) => {
+                        for (const key in obj) {
+                            if (sensitiveKeys.includes(key)) {
+                                obj[key] = '[REDACTED]';
+                            } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+                                redact(obj[key]);
+                            }
+                        }
+                    };
+                    redact(sanitizedBody);
+                }
+
+                const logEntry = {
+                    timestamp: new Date().toISOString(),
+                    ip,
+                    userId,
+                    username,
+                    method: req.method,
+                    url: req.originalUrl || req.url,
+                    statusCode: res.statusCode,
+                    payload: sanitizedBody
+                };
+
+                fs.appendFileSync(auditFilePath, JSON.stringify(logEntry) + '\n', 'utf8');
+            } catch (err) {
+                console.error("Failed to write to audit log", err);
+            }
+        };
+
+        res.json = function(body) {
+            logAudit(body);
+            return originalJson.call(this, body);
+        };
+
+        res.send = function(body) {
+            logAudit(body);
+            return originalSend.call(this, body);
+        };
+    }
+    next();
+});
 
 // --- Session Management (must come BEFORE rate limiters & CSRF so session is available) ---
 app.use(session({

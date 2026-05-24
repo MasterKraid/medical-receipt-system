@@ -76,8 +76,8 @@ const ClientRatelist: React.FC = () => {
     }, [selectedLabId, selectedListId, step]);
     */
 
-    const nextStep = () => Math.min(4, step + 1);
-    const prevStep = () => Math.max(1, step - 1);
+    const goNext = () => setStep(prev => Math.min(4, prev + 1));
+    const goBack = () => setStep(prev => Math.max(1, prev - 1));
 
     const calculations = useMemo(() => {
         let totalMrp = 0;
@@ -134,7 +134,7 @@ const ClientRatelist: React.FC = () => {
                             alert("Please select both a Lab and a Ratelist category.");
                             return;
                         }
-                        setStep(nextStep());
+                        goNext();
                     }} 
                     className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md shadow-blue-200 transition-colors"
                 >
@@ -182,14 +182,14 @@ const ClientRatelist: React.FC = () => {
                 </label>
             </div>
             <div className="pt-4 flex justify-between">
-                <button onClick={() => setStep(prevStep())} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">Back</button>
+                <button onClick={goBack} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">Back</button>
                 <button 
                     onClick={() => {
                         if (!showB2B && !showMRP) {
                             alert("Please select at least one price to display.");
                             return;
                         }
-                        setStep(nextStep());
+                        goNext();
                     }} 
                     className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md shadow-blue-200 transition-colors"
                 >
@@ -252,14 +252,14 @@ const ClientRatelist: React.FC = () => {
                 */}
                 
                 <div className="pt-4 flex justify-between">
-                    <button onClick={() => setStep(prevStep())} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">Back</button>
+                    <button onClick={goBack} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">Back</button>
                     <button 
                         onClick={() => {
                             if (selectedTests.length === 0) {
                                 alert("Please select at least one test.");
                                 return;
                             }
-                            setStep(nextStep());
+                            goNext();
                         }} 
                         className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md shadow-blue-200 transition-colors"
                     >
@@ -333,7 +333,7 @@ const ClientRatelist: React.FC = () => {
 
             <div className="pt-6 flex justify-between items-center border-t border-slate-200 gap-3">
                 <button 
-                    onClick={() => setStep(prevStep())} 
+                    onClick={goBack} 
                     className="px-4 md:px-6 py-2 md:py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors text-xs md:text-sm whitespace-nowrap"
                 >
                     Edit Tests

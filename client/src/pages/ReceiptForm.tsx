@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useParams } from 'react-router-dom';
 import PageHeader from '../components/PageHeader';
 import CleanSelect from '../components/CleanSelect';
 import { useAuth } from '../context/AuthContext';
@@ -20,6 +20,8 @@ interface ItemRow {
 const prefixOptions = ['Mr.', 'Mrs.', 'Miss.', 'Baby.', 'Master.', 'Dr.', 'B/O', 'Ms.', 'C/O', 'S/O'];
 
 const ReceiptForm: React.FC = () => {
+    const { id } = useParams() as { id?: string };
+    const isEditMode = id !== undefined;
     const { user, branch, updateUser, actingAsClient, setActingAsClient } = useAuth();
     const navigate = useNavigate();
 
@@ -90,6 +92,60 @@ const ReceiptForm: React.FC = () => {
             }
         });
     }, []);
+
+    useEffect(() => {
+        if (id) {
+            const receiptId = parseInt(id, 10);
+            if (!isNaN(receiptId)) {
+                setIsSubmitting(true);
+                apiService.getReceiptById(receiptId).then(data => {
+                    const { receipt, customer, items: receiptItems } = data;
+
+                    // Load customer
+                    setSelectedCustomer(customer);
+                    setNewCustomer({
+                        prefix: customer.prefix || 'Mr.',
+                        name: customer.name,
+                        mobile: customer.mobile || '',
+                        email: customer.email || '',
+                        dob: customer.dob || '',
+                        age: customer.age?.toString() || '',
+                        age_years: customer.age_years?.toString() || '',
+                        age_months: customer.age_months?.toString() || '',
+                        age_days: customer.age_days?.toString() || '',
+                        gender: customer.gender || 'Male'
+                    });
+
+                    // Load receipt details
+                    setSelectedLabId(receipt.branch_id.toString());
+                    setDetails({
+                        amount_received: receipt.amount_received.toString(),
+                        due_amount_manual: receipt.amount_due.toString(),
+                        num_tests: receipt.num_tests?.toString() || '',
+                        referred_by: receipt.referred_by || '',
+                        payment_method: receipt.payment_method,
+                        notes: receipt.notes || ''
+                    });
+
+                    // Load items
+                    const formatted = receiptItems.map((item, idx) => ({
+                        id: Date.now() + idx,
+                        name: item.package_name,
+                        mrp: item.mrp,
+                        b2b_price: item.b2b_price || 0,
+                        discount: item.discount_percentage,
+                        isFromDb: true
+                    }));
+                    setItems(formatted);
+                }).catch(err => {
+                    console.error("Failed to load receipt for editing", err);
+                    alert("Failed to load receipt");
+                }).finally(() => {
+                    setIsSubmitting(false);
+                });
+            }
+        }
+    }, [id]);
 
     // Handle cascading dropdowns
     useEffect(() => {
@@ -385,20 +441,25 @@ const ReceiptForm: React.FC = () => {
         };
 
         try {
-            const { newReceipt, updatedUser } = await apiService.createReceipt(
-                payload,
-                user, branch, actingAsClient ? actingAsClient.id : undefined
-            );
-            if (updatedUser) {
-                if (actingAsClient) {
-                    setActingAsClient(updatedUser);
-                } else {
-                    updateUser(updatedUser);
+            if (isEditMode) {
+                await apiService.updateReceipt(parseInt(id!, 10), payload);
+                navigate(`/receipt/${id}`);
+            } else {
+                const { newReceipt, updatedUser } = await apiService.createReceipt(
+                    payload,
+                    user, branch, actingAsClient ? actingAsClient.id : undefined
+                );
+                if (updatedUser) {
+                    if (actingAsClient) {
+                        setActingAsClient(updatedUser);
+                    } else {
+                        updateUser(updatedUser);
+                    }
                 }
+                navigate(`/receipt/${newReceipt.id}`);
             }
-            navigate(`/receipt/${newReceipt.id}`);
         } catch (error) {
-            alert(`Failed to create receipt: ${error}`);
+            alert(`Failed to save receipt: ${error}`);
         } finally {
             setIsSubmitting(false);
         }

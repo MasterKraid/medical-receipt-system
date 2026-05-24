@@ -32,6 +32,7 @@ const EstimateForm: React.FC = () => {
     const [isGenderDisabled, setIsGenderDisabled] = useState(true);
 
     const [selectedTestIds, setSelectedTestIds] = useState<Set<number>>(new Set());
+    const [testCategories, setTestCategories] = useState<{ [testId: number]: 'Lab Tests' | 'Radiological Tests' | 'Others' }>({});
     const [searchTestQuery, setSearchTestQuery] = useState('');
 
     const [details, setDetails] = useState({
@@ -296,26 +297,41 @@ const EstimateForm: React.FC = () => {
                                     <tr>
                                         <th className="p-3 font-bold text-slate-700 border-r border-slate-200">Test / Profile Name</th>
                                         {comparisonData?.labs.map(lab => (
-                                            <th key={lab.id} className="p-3 font-bold text-center text-slate-700 border-r border-slate-200 min-w-[120px]">{lab.name}</th>
+                                        <th key={lab.id} className="p-3 font-bold text-center text-slate-700 border-r border-slate-200 min-w-[120px]">{lab.name}</th>
                                         ))}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {Array.from(selectedTestIds).map(testId => {
-                                        const test = comparisonData?.tests.find(t => t.id === testId);
-                                        if (!test) return null;
+                                    {['Lab Tests', 'Radiological Tests', 'Others'].map(category => {
+                                        const categoryTestIds = Array.from(selectedTestIds).filter(
+                                            id => (testCategories[id] || 'Lab Tests') === category
+                                        );
+                                        if (categoryTestIds.length === 0) return null;
                                         return (
-                                            <tr key={testId} className="border-b border-slate-100 hover:bg-slate-50">
-                                                <td className="p-3 font-medium text-slate-800 border-r border-slate-200">{test.name}</td>
-                                                {comparisonData?.labs.map(lab => {
-                                                    const price = getPrice(testId, lab.id);
+                                            <React.Fragment key={category}>
+                                                <tr className="bg-indigo-50/40">
+                                                    <td colSpan={1 + (comparisonData?.labs.length || 0)} className="p-2 font-black text-indigo-950 uppercase text-xs tracking-wider border-b border-indigo-100">
+                                                        {category}
+                                                    </td>
+                                                </tr>
+                                                {categoryTestIds.map(testId => {
+                                                    const test = comparisonData?.tests.find(t => t.id === testId);
+                                                    if (!test) return null;
                                                     return (
-                                                        <td key={lab.id} className="p-3 text-center border-r border-slate-200 font-mono">
-                                                            {price !== null ? `₹${price.toFixed(2)}` : <span className="text-slate-400">-</span>}
-                                                        </td>
+                                                        <tr key={testId} className="border-b border-slate-100 hover:bg-slate-50">
+                                                            <td className="p-3 font-medium text-slate-800 border-r border-slate-200 pl-6">{test.name}</td>
+                                                            {comparisonData?.labs.map(lab => {
+                                                                const price = getPrice(testId, lab.id);
+                                                                return (
+                                                                    <td key={lab.id} className="p-3 text-center border-r border-slate-200 font-mono">
+                                                                        {price !== null ? `₹${price.toFixed(2)}` : <span className="text-slate-400">-</span>}
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                        </tr>
                                                     );
                                                 })}
-                                            </tr>
+                                            </React.Fragment>
                                         );
                                     })}
                                 </tbody>
@@ -532,20 +548,37 @@ const EstimateForm: React.FC = () => {
                                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex justify-between">
                                         Selected Tests <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">{selectedTestIds.size}</span>
                                     </h3>
-                                    <ul className="space-y-2">
+                                    <ul className="space-y-3">
                                         {Array.from(selectedTestIds).map(testId => {
                                             const test = comparisonData.tests.find(t => t.id === testId);
                                             if (!test) return null;
                                             return (
-                                                <li key={testId} className="bg-white border border-slate-200 rounded-md p-2 text-sm flex justify-between items-center shadow-sm group">
-                                                    <span className="font-medium text-slate-700 truncate mr-2" title={test.name}>{test.name}</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => toggleTestSelect(testId)}
-                                                        className="text-slate-400 hover:text-red-500 p-1"
-                                                    >
-                                                        <i className="fa-solid fa-times"></i>
-                                                    </button>
+                                                <li key={testId} className="bg-white border border-slate-200 rounded-xl p-3 text-sm flex flex-col gap-2 shadow-sm">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="font-bold text-slate-700 truncate mr-2" title={test.name}>{test.name}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => toggleTestSelect(testId)}
+                                                            className="text-slate-400 hover:text-red-500 p-1 transition-colors"
+                                                        >
+                                                            <i className="fa-solid fa-times text-xs"></i>
+                                                        </button>
+                                                    </div>
+                                                    <div className="flex items-center justify-between border-t border-slate-100 pt-1.5">
+                                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Type:</span>
+                                                        <select
+                                                            value={testCategories[testId] || 'Lab Tests'}
+                                                            onChange={e => {
+                                                                const category = e.target.value as 'Lab Tests' | 'Radiological Tests' | 'Others';
+                                                                setTestCategories(prev => ({ ...prev, [testId]: category }));
+                                                            }}
+                                                            className="text-[10px] py-1 px-1.5 border border-slate-200 rounded bg-slate-50 text-slate-600 outline-none focus:ring-1 focus:ring-indigo-500 font-bold"
+                                                        >
+                                                            <option value="Lab Tests">Lab Tests</option>
+                                                            <option value="Radiological Tests">Radiological Tests</option>
+                                                            <option value="Others">Others</option>
+                                                        </select>
+                                                    </div>
                                                 </li>
                                             );
                                         })}

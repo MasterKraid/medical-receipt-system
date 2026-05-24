@@ -128,6 +128,8 @@ export interface Document {
     display_customer_id: string;
     display_amount: string;
     created_by_user: string;
+    acting_as_client_id?: number;
+    created_by_user_id?: number;
 }
 
 export interface LabReport {

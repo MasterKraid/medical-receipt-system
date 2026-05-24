@@ -12,6 +12,17 @@ interface EstimatePageData {
     branch: BranchType;
 }
 
+const getCategoryForPackage = (packageName: string): 'Lab Tests' | 'Radiological Tests' | 'Others' => {
+    const name = packageName.toLowerCase();
+    if (name.includes('x-ray') || name.includes('usg') || name.includes('ultrasound') || name.includes('mri') || name.includes('ct scan') || name.includes('scan') || name.includes('radiology') || name.includes('xray') || name.includes('ecg') || name.includes('echo')) {
+        return 'Radiological Tests';
+    }
+    if (name.includes('blood') || name.includes('urine') || name.includes('cbc') || name.includes('thyroid') || name.includes('lipid') || name.includes('sugar') || name.includes('profile') || name.includes('test') || name.includes('check') || name.includes('serum') || name.includes('glucose')) {
+        return 'Lab Tests';
+    }
+    return 'Others';
+};
+
 const EstimateView: React.FC = () => {
     const { id } = useParams() as { id: string };
     const { user } = useAuth();
@@ -149,14 +160,27 @@ const EstimateView: React.FC = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {items.map((item, i) => (
-                            <tr key={i}>
-                                <td className="border p-2">{item.package_name}</td>
-                                <td className="border p-2 text-right">{item.mrpFormatted}</td>
-                                <td className="border p-2 text-right">{item.discountPercentageFormatted}%</td>
-                                <td className="border p-2 text-right">{item.priceAfterItemDiscountFormatted}</td>
-                            </tr>
-                        ))}
+                        {['Lab Tests', 'Radiological Tests', 'Others'].map(category => {
+                            const categoryItems = items.filter(item => getCategoryForPackage(item.package_name) === category);
+                            if (categoryItems.length === 0) return null;
+                            return (
+                                <React.Fragment key={category}>
+                                    <tr className="bg-gray-50">
+                                        <td colSpan={4} className="border p-2 font-bold text-gray-700 text-xs uppercase tracking-wider pl-4">
+                                            {category}
+                                        </td>
+                                    </tr>
+                                    {categoryItems.map((item, i) => (
+                                        <tr key={i}>
+                                            <td className="border p-2 pl-6">{item.package_name}</td>
+                                            <td className="border p-2 text-right">{item.mrpFormatted}</td>
+                                            <td className="border p-2 text-right">{item.discountPercentageFormatted}%</td>
+                                            <td className="border p-2 text-right">{item.priceAfterItemDiscountFormatted}</td>
+                                        </tr>
+                                    ))}
+                                </React.Fragment>
+                            );
+                        })}
                     </tbody>
                     <tfoot className="font-bold">
                         <tr className="summary-row">

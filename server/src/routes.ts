@@ -115,6 +115,20 @@ router.post('/auth/login', (req, res) => {
     }
 });
 
+router.post('/auth/logout', (req, res) => {
+    if (req.session) {
+        req.session.destroy((err) => {
+            if (err) {
+                return res.status(500).json({ message: 'Could not log out' });
+            }
+            res.clearCookie('connect.sid');
+            res.json({ message: 'Logged out successfully' });
+        });
+    } else {
+        res.json({ message: 'Logged out successfully' });
+    }
+});
+
 router.get('/auth/me', isAuthenticated, (req, res) => {
     const sessionUser = (req.session as any).user as User;
     try {
@@ -329,6 +343,104 @@ router.get('/receipts/:id', isAuthenticated, (req, res) => {
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });
 
+router.put('/receipts/:id', isAdmin, (req, res) => {
+    const receiptId = parseInt(req.params.id, 10);
+    const { payload } = req.body;
+
+    try {
+        const transaction = db.transaction(() => {
+            const oldReceipt = db.prepare('SELECT * FROM receipts WHERE id = ?').get(receiptId) as Receipt;
+            if (!oldReceipt) throw new Error("Receipt not found");
+
+            const customerId = handleCustomerData(payload.customer_data, oldReceipt.created_by_user_id);
+
+            // Delete old items
+            db.prepare('DELETE FROM receipt_items WHERE receipt_id = ?').run(receiptId);
+
+            // Insert new items
+            const insertItem = db.prepare('INSERT INTO receipt_items (receipt_id, package_name, mrp, discount_percentage) VALUES (?, ?, ?, ?)');
+            payload.items.forEach((item: any) => insertItem.run(receiptId, item.name, item.mrp, item.discount));
+
+            // Update receipt
+            db.prepare(`
+                UPDATE receipts 
+                SET customer_id = ?, total_mrp = ?, amount_final = ?, amount_received = ?, amount_due = ?, 
+                    payment_method = ?, referred_by = ?, notes = ?, num_tests = ?
+                WHERE id = ?
+            `).run(
+                customerId, payload.total_mrp, payload.amount_final, payload.amount_received, payload.amount_due,
+                payload.payment_method, payload.referred_by, payload.notes, payload.num_tests || payload.items.length, 
+                receiptId
+            );
+
+            // Re-sync wallet balance if it's a client receipt
+            let targetClientId = -1;
+            if (oldReceipt.acting_as_client_id) {
+                targetClientId = oldReceipt.acting_as_client_id;
+            } else {
+                const creator = db.prepare('SELECT role FROM users WHERE id = ?').get(oldReceipt.created_by_user_id) as User;
+                if (creator && creator.role === 'CLIENT') {
+                    targetClientId = oldReceipt.created_by_user_id;
+                }
+            }
+
+            if (targetClientId !== -1) {
+                const newTotalB2BCost = payload.items.reduce((sum: number, item: any) => sum + (Number(item.b2b_price) || 0), 0);
+
+                const originalTx = db.prepare('SELECT id, amount_deducted FROM transactions WHERE receipt_id = ? AND type = "RECEIPT_DEDUCTION" ORDER BY id ASC').get(receiptId) as Transaction;
+                const oldTotalB2BCost = originalTx ? originalTx.amount_deducted : 0;
+
+                const delta = newTotalB2BCost - oldTotalB2BCost;
+                if (delta !== 0) {
+                    const client = db.prepare('SELECT wallet_balance, allow_negative_balance, negative_balance_allowed_until FROM users WHERE id = ?').get(targetClientId) as User;
+                    if (!client) throw new Error("Target client not found");
+
+                    if (delta > 0) {
+                        let canProceed = false;
+                        if (client.wallet_balance >= delta) {
+                            canProceed = true;
+                        } else if (client.allow_negative_balance) {
+                            if (client.negative_balance_allowed_until) {
+                                const untilDate = new Date(client.negative_balance_allowed_until);
+                                if (untilDate >= new Date()) canProceed = true;
+                            } else {
+                                canProceed = true;
+                            }
+                        }
+
+                        if (!canProceed) {
+                            throw new Error(`Insufficient wallet balance for client adjustment (Current: ₹${client.wallet_balance.toFixed(2)}, Additional Required: ₹${delta.toFixed(2)})`);
+                        }
+                    }
+
+                    // Update client wallet
+                    db.prepare('UPDATE users SET wallet_balance = wallet_balance - ? WHERE id = ?').run(delta, targetClientId);
+
+                    const newBalanceObj = db.prepare('SELECT wallet_balance FROM users WHERE id = ?').get(targetClientId) as { wallet_balance: number };
+
+                    // Update the original transaction deduction so reverting works correctly
+                    if (originalTx) {
+                        db.prepare('UPDATE transactions SET amount_deducted = ? WHERE id = ?').run(newTotalB2BCost, originalTx.id);
+                    }
+
+                    // Log adjustment transaction
+                    db.prepare('INSERT INTO transactions (user_id, date, type, amount_deducted, balance_snapshot, receipt_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?)')
+                        .run(
+                            targetClientId, getISTDateTimeString(), 'ADMIN_DEBIT', delta, newBalanceObj.wallet_balance, 
+                            receiptId, `Re-edit adjustment for RCPT-${String(receiptId).padStart(6, '0')}`
+                        );
+                }
+            }
+
+            return { message: "Receipt updated successfully" };
+        });
+
+        res.json(transaction());
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
+});
+
 router.get('/estimates/:id', isAuthenticated, (req, res) => {
     try {
         const estimate = db.prepare('SELECT * FROM estimates WHERE id = ?').get(req.params.id) as Estimate;
@@ -481,7 +593,7 @@ router.get('/admin/receipts', isAdmin, (req, res) => {
     try {
         const receipts = db.prepare(`
             SELECT r.id, r.created_at, c.name as customer_name, c.id as customer_id, c.prefix, r.amount_final, 
-                   u.alias as user_alias, u.username as username, r.acting_as_client_id,
+                   u.alias as user_alias, u.username as username, r.acting_as_client_id, r.created_by_user_id,
                    cl.alias as client_alias, cl.username as client_username
             FROM receipts r 
             JOIN customers c ON r.customer_id = c.id 
@@ -502,7 +614,9 @@ router.get('/admin/receipts', isAdmin, (req, res) => {
                 customer_name: `${r.prefix || ''} ${r.customer_name}`,
                 display_customer_id: `CUST-${String(r.customer_id).padStart(10, '0')}`,
                 display_amount: `₹${r.amount_final.toFixed(2)}`,
-                created_by_user: creator
+                created_by_user: creator,
+                acting_as_client_id: r.acting_as_client_id || undefined,
+                created_by_user_id: r.created_by_user_id
             };
         });
         res.json(formatted);

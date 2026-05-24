@@ -83,11 +83,22 @@ export const apiService = {
     return apiFetch('/auth/me');
   },
 
+  logout: (): Promise<void> => {
+    return apiFetch('/auth/logout', { method: 'POST' });
+  },
+
   // --- Document Creation ---
   createReceipt: (payload: any, user: User, branch: Branch, acting_as_client_id?: number): Promise<{ newReceipt: Receipt; updatedUser: User | null }> => {
     return apiFetch('/receipts', {
       method: 'POST',
       body: JSON.stringify({ payload, context: { user, branch, acting_as_client_id } }),
+    });
+  },
+
+  updateReceipt: (id: number, payload: any): Promise<void> => {
+    return apiFetch(`/receipts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ payload }),
     });
   },
 

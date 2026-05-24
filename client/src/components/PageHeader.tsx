@@ -45,7 +45,7 @@ const PageHeader: React.FC<{ title: string, subtitle?: React.ReactNode, showBack
                                         { value: '', label: '-- Self (Default) --' },
                                         ...clients.map(c => ({ value: c.id.toString(), label: c.alias || c.username }))
                                     ]}
-                                    value={actingAsClient ? (actingAsClient.alias || actingAsClient.username) : ''}
+                                    value={actingAsClient ? actingAsClient.id.toString() : ''}
                                     onChange={(clientId) => {
                                         if (!clientId || clientId === '') {
                                             setActingAsClient(null);

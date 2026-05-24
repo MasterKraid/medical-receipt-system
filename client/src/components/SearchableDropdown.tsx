@@ -20,8 +20,13 @@ export interface SearchableDropdownHandle {
 
 const SearchableDropdown = forwardRef<SearchableDropdownHandle, SearchableDropdownProps>(
     ({ options, value, onChange, placeholder, disabled, onKeyDown }, ref) => {
+        const getLabelFromValue = (val: string) => {
+            const matched = options.find(opt => opt.value === val);
+            return matched ? matched.label : val;
+        };
+
         const [isOpen, setIsOpen] = useState(false);
-        const [searchTerm, setSearchTerm] = useState(value);
+        const [searchTerm, setSearchTerm] = useState(() => getLabelFromValue(value));
         const [highlightedIndex, setHighlightedIndex] = useState(-1);
         const wrapperRef = useRef<HTMLDivElement>(null);
         const inputRef = useRef<HTMLInputElement>(null);
@@ -38,8 +43,8 @@ const SearchableDropdown = forwardRef<SearchableDropdownHandle, SearchableDropdo
         }));
 
         useEffect(() => {
-            setSearchTerm(value);
-        }, [value]);
+            setSearchTerm(getLabelFromValue(value));
+        }, [value, options]);
 
         const filteredOptions = options
             .filter(option => option.label && option.label.trim() !== '')
@@ -55,12 +60,12 @@ const SearchableDropdown = forwardRef<SearchableDropdownHandle, SearchableDropdo
             const handleClickOutside = (event: MouseEvent) => {
                 if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
                     setIsOpen(false);
-                    setSearchTerm(value); // Reset search term if no selection was made
+                    setSearchTerm(getLabelFromValue(value)); // Reset search term to current label if no selection was made
                 }
             };
             document.addEventListener('mousedown', handleClickOutside);
             return () => document.removeEventListener('mousedown', handleClickOutside);
-        }, [value]);
+        }, [value, options]);
 
         const handleSelect = (option: Option) => {
             onChange(option.value);
