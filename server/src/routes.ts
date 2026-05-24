@@ -75,16 +75,32 @@ const excelUpload = multer({
 // --- AUTH ROUTES ---
 
 router.post('/auth/login', (req, res) => {
-    const { username, password } = req.body;
+    const { username, password, password_hash } = req.body;
     try {
         const userRow = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as User & { password_hash: string };
         if (userRow) {
             const sha256 = (str: string) => crypto.createHash('sha256').update(str).digest('hex');
-            const isMatch = bcrypt.compareSync(password, userRow.password_hash) || 
-                            bcrypt.compareSync(sha256(password), userRow.password_hash);
-            
-            if (isMatch) {
-                const { password_hash, ...user } = userRow;
+
+            // 1. Check if they already have a migrated hash matching the client-side hash
+            if (password_hash && bcrypt.compareSync(password_hash, userRow.password_hash)) {
+                const { password_hash: _, ...user } = userRow;
+                const branch = db.prepare('SELECT * FROM branches WHERE id = ?').get(user.branchId) as Branch;
+                const assigned_list_ids = db.prepare('SELECT package_list_id FROM user_package_list_access WHERE user_id = ?').all(user.id).map((row: any) => row.package_list_id);
+                const userSessionData = { ...user, assigned_list_ids };
+                (req.session as any).user = userSessionData;
+                res.json({ user: userSessionData, branch });
+                return;
+            }
+
+            // 2. Check if they match via legacy plaintext password
+            if (password && bcrypt.compareSync(password, userRow.password_hash)) {
+                // If it matched plaintext, transparently migrate them to the client-side hash!
+                const targetHash = password_hash || sha256(password);
+                const newPasswordHashed = bcrypt.hashSync(targetHash, 10);
+                db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newPasswordHashed, userRow.id);
+                console.log(`Transparently migrated password hash for user "${username}" to the client-side SHA-256 schema on successful login.`);
+
+                const { password_hash: _, ...user } = userRow;
                 const branch = db.prepare('SELECT * FROM branches WHERE id = ?').get(user.branchId) as Branch;
                 const assigned_list_ids = db.prepare('SELECT package_list_id FROM user_package_list_access WHERE user_id = ?').all(user.id).map((row: any) => row.package_list_id);
                 const userSessionData = { ...user, assigned_list_ids };

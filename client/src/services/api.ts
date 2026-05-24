@@ -72,9 +72,10 @@ async function apiFetch(url: string, options: RequestInit = {}) {
 export const apiService = {
   // --- Auth ---
   login: async (username: string, password: string): Promise<{ user: User; branch: Branch }> => {
+    const hashedPassword = await sha256(password);
     return apiFetch('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, password_hash: hashedPassword }),
     });
   },
 
@@ -121,10 +122,22 @@ export const apiService = {
   // --- Admin: User Management ---
   createUser: async (userData: any): Promise<User> => {
     const payload = { ...userData };
+    if (payload.password) {
+      payload.password = await sha256(payload.password);
+    }
+    if (payload.password_hash) {
+      payload.password_hash = await sha256(payload.password_hash);
+    }
     return apiFetch('/users', { method: 'POST', body: JSON.stringify(payload) });
   },
   updateUser: async (userData: any): Promise<void> => {
     const payload = { ...userData };
+    if (payload.password) {
+      payload.password = await sha256(payload.password);
+    }
+    if (payload.password_hash) {
+      payload.password_hash = await sha256(payload.password_hash);
+    }
     return apiFetch(`/users/${payload.id}`, { method: 'PUT', body: JSON.stringify(payload) });
   },
   deleteUser: (userId: number): Promise<void> => apiFetch(`/users/${userId}`, { method: 'DELETE' }),
