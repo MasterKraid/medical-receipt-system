@@ -119,9 +119,16 @@ const ViewDocuments: React.FC<ViewDocumentsProps> = ({ docType }) => {
                                                     </span>
                                                 </td>
                                                 <td className="py-3 px-4">
-                                                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                                                        <i className="fa-solid fa-user-pen text-[10px] text-gray-300"></i>
-                                                        {doc.created_by_user}
+                                                    <div className="flex flex-col text-xs text-gray-500">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <i className="fa-solid fa-user-pen text-[10px] text-gray-300"></i>
+                                                            <span className="font-semibold">{doc.created_by_user.includes('[') ? doc.created_by_user.split('[')[0].trim() : doc.created_by_user}</span>
+                                                        </div>
+                                                        {doc.created_by_user.includes('[') && (
+                                                            <span className="text-[10px] text-gray-400 font-medium italic mt-0.5 ml-3.5">
+                                                                [{doc.created_by_user.split('[')[1]}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="py-3 px-4 text-right flex justify-end gap-2">

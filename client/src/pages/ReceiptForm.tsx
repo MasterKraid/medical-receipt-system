@@ -20,7 +20,7 @@ interface ItemRow {
 const prefixOptions = ['Mr.', 'Mrs.', 'Miss.', 'Baby.', 'Master.', 'Dr.', 'B/O', 'Ms.', 'C/O', 'S/O'];
 
 const ReceiptForm: React.FC = () => {
-    const { user, branch, updateUser, actingAsClient } = useAuth();
+    const { user, branch, updateUser, actingAsClient, setActingAsClient } = useAuth();
     const navigate = useNavigate();
 
     // Determine effective user role
@@ -40,8 +40,9 @@ const ReceiptForm: React.FC = () => {
     const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
-    const [newCustomer, setNewCustomer] = useState({ prefix: 'Mr.', name: '', mobile: '', email: '', dob: '', age: '', age_years: '', age_months: '', age_days: '', gender: 'Male' as 'Male' | 'Female' | 'Other' });
+    const [newCustomer, setNewCustomer] = useState({ prefix: 'Mr.', name: '', mobile: '', email: '', dob: '', age: '', age_years: '', age_months: '', age_days: '', gender: 'Male' as 'Male' | 'Female' });
     const [isGenderDisabled, setIsGenderDisabled] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [items, setItems] = useState<ItemRow[]>([{ id: Date.now(), name: '', mrp: 0, b2b_price: 0, discount: 0, isFromDb: false }]);
 
@@ -320,6 +321,10 @@ const ReceiptForm: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        if (showPreview || isSubmitting) {
+            return;
+        }
+
         // Robust guard for mobile flow submission
         if (isMobileView && step < 4) {
             nextStep();
@@ -359,7 +364,8 @@ const ReceiptForm: React.FC = () => {
     };
 
     const handleConfirmSave = async () => {
-        if (!user || !branch) return;
+        if (!user || !branch || isSubmitting) return;
+        setIsSubmitting(true);
 
         const validItems = items.filter(i => i.name && i.name.trim() !== '');
         const payload = {
@@ -384,11 +390,17 @@ const ReceiptForm: React.FC = () => {
                 user, branch, actingAsClient ? actingAsClient.id : undefined
             );
             if (updatedUser) {
-                updateUser(updatedUser);
+                if (actingAsClient) {
+                    setActingAsClient(updatedUser);
+                } else {
+                    updateUser(updatedUser);
+                }
             }
             navigate(`/receipt/${newReceipt.id}`);
         } catch (error) {
             alert(`Failed to create receipt: ${error}`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -460,6 +472,8 @@ const ReceiptForm: React.FC = () => {
 
     const handleTestKeyDown = (e: React.KeyboardEvent, itemId: number) => {
         if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
             const item = items.find(i => i.id === itemId);
             if (item && item.name) {
                 // If it's the last item, wait for state update then focus next
@@ -469,9 +483,6 @@ const ReceiptForm: React.FC = () => {
                         const newLastItem = items[items.length - 1];
                         if (newLastItem && newLastItem.id !== itemId) {
                             itemRefs.current[newLastItem.id]?.focus();
-                        } else {
-                            // Find the new row by looking at state again
-                            // but actually handlePackageSelect adds it
                         }
                     }, 50);
                 } else {
@@ -535,7 +546,7 @@ const ReceiptForm: React.FC = () => {
                 <div className="md:col-span-2 pt-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Gender</label>
                     <div className="flex items-center gap-3 bg-white p-1.5 rounded-lg border border-slate-200 shadow-sm w-fit">
-                        {(['Male', 'Female', 'Other'] as const).map(option => (
+                        {(['Male', 'Female'] as const).map(option => (
                             <button
                                 key={option}
                                 type="button"

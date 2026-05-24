@@ -104,6 +104,7 @@ export interface Transaction {
     date: string;
     type: 'RECEIPT_DEDUCTION' | 'ADMIN_CREDIT' | 'ADMIN_DEBIT' | 'SETTLEMENT';
     amount_deducted: number;
+    balance_snapshot?: number;
     notes?: string;
     receipt_id?: number;
     items?: TransactionItem[];
@@ -126,6 +127,7 @@ export interface Receipt {
     num_tests: number;
     logo_path?: string;
     created_by_user_id: number;
+    acting_as_client_id?: number;
 }
 
 export interface Estimate {

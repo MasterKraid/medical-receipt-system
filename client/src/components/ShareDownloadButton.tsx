@@ -22,8 +22,8 @@ const ShareDownloadButton: React.FC<ShareDownloadButtonProps> = ({ elementIdToCa
         const canvas = await html2canvas(element, { scale: 2 });
 
         // --- Mobile Share Logic ---
-        // Fixed: navigator.canShare is a function that needs to be called
-        if (navigator.share && navigator.canShare()) {
+        const testFile = new File([], 'test.png', { type: 'image/png' });
+        if (navigator.share && navigator.canShare({ files: [testFile] })) {
             // Fixed: Added type 'Blob | null' to the blob parameter
             canvas.toBlob(async (blob: Blob | null) => {
                 if (blob) {

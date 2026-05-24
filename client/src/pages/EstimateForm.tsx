@@ -28,7 +28,7 @@ const EstimateForm: React.FC = () => {
     const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
-    const [newCustomer, setNewCustomer] = useState({ prefix: 'Mr.', name: '', mobile: '', email: '', dob: '', age: '', age_years: '', age_months: '', age_days: '', gender: 'Male' as 'Male' | 'Female' | 'Other' });
+    const [newCustomer, setNewCustomer] = useState({ prefix: 'Mr.', name: '', mobile: '', email: '', dob: '', age: '', age_years: '', age_months: '', age_days: '', gender: 'Male' as 'Male' | 'Female' });
     const [isGenderDisabled, setIsGenderDisabled] = useState(true);
 
     const [selectedTestIds, setSelectedTestIds] = useState<Set<number>>(new Set());
@@ -429,7 +429,7 @@ const EstimateForm: React.FC = () => {
                         <div className="lg:col-span-4 mt-2">
                             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Gender</label>
                             <div className="flex items-center gap-3 bg-white p-1.5 rounded-lg border border-slate-200 shadow-sm w-fit">
-                                {(['Male', 'Female', 'Other'] as const).map(option => (
+                                {(['Male', 'Female'] as const).map(option => (
                                     <button
                                         key={option}
                                         type="button"

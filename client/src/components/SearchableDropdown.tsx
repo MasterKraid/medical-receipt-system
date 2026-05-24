@@ -78,6 +78,7 @@ const SearchableDropdown = forwardRef<SearchableDropdownHandle, SearchableDropdo
                     setHighlightedIndex(prev => (prev - 1 + filteredOptions.length) % filteredOptions.length);
                 } else if (e.key === 'Enter') {
                     e.preventDefault();
+                    e.stopPropagation();
                     const selectedOption = highlightedIndex >= 0 ? filteredOptions[highlightedIndex] : filteredOptions[0];
                     if (selectedOption) {
                         handleSelect(selectedOption);

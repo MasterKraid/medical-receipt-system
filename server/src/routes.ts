@@ -118,23 +118,38 @@ router.get('/auth/me', isAuthenticated, (req, res) => {
 
 const handleCustomerData = (customer_data: any, user_id: number): number => {
     // SCENARIO 1: An existing customer was selected from the search.
-    // We have an ID and should ONLY update this customer.
+    // We have an ID and should ONLY update this customer with new fields (do not overwrite with empty values).
     if (customer_data.id) {
-        db.prepare(`UPDATE customers SET prefix = ?, name = ?, mobile = ?, email = ?, dob = ?, age = ?, age_years = ?, age_months = ?, age_days = ?, gender = ?, updated_at = ? WHERE id = ?`)
-            .run(
-                customer_data.prefix, 
-                customer_data.name, 
-                customer_data.mobile, 
-                customer_data.email, 
-                customer_data.dob, 
-                customer_data.age ? parseInt(customer_data.age, 10) : null, 
-                customer_data.age_years !== '' && customer_data.age_years !== undefined ? parseInt(customer_data.age_years, 10) : null,
-                customer_data.age_months !== '' && customer_data.age_months !== undefined ? parseInt(customer_data.age_months, 10) : null,
-                customer_data.age_days !== '' && customer_data.age_days !== undefined ? parseInt(customer_data.age_days, 10) : null,
-                customer_data.gender, 
-                getISTDateTimeString(), 
-                customer_data.id
-            );
+        const existing = db.prepare('SELECT * FROM customers WHERE id = ?').get(customer_data.id) as any;
+        if (existing) {
+            const merged = {
+                prefix: customer_data.prefix !== undefined && customer_data.prefix !== '' ? customer_data.prefix : existing.prefix,
+                name: customer_data.name !== undefined && customer_data.name !== '' ? customer_data.name : existing.name,
+                mobile: customer_data.mobile !== undefined && customer_data.mobile !== '' ? customer_data.mobile : existing.mobile,
+                email: customer_data.email !== undefined && customer_data.email !== '' ? customer_data.email : existing.email,
+                dob: customer_data.dob !== undefined && customer_data.dob !== '' ? customer_data.dob : existing.dob,
+                age: customer_data.age !== undefined && customer_data.age !== '' ? customer_data.age : existing.age,
+                age_years: customer_data.age_years !== undefined && customer_data.age_years !== '' ? customer_data.age_years : existing.age_years,
+                age_months: customer_data.age_months !== undefined && customer_data.age_months !== '' ? customer_data.age_months : existing.age_months,
+                age_days: customer_data.age_days !== undefined && customer_data.age_days !== '' ? customer_data.age_days : existing.age_days,
+                gender: customer_data.gender !== undefined && customer_data.gender !== '' ? customer_data.gender : existing.gender,
+            };
+            db.prepare(`UPDATE customers SET prefix = ?, name = ?, mobile = ?, email = ?, dob = ?, age = ?, age_years = ?, age_months = ?, age_days = ?, gender = ?, updated_at = ? WHERE id = ?`)
+                .run(
+                    merged.prefix, 
+                    merged.name, 
+                    merged.mobile, 
+                    merged.email, 
+                    merged.dob, 
+                    merged.age ? parseInt(merged.age, 10) : null, 
+                    merged.age_years !== '' && merged.age_years !== null && merged.age_years !== undefined ? parseInt(merged.age_years, 10) : null,
+                    merged.age_months !== '' && merged.age_months !== null && merged.age_months !== undefined ? parseInt(merged.age_months, 10) : null,
+                    merged.age_days !== '' && merged.age_days !== null && merged.age_days !== undefined ? parseInt(merged.age_days, 10) : null,
+                    merged.gender, 
+                    getISTDateTimeString(), 
+                    customer_data.id
+                );
+        }
         return customer_data.id;
     }
 
@@ -170,8 +185,8 @@ router.post('/receipts', isAuthenticated, (req, res) => {
             const customerName = db.prepare('SELECT name FROM customers WHERE id = ?').get(customerId) as { name: string };
             const lab = db.prepare('SELECT logo_path FROM labs WHERE id = ?').get(payload.lab_id) as Lab;
 
-            const receiptResult = db.prepare(`INSERT INTO receipts (customer_id, branch_id, created_at, total_mrp, amount_final, amount_received, amount_due, payment_method, referred_by, notes, num_tests, logo_path, created_by_user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-                .run(customerId, branch.id, getISTDateTimeString(), payload.total_mrp, payload.amount_final, payload.amount_received, payload.amount_due, payload.payment_method, payload.referred_by, payload.notes, payload.num_tests || payload.items.length, lab?.logo_path, user.id);
+            const receiptResult = db.prepare(`INSERT INTO receipts (customer_id, branch_id, created_at, total_mrp, amount_final, amount_received, amount_due, payment_method, referred_by, notes, num_tests, logo_path, created_by_user_id, acting_as_client_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+                .run(customerId, branch.id, getISTDateTimeString(), payload.total_mrp, payload.amount_final, payload.amount_received, payload.amount_due, payload.payment_method, payload.referred_by, payload.notes, payload.num_tests || payload.items.length, lab?.logo_path, user.id, acting_as_client_id || null);
             const newReceiptId = receiptResult.lastInsertRowid;
 
             const insertItem = db.prepare('INSERT INTO receipt_items (receipt_id, package_name, mrp, discount_percentage) VALUES (?, ?, ?, ?)');
@@ -226,9 +241,9 @@ router.post('/receipts', isAuthenticated, (req, res) => {
                         .run(targetClientId, getISTDateTimeString(), 'RECEIPT_DEDUCTION', totalB2BCost, newBalanceObj.wallet_balance, newReceiptId, `Payment for ${customerName.name}`);
                 }
 
-                // If acting as self, return updated user data to refresh UI
-                if (targetClientId === user.id) {
-                    const updatedUserRow = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id) as User & { password_hash: string };
+                // If acting as self or acting as client, return updated user data to refresh UI
+                if (targetClientId !== -1) {
+                    const updatedUserRow = db.prepare('SELECT * FROM users WHERE id = ?').get(targetClientId) as User & { password_hash: string };
                     const { password_hash, ...rest } = updatedUserRow;
                     updatedUser = rest;
                 }
@@ -272,6 +287,14 @@ router.get('/receipts/:id', isAuthenticated, (req, res) => {
     try {
         const receipt = db.prepare('SELECT * FROM receipts WHERE id = ?').get(req.params.id) as Receipt;
         if (!receipt) return res.status(404).json({ message: "Receipt not found" });
+
+        const user = (req.session as any).user as User;
+        if (user.role === 'CLIENT') {
+            if (receipt.created_by_user_id !== user.id && receipt.acting_as_client_id !== user.id) {
+                return res.status(403).json({ message: "Forbidden: You do not have permission to view this receipt." });
+            }
+        }
+
         const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(receipt.customer_id) as Customer;
         const items = db.prepare('SELECT id, package_name, mrp, discount_percentage FROM receipt_items WHERE receipt_id = ?').all(req.params.id);
         const branch = db.prepare('SELECT * FROM branches WHERE id = ?').get(receipt.branch_id) as Branch;
@@ -283,6 +306,14 @@ router.get('/estimates/:id', isAuthenticated, (req, res) => {
     try {
         const estimate = db.prepare('SELECT * FROM estimates WHERE id = ?').get(req.params.id) as Estimate;
         if (!estimate) return res.status(404).json({ message: "Estimate not found" });
+
+        const user = (req.session as any).user as User;
+        if (user.role === 'CLIENT') {
+            if (estimate.created_by_user_id !== user.id) {
+                return res.status(403).json({ message: "Forbidden: You do not have permission to view this estimate." });
+            }
+        }
+
         const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(estimate.customer_id) as Customer;
         const items = db.prepare('SELECT id, package_name, mrp, discount_percentage FROM estimate_items WHERE estimate_id = ?').all(req.params.id);
         const branch = db.prepare('SELECT * FROM branches WHERE id = ?').get(estimate.branch_id) as Branch;
@@ -418,18 +449,31 @@ router.get('/customers', isAuthenticated, (req, res) => {
 router.get('/admin/receipts', isAdmin, (req, res) => {
     try {
         const receipts = db.prepare(`
-            SELECT r.id, r.created_at, c.name as customer_name, c.id as customer_id, c.prefix, r.amount_final, u.alias as user_alias, u.username as username
-            FROM receipts r JOIN customers c ON r.customer_id = c.id JOIN users u ON r.created_by_user_id = u.id ORDER BY r.id DESC
+            SELECT r.id, r.created_at, c.name as customer_name, c.id as customer_id, c.prefix, r.amount_final, 
+                   u.alias as user_alias, u.username as username, r.acting_as_client_id,
+                   cl.alias as client_alias, cl.username as client_username
+            FROM receipts r 
+            JOIN customers c ON r.customer_id = c.id 
+            JOIN users u ON r.created_by_user_id = u.id 
+            LEFT JOIN users cl ON r.acting_as_client_id = cl.id
+            ORDER BY r.id DESC
         `).all() as any[];
-        const formatted: Document[] = receipts.map(r => ({
-            id: r.id,
-            display_doc_id: `RCPT-${String(r.id).padStart(6, '0')}`,
-            display_date: `${r.created_at.split(' | ')[0]} ${r.created_at.split(' | ')[1]}`,
-            customer_name: `${r.prefix || ''} ${r.customer_name}`,
-            display_customer_id: `CUST-${String(r.customer_id).padStart(10, '0')}`,
-            display_amount: `₹${r.amount_final.toFixed(2)}`,
-            created_by_user: r.user_alias || r.username
-        }));
+        const formatted: Document[] = receipts.map(r => {
+            let creator = r.user_alias || r.username;
+            if (r.acting_as_client_id) {
+                const clientName = r.client_alias || r.client_username;
+                creator = `${clientName} [M.ENTRY BY - ${creator}]`;
+            }
+            return {
+                id: r.id,
+                display_doc_id: `RCPT-${String(r.id).padStart(6, '0')}`,
+                display_date: `${r.created_at.split(' | ')[0]} ${r.created_at.split(' | ')[1]}`,
+                customer_name: `${r.prefix || ''} ${r.customer_name}`,
+                display_customer_id: `CUST-${String(r.customer_id).padStart(10, '0')}`,
+                display_amount: `₹${r.amount_final.toFixed(2)}`,
+                created_by_user: creator
+            };
+        });
         res.json(formatted);
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });
@@ -467,10 +511,11 @@ router.get('/users/:id', isAdmin, (req, res) => {
 });
 
 router.post('/users', isAdmin, (req, res) => {
-    const { username, alias, password_hash, branchId, role, assigned_list_ids, master_data_entry } = req.body;
-    const password = bcrypt.hashSync(password_hash, 10);
+    const { username, alias, password, password_hash, branchId, role, assigned_list_ids, master_data_entry } = req.body;
+    const plainPassword = password || password_hash;
+    const passwordHashed = bcrypt.hashSync(plainPassword, 10);
     const transaction = db.transaction(() => {
-        const result = db.prepare('INSERT INTO users (username, alias, password_hash, branchId, role, master_data_entry) VALUES (?, ?, ?, ?, ?, ?)').run(username, alias, password, branchId, role, master_data_entry ? 1 : 0);
+        const result = db.prepare('INSERT INTO users (username, alias, password_hash, branchId, role, master_data_entry) VALUES (?, ?, ?, ?, ?, ?)').run(username, alias, passwordHashed, branchId, role, master_data_entry ? 1 : 0);
         const userId = result.lastInsertRowid;
         const insertAccess = db.prepare('INSERT INTO user_package_list_access (user_id, package_list_id) VALUES (?, ?)');
         assigned_list_ids.forEach((listId: number) => insertAccess.run(userId, listId));
@@ -482,11 +527,12 @@ router.post('/users', isAdmin, (req, res) => {
 });
 
 router.put('/users/:id', isAdmin, (req, res) => {
-    const { username, alias, password_hash, branchId, role, assigned_list_ids, master_data_entry } = req.body;
+    const { username, alias, password, password_hash, branchId, role, assigned_list_ids, master_data_entry } = req.body;
+    const plainPassword = password || password_hash;
     const transaction = db.transaction(() => {
-        if (password_hash) {
-            const password = bcrypt.hashSync(password_hash, 10);
-            db.prepare('UPDATE users SET username=?, alias=?, password_hash=?, branchId=?, role=?, master_data_entry=? WHERE id=?').run(username, alias, password, branchId, role, master_data_entry ? 1 : 0, req.params.id);
+        if (plainPassword) {
+            const passwordHashed = bcrypt.hashSync(plainPassword, 10);
+            db.prepare('UPDATE users SET username=?, alias=?, password_hash=?, branchId=?, role=?, master_data_entry=? WHERE id=?').run(username, alias, passwordHashed, branchId, role, master_data_entry ? 1 : 0, req.params.id);
         } else {
             db.prepare('UPDATE users SET username=?, alias=?, branchId=?, role=?, master_data_entry=? WHERE id=?').run(username, alias, branchId, role, master_data_entry ? 1 : 0, req.params.id);
         }
@@ -558,7 +604,10 @@ router.put('/labs/:id/lists', isAdmin, (req, res) => {
 });
 
 router.put('/labs/:id/logo', isAdmin, (req, res) => {
-    const labId = req.params.id;
+    const parsedLabId = parseInt(req.params.id, 10);
+    if (isNaN(parsedLabId)) {
+        return res.status(400).json({ message: "Invalid Lab ID" });
+    }
     const { logoBase64 } = req.body;
 
     if (!logoBase64) return res.status(400).json({ message: "Logo data is required" });
@@ -570,9 +619,15 @@ router.put('/labs/:id/logo', isAdmin, (req, res) => {
             return res.status(400).json({ message: "Invalid base64 string" });
         }
 
-        const extension = matches[1].split('/')[1] === 'jpeg' ? 'jpg' : matches[1].split('/')[1];
+        const mimeType = matches[1];
+        const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedMimeTypes.includes(mimeType)) {
+            return res.status(400).json({ message: "Disallowed file type. Only JPEG, PNG, GIF, and WEBP are allowed." });
+        }
+
+        const extension = mimeType.split('/')[1] === 'jpeg' ? 'jpg' : mimeType.split('/')[1];
         const buffer = Buffer.from(matches[2], 'base64');
-        const fileName = `lab_${labId}_${Date.now()}.${extension}`;
+        const fileName = `lab_${parsedLabId}_${Date.now()}.${extension}`;
         const relativePath = `/lab_logos/${fileName}`;
         const absolutePath = path.join(__dirname, '..', 'public', 'lab_logos', fileName);
 
@@ -583,7 +638,7 @@ router.put('/labs/:id/logo', isAdmin, (req, res) => {
         fs.writeFileSync(absolutePath, buffer);
 
         // Update database
-        db.prepare('UPDATE labs SET logo_path = ? WHERE id = ?').run(relativePath, labId);
+        db.prepare('UPDATE labs SET logo_path = ? WHERE id = ?').run(relativePath, parsedLabId);
 
         res.json({ logoPath: relativePath });
     } catch (error: any) {
@@ -718,9 +773,12 @@ router.delete('/admin/transactions/:id/revert', isAdmin, (req, res) => {
             }
 
             // 2. Revert wallet balance (Refund/Deduct the original amount)
-            // tx.amount_deducted is positive for deductions, negative for credits.
-            // To revert: current_balance = current_balance + amount_deducted
-            db.prepare('UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?').run(tx.amount_deducted, tx.user_id);
+            if (tx.type === 'SETTLEMENT') {
+                // Restore exact pre-settlement balance safely (snapshot + amount_deducted)
+                db.prepare('UPDATE users SET wallet_balance = ? WHERE id = ?').run((tx.balance_snapshot || 0) + tx.amount_deducted, tx.user_id);
+            } else {
+                db.prepare('UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?').run(tx.amount_deducted, tx.user_id);
+            }
 
             // 3. Delete the transaction record
             db.prepare('DELETE FROM transactions WHERE id = ?').run(req.params.id);
@@ -778,6 +836,25 @@ router.delete('/admin/customers/:id', isAdmin, (req, res) => {
     try {
         const customerId = req.params.id;
         const transactionResult = db.transaction(() => {
+            // A. Find all B2B receipt deduction transactions for this customer's receipts
+            const transactionsToRevert = db.prepare(`
+                SELECT * FROM transactions 
+                WHERE type = 'RECEIPT_DEDUCTION' 
+                  AND receipt_id IN (SELECT id FROM receipts WHERE customer_id = ?)
+            `).all(customerId) as Transaction[];
+
+            // B. Revert each of those transactions to restore client wallet balances
+            transactionsToRevert.forEach(tx => {
+                db.prepare('UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?')
+                    .run(tx.amount_deducted, tx.user_id);
+            });
+
+            // C. Delete all transactions linked to customer's receipts
+            db.prepare(`
+                DELETE FROM transactions 
+                WHERE receipt_id IN (SELECT id FROM receipts WHERE customer_id = ?)
+            `).run(customerId);
+
             // 1. Delete all receipt items associated with customer receipts
             db.prepare(`
                 DELETE FROM receipt_items 

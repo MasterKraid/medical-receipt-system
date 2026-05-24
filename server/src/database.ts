@@ -42,6 +42,32 @@ try {
     console.error("Migration check failed:", error);
 }
 
+// MIGRATION: Check if 'receipts' table has 'acting_as_client_id'
+try {
+    const tableInfo = db.prepare("PRAGMA table_info(receipts)").all() as any[];
+    const hasActingAsClientId = tableInfo.some(col => col.name === 'acting_as_client_id');
+
+    if (tableInfo.length > 0 && !hasActingAsClientId) {
+        console.log("Migrating database: Adding acting_as_client_id column to receipts...");
+        db.prepare("ALTER TABLE receipts ADD COLUMN acting_as_client_id INTEGER REFERENCES users(id)").run();
+    }
+} catch (error) {
+    console.error("Migration check failed for receipts acting_as_client_id:", error);
+}
+
+// MIGRATION: Check if 'customers' table has 'email'
+try {
+    const tableInfo = db.prepare("PRAGMA table_info(customers)").all() as any[];
+    const hasEmail = tableInfo.some(col => col.name === 'email');
+
+    if (tableInfo.length > 0 && !hasEmail) {
+        console.log("Migrating database: Adding email column to customers...");
+        db.prepare("ALTER TABLE customers ADD COLUMN email TEXT").run();
+    }
+} catch (error) {
+    console.error("Migration check failed for customers email:", error);
+}
+
 console.log('Database connected at', dbPath);
 
 const schema = `
@@ -128,6 +154,7 @@ const schema = `
         prefix TEXT,
         name TEXT NOT NULL,
         mobile TEXT,
+        email TEXT,
         dob TEXT,
         age INTEGER,
         age_years INTEGER,
@@ -155,9 +182,11 @@ const schema = `
         num_tests INTEGER,
         logo_path TEXT,
         created_by_user_id INTEGER NOT NULL,
+        acting_as_client_id INTEGER,
         FOREIGN KEY (customer_id) REFERENCES customers(id),
         FOREIGN KEY (branch_id) REFERENCES branches(id),
-        FOREIGN KEY (created_by_user_id) REFERENCES users(id)
+        FOREIGN KEY (created_by_user_id) REFERENCES users(id),
+        FOREIGN KEY (acting_as_client_id) REFERENCES users(id)
     );
 
     CREATE TABLE IF NOT EXISTS receipt_items (

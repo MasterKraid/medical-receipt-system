@@ -1,5 +1,17 @@
 import { User, Branch, PackageList, Package, Lab, Customer, Receipt, Estimate, Document, FormattedCustomer, Transaction, LabReport } from '../types';
 
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]*)'));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
+export async function sha256(message: string): Promise<string> {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // Helper for all API calls to the backend
 async function apiFetch(url: string, options: RequestInit = {}) {
   // Default headers, can be overridden
@@ -7,6 +19,17 @@ async function apiFetch(url: string, options: RequestInit = {}) {
     'Content-Type': 'application/json',
     ...options.headers,
   };
+
+  const method = (options.method || 'GET').toUpperCase();
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+    const csrfToken = getCookie('XSRF-TOKEN');
+    if (csrfToken) {
+      options.headers = {
+        ...options.headers,
+        'X-XSRF-TOKEN': csrfToken
+      };
+    }
+  }
 
   // NEW: Add Acting As header if present in session
   const actingAs = sessionStorage.getItem('actingAsClient');
@@ -48,10 +71,11 @@ async function apiFetch(url: string, options: RequestInit = {}) {
 
 export const apiService = {
   // --- Auth ---
-  login: (username: string, password: string): Promise<{ user: User; branch: Branch }> => {
+  login: async (username: string, password: string): Promise<{ user: User; branch: Branch }> => {
+    const hashedPassword = await sha256(password);
     return apiFetch('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password: hashedPassword }),
     });
   },
 
@@ -96,8 +120,26 @@ export const apiService = {
   getEstimates: (): Promise<Document[]> => apiFetch('/admin/estimates'),
 
   // --- Admin: User Management ---
-  createUser: (userData: any): Promise<User> => apiFetch('/users', { method: 'POST', body: JSON.stringify(userData) }),
-  updateUser: (userData: any): Promise<void> => apiFetch(`/users/${userData.id}`, { method: 'PUT', body: JSON.stringify(userData) }),
+  createUser: async (userData: any): Promise<User> => {
+    const payload = { ...userData };
+    if (payload.password) {
+      payload.password = await sha256(payload.password);
+    }
+    if (payload.password_hash) {
+      payload.password_hash = await sha256(payload.password_hash);
+    }
+    return apiFetch('/users', { method: 'POST', body: JSON.stringify(payload) });
+  },
+  updateUser: async (userData: any): Promise<void> => {
+    const payload = { ...userData };
+    if (payload.password) {
+      payload.password = await sha256(payload.password);
+    }
+    if (payload.password_hash) {
+      payload.password_hash = await sha256(payload.password_hash);
+    }
+    return apiFetch(`/users/${payload.id}`, { method: 'PUT', body: JSON.stringify(payload) });
+  },
   deleteUser: (userId: number): Promise<void> => apiFetch(`/users/${userId}`, { method: 'DELETE' }),
 
   // --- Admin: Branch Management ---
@@ -136,9 +178,16 @@ export const apiService = {
   // --- Reports (Client & Admin) ---
   uploadReport: (formData: FormData): Promise<{ reportId: number }> => {
     // Don't use apiFetch since we need to let the browser set the boundary headers for FormData
+    const csrfToken = getCookie('XSRF-TOKEN');
+    const headers: Record<string, string> = {};
+    if (csrfToken) {
+      headers['X-XSRF-TOKEN'] = csrfToken;
+    }
     return fetch('/api/reports/upload', {
       method: 'POST',
+      headers,
       body: formData,
+      credentials: 'include'
     }).then(res => res.ok ? res.json() : Promise.reject('Upload failed'));
   },
   getReportsAdmin: (): Promise<LabReport[]> => apiFetch('/reports'),
@@ -148,9 +197,16 @@ export const apiService = {
 
   // --- Estimate Comparison ---
   uploadComparisonData: (formData: FormData): Promise<void> => {
+    const csrfToken = getCookie('XSRF-TOKEN');
+    const headers: Record<string, string> = {};
+    if (csrfToken) {
+      headers['X-XSRF-TOKEN'] = csrfToken;
+    }
     return fetch('/api/comparison/upload', {
       method: 'POST',
+      headers,
       body: formData,
+      credentials: 'include'
     }).then(res => res.ok ? res.json() : Promise.reject('Upload failed'));
   },
   getComparisonData: (): Promise<{ tests: any[]; labs: any[]; prices: any[] }> => apiFetch('/comparison/data'),
