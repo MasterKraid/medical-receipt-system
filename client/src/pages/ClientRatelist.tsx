@@ -216,7 +216,7 @@ const ClientRatelist: React.FC = () => {
                     <span className="text-base md:text-lg font-bold text-gray-800 uppercase tracking-tight md:tracking-normal">Search & Select Tests</span>
                 </legend>
                 
-                <div className="mb-4">
+                <div className="mb-4 sticky top-0 bg-white z-20 py-3 border-b border-slate-100">
                     <MultiSelectSearch 
                         options={dropdownOptions}
                         selectedValues={selectedTests}

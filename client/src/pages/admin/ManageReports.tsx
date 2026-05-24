@@ -124,7 +124,7 @@ const ManageReports: React.FC = () => {
                                         <SearchableDropdown
                                             options={[
                                                 { value: '', label: 'Select a Client...' },
-                                                ...clients.map(c => ({ value: c.id.toString(), label: c.alias || c.username }))
+                                                ...clients.map(c => ({ value: c.id.toString(), label: `${c.alias || c.username} (UID: ${c.id})` }))
                                             ]}
                                             value={selectedClientId}
                                             onChange={(val) => setSelectedClientId(val)}

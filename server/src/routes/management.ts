@@ -51,7 +51,12 @@ router.get('/client-wallets', isAuthenticated, (req, res) => {
     let clients;
     if (query) {
         const searchTerm = `%${query}%`;
-        clients = db.prepare("SELECT * FROM users WHERE role = 'CLIENT' AND (username LIKE ? OR alias LIKE ?)").all(searchTerm, searchTerm);
+        const idQuery = parseInt(query, 10);
+        if (!isNaN(idQuery)) {
+            clients = db.prepare("SELECT * FROM users WHERE role = 'CLIENT' AND (username LIKE ? OR alias LIKE ? OR id = ?)").all(searchTerm, searchTerm, idQuery);
+        } else {
+            clients = db.prepare("SELECT * FROM users WHERE role = 'CLIENT' AND (username LIKE ? OR alias LIKE ?)").all(searchTerm, searchTerm);
+        }
     } else {
         clients = db.prepare("SELECT * FROM users WHERE role = 'CLIENT'").all();
     }
