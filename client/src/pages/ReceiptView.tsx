@@ -3,8 +3,10 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
 import { Receipt, Customer, DocumentItem, Branch as BranchType } from '../types';
-import ShareDownloadButton from '../components/ShareDownloadButton';
 import ChoiceModal from '../components/ChoiceModal';
+
+declare const html2canvas: any;
+declare const jspdf: any;
 
 interface ReceiptPageData {
     receipt: Receipt;
@@ -90,6 +92,126 @@ const ReceiptView: React.FC = () => {
     }, [data]);
 
     const getDashboardLink = () => user?.role === 'ADMIN' ? '/admin-dashboard' : '/dashboard';
+
+    const generatePdf = async (): Promise<any> => {
+        if (typeof html2canvas === 'undefined' || typeof jspdf === 'undefined' || typeof jspdf.jsPDF === 'undefined') {
+            alert('The PDF generator is still loading. Please wait a moment and try again.');
+            return null;
+        }
+
+        const element = document.getElementById('print-container');
+        if (!element) {
+            console.error("Element to capture not found!");
+            return null;
+        }
+
+        const originalWidth = element.style.width;
+        const originalMaxWidth = element.style.maxWidth;
+
+        // Force desktop width for beautiful scaling
+        element.style.width = '800px';
+        element.style.maxWidth = '800px';
+
+        try {
+            const canvas = await html2canvas(element, { 
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                logging: false
+            });
+
+            element.style.width = originalWidth;
+            element.style.maxWidth = originalMaxWidth;
+
+            const imgData = canvas.toDataURL('image/png');
+            const { jsPDF } = jspdf;
+            const pdf = new jsPDF({
+                orientation: 'p',
+                unit: 'mm',
+                format: 'a4'
+            });
+
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const margin = 10;
+            const usableWidth = pdfWidth - margin * 2;
+            const usableHeight = pdfHeight - margin * 2;
+
+            const scaledHeight = usableWidth * (canvas.height / canvas.width);
+
+            let finalScale = 1;
+            if (scaledHeight > usableHeight && scaledHeight < usableHeight * 1.15) {
+                finalScale = usableHeight / scaledHeight;
+            }
+
+            const finalWidth = usableWidth * finalScale;
+            const finalHeight = scaledHeight * finalScale;
+
+            if (finalHeight <= usableHeight) {
+                pdf.addImage(imgData, 'PNG', margin, margin, finalWidth, finalHeight);
+            } else {
+                let heightLeft = finalHeight;
+                let position = 0;
+                let page = 1;
+                
+                while (heightLeft > 0) {
+                    if (page > 1) pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', margin, margin - position, finalWidth, finalHeight);
+                    heightLeft -= usableHeight;
+                    position += usableHeight;
+                    page++;
+                }
+            }
+
+            return pdf;
+        } catch (err) {
+            console.error("PDF generation failed:", err);
+            element.style.width = originalWidth;
+            element.style.maxWidth = originalMaxWidth;
+            return null;
+        }
+    };
+
+    const handleSharePdf = async () => {
+        if (!data || !formattedData) return;
+        const pdf = await generatePdf();
+        if (!pdf) return;
+
+        const fileName = `Receipt-RCPT-${String(data.receipt.id).padStart(6, '0')}.pdf`;
+        const fallbackUrl = window.location.href;
+
+        try {
+            const pdfBlob = pdf.output('blob');
+            const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: `Receipt RCPT-${String(data.receipt.id).padStart(6, '0')}`,
+                    text: `Money Receipt for ${data.customer.prefix || ''} ${data.customer.name} (Amount: ₹${formattedData.finalAmountFormatted})`,
+                });
+            } else {
+                await navigator.clipboard.writeText(fallbackUrl);
+                alert("PDF file sharing is not supported by your browser. The receipt link has been copied to your clipboard!");
+            }
+        } catch (err) {
+            console.warn("Share failed, copying link", err);
+            try {
+                await navigator.clipboard.writeText(fallbackUrl);
+                alert("Receipt URL link copied to clipboard!");
+            } catch (clipErr) {
+                alert("Failed to share or copy receipt link.");
+            }
+        }
+    };
+
+    const handleDownloadPdf = async () => {
+        if (!data) return;
+        const pdf = await generatePdf();
+        if (!pdf) return;
+        const fileName = `Receipt-RCPT-${String(data.receipt.id).padStart(6, '0')}.pdf`;
+        pdf.save(fileName);
+    };
 
     if (isLoading) return <div className="text-center p-10">Loading Receipt...</div>;
     if (error) return <div className="text-center p-10 text-red-500">{error}</div>;
@@ -229,35 +351,19 @@ const ReceiptView: React.FC = () => {
                     <i className="fa-solid fa-print"></i> Print
                 </button>
                 
-                {/* Native Android/Mobile Share */}
                 <button 
-                    onClick={async () => {
-                        if (navigator.share) {
-                            try {
-                                const receiptNum = `RCPT-${String(receipt.id).padStart(6, '0')}`;
-                                await navigator.share({
-                                    title: `Receipt ${receiptNum}`,
-                                    text: `Money Receipt ${receiptNum} for ${customer.prefix || ''} ${customer.name} (Amount: ₹${formattedData.finalAmountFormatted}) is ready.`,
-                                    url: window.location.href,
-                                });
-                            } catch (err) {
-                                console.warn('Native share failed or dismissed', err);
-                            }
-                        } else {
-                            try {
-                                await navigator.clipboard.writeText(window.location.href);
-                                alert("Receipt URL link copied to clipboard!");
-                            } catch (err) {
-                                alert("Sharing not supported on this browser.");
-                            }
-                        }
-                    }}
+                    onClick={handleSharePdf}
                     className="px-5 py-3 cursor-pointer text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-sm font-bold text-xs uppercase tracking-wider"
                 >
                     <i className="fa-solid fa-share-nodes"></i> Share Receipt
                 </button>
 
-                <ShareDownloadButton elementIdToCapture="print-container" fileName={`Receipt-RCPT-${String(receipt.id).padStart(6, '0')}.pdf`} />
+                <button 
+                    onClick={handleDownloadPdf}
+                    className="px-5 py-3 cursor-pointer text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-all flex items-center gap-2 shadow-sm font-bold text-xs uppercase tracking-wider"
+                >
+                    <i className="fa-solid fa-download"></i> Download PDF
+                </button>
 
                 {user?.role === 'ADMIN' && (
                     <button
@@ -271,7 +377,7 @@ const ReceiptView: React.FC = () => {
                 <Link to="/receipt-form" className="px-5 py-3 cursor-pointer text-white bg-slate-800 rounded-xl hover:bg-slate-900 transition-all flex items-center gap-2 shadow-sm font-bold text-xs uppercase tracking-wider">
                     <i className="fa-solid fa-plus"></i> New Form
                 </Link>
-                <Link to={getDashboardLink()} className="px-5 py-3 cursor-pointer text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all flex items-center gap-2 border border-slate-200 font-bold text-xs uppercase tracking-wider">
+                <Link to={getDashboardLink()} className="px-5 py-3 cursor-pointer text-white bg-slate-900 rounded-xl hover:bg-black transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-wider shadow-md">
                     <i className="fa-solid fa-house"></i> Dashboard
                 </Link>
             </div>
