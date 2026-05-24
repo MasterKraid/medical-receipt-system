@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
 import DashboardLink from '../components/DashboardLink';
-import PageHeader from '../components/PageHeader';
 import { ReceiptIcon, EstimateIcon, CustomersIcon, LogoutIcon, WalletIcon, ViewIcon, RatelistIcon } from '../components/icons';
 
 const UserDashboard: React.FC = () => {
@@ -21,28 +20,27 @@ const UserDashboard: React.FC = () => {
     <div className="relative min-h-screen bg-slate-50">
       <div className="max-w-4xl mx-auto py-10 px-4 relative z-10">
         <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100">
-          <PageHeader
-            title="User Dashboard"
-            showBackLink={false}
-            subtitle={
-              user && (
-                <div className="flex flex-col items-start bg-gray-50 p-3 rounded-lg border border-gray-200 text-xs text-gray-600 min-w-[200px] mt-2">
-                  <div className="font-semibold text-gray-800 mb-1 text-sm flex items-center gap-1.5">
-                    {user.role === 'CLIENT' ? <i className="fa-solid fa-user-tag text-indigo-500"></i> : <i className="fa-solid fa-user text-indigo-500"></i>}
+          <header className="border-b border-gray-200 pb-6 mb-8">
+            <div className="flex flex-col md:flex-row justify-between items-center md:items-start gap-4 text-center md:text-left">
+              <h1 className="m-0 text-2xl md:text-3xl font-bold text-gray-800">User Dashboard</h1>
+              {user && (
+                <div className="flex flex-col items-center md:items-end bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm text-gray-600 w-full md:w-auto md:min-w-[200px]">
+                  <div className="font-semibold text-gray-800 mb-1 text-base">
+                    {user.role === 'CLIENT' ? <i className="fa-solid fa-user-tag mr-2"></i> : <i className="fa-solid fa-user mr-2"></i>}
                     {user.username}
                   </div>
                   {branch && (
-                    <div className="mb-1.5 flex items-center gap-1.5"><i className="fa-solid fa-building text-slate-400"></i>{branch.name}</div>
+                    <div className="mb-2"><i className="fa-solid fa-building mr-2"></i>{branch.name}</div>
                   )}
                   {user.role === 'CLIENT' && typeof user.wallet_balance !== 'undefined' && (
-                    <div className={`font-bold px-2.5 py-0.5 rounded-full text-[10px] whitespace-nowrap flex items-center gap-1.5 ${user.wallet_balance < 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                      <i className="fa-solid fa-wallet"></i>₹{user.wallet_balance.toFixed(2)}
+                    <div className={`font-bold px-3 py-1 rounded-full text-xs whitespace-nowrap ${user.wallet_balance < 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                      <i className="fa-solid fa-wallet mr-2"></i>₹{user.wallet_balance.toFixed(2)}
                     </div>
                   )}
                 </div>
-              )
-            }
-          />
+              )}
+            </div>
+          </header>
 
           <nav className="relative">
             <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl">
