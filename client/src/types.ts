@@ -32,6 +32,7 @@ export interface Package {
     mrp: number;
     b2b_price: number;
     package_list_id: number;
+    code_name?: string;
 }
 
 export interface Lab {
@@ -141,6 +142,8 @@ export interface LabReport {
     is_read: boolean;
     alias?: string;
     username?: string;
+    customer_id?: number;
+    category?: 'With Header' | 'Without Header' | 'Bill' | 'Others';
 }
 
 export interface ComparisonTest {

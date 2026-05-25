@@ -21,7 +21,6 @@ import TransactionHistoryPage from './pages/TransactionHistoryPage';
 import ManageReports from './pages/admin/ManageReports';
 import ManageComparison from './pages/admin/ManageComparison';
 import ReceiptReport from './pages/admin/ReceiptReport';
-import ClientReports from './pages/ClientReports';
 import ClientRatelist from './pages/ClientRatelist';
 import ReloadPrompt from './components/ReloadPrompt';
 
@@ -57,7 +56,7 @@ const AppRoutes: React.FC = () => {
       <Route path="/estimate/:id" element={<ProtectedRoute roles={['ADMIN', 'GENERAL_EMPLOYEE']}><EstimateView /></ProtectedRoute>} />
 
       <Route path="/transactions" element={<ProtectedRoute roles={['CLIENT']}><TransactionHistoryPage /></ProtectedRoute>} />
-      <Route path="/reports" element={<ProtectedRoute roles={['CLIENT']}><ClientReports /></ProtectedRoute>} />
+      <Route path="/reports" element={<Navigate to="/customers" />} />
       <Route path="/my-ratelist" element={<ProtectedRoute roles={['CLIENT']}><ClientRatelist /></ProtectedRoute>} />
 
       <Route path="/admin/users" element={<AdminRoute><ManageUsers /></AdminRoute>} />

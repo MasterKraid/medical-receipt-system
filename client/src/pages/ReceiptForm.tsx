@@ -741,7 +741,7 @@ const ReceiptForm: React.FC = () => {
                         const otherSelectedNames = new Set(items.filter(i => i.id !== item.id && i.name).map(i => i.name));
                         const dropdownOptions = packages
                             .filter(p => p.name && p.name.trim() !== '' && !otherSelectedNames.has(p.name))
-                            .map(p => ({ value: p.name, label: p.name }));
+                            .map(p => ({ value: p.name, label: p.name, code_name: p.code_name }));
                         return (
                             <div key={item.id} className="grid grid-cols-12 gap-2 items-end border-b pb-4 last:border-0 hover:bg-slate-50 transition-colors">
                                 <div className={`${(isClientMode && showB2BDetails) ? 'col-span-12 md:col-span-5' : 'col-span-12 md:col-span-7'}`}>

@@ -5,6 +5,7 @@ interface Option {
     label: string;
     b2b?: number;
     mrp?: number;
+    code_name?: string;
 }
 
 interface MultiSelectSearchProps {
@@ -32,7 +33,10 @@ const MultiSelectSearch: React.FC<MultiSelectSearchProps> = ({
     // Filter options based on search term
     const filteredOptions = options
         .filter(option => option.label && option.label.trim() !== '')
-        .filter(option => option.label.toLowerCase().includes(searchTerm.toLowerCase()));
+        .filter(option => 
+            option.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (option.code_name && option.code_name.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
 
     // Close dropdown on outside click
     useEffect(() => {

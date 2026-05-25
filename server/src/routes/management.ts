@@ -493,16 +493,24 @@ router.post('/reports/upload', isAdmin, upload.single('report'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'No PDF file uploaded.' });
     }
-    const { client_id, customer_name } = req.body;
-    if (!client_id || !customer_name) {
+    const { client_id, customer_id, category } = req.body;
+    if (!client_id || !customer_id || !category) {
         fs.unlinkSync(req.file.path);
-        return res.status(400).json({ message: 'Missing client_id or customer_name.' });
+        return res.status(400).json({ message: 'Missing client_id, customer_id, or category.' });
     }
 
     try {
+        const customer = db.prepare('SELECT name FROM customers WHERE id = ?').get(customer_id) as any;
+        if (!customer) {
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ message: 'Customer not found.' });
+        }
+
         const relativePath = `/lab_reports/${req.file.filename}`;
-        const result = db.prepare(`INSERT INTO lab_reports (client_id, customer_name, file_path, uploaded_at) VALUES (?, ?, ?, ?)`)
-            .run(client_id, customer_name, relativePath, getISTDateTimeString());
+        const result = db.prepare(`
+            INSERT INTO lab_reports (client_id, customer_id, customer_name, category, file_path, uploaded_at) 
+            VALUES (?, ?, ?, ?, ?, ?)
+        `).run(client_id, customer_id, customer.name, category, relativePath, getISTDateTimeString());
 
         res.status(201).json({
             message: 'Report uploaded successfully',
@@ -536,6 +544,74 @@ router.get('/reports/client', isAuthenticated, (req, res) => {
         const reports = db.prepare('SELECT * FROM lab_reports WHERE client_id = ? ORDER BY id DESC').all(user.id) as any[];
         res.json(reports);
     } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.get('/reports/:id/download', isAuthenticated, (req, res) => {
+    const user = (req.session as any).user as User;
+    const reportId = req.params.id;
+
+    try {
+        const report = db.prepare('SELECT * FROM lab_reports WHERE id = ?').get(reportId) as any;
+        if (!report) {
+            return res.status(404).json({ message: 'Report not found' });
+        }
+
+        // B2B franchise clients are only authorized to download their own files
+        if (user.role === 'CLIENT' && report.client_id !== user.id) {
+            return res.status(403).json({ message: 'Forbidden: Unauthorized report download.' });
+        }
+
+        // Enforce negative balance download blocks for B2B clients
+        if (user.role === 'CLIENT') {
+            const client = db.prepare('SELECT wallet_balance, allow_negative_balance, negative_balance_allowed_until FROM users WHERE id = ?').get(user.id) as any;
+            if (client) {
+                let isNegativeAllowed = false;
+                if (client.wallet_balance >= 0) {
+                    isNegativeAllowed = true;
+                } else if (client.allow_negative_balance) {
+                    if (client.negative_balance_allowed_until) {
+                        const untilDate = new Date(client.negative_balance_allowed_until);
+                        if (untilDate >= new Date()) {
+                            isNegativeAllowed = true;
+                        }
+                    } else {
+                        isNegativeAllowed = true;
+                    }
+                }
+
+                if (!isNegativeAllowed) {
+                    return res.status(403).json({ message: "Download blocked: Wallet account balance is negative." });
+                }
+            }
+        }
+
+        const absolutePath = path.join(__dirname, '..', '..', 'public', report.file_path);
+        if (!fs.existsSync(absolutePath)) {
+            return res.status(404).json({ message: 'Report file not found on server.' });
+        }
+
+        // Dynamic renaming: CustomerName_category.pdf
+        const sanitizedCustomerName = report.customer_name.replace(/[^a-zA-Z0-9]/g, '_');
+        const sanitizedCategory = (report.category || 'report').toLowerCase().replace(/\s+/g, '_');
+        const filename = `${sanitizedCustomerName}_${sanitizedCategory}.pdf`;
+
+        const inline = req.query.inline === 'true';
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader(
+            'Content-Disposition',
+            `${inline ? 'inline' : 'attachment'}; filename="${filename}"`
+        );
+
+        // Mark report as read if client is retrieving it
+        if (user.role === 'CLIENT' && !report.is_read) {
+            db.prepare('UPDATE lab_reports SET is_read = 1 WHERE id = ?').run(reportId);
+        }
+
+        const fileStream = fs.createReadStream(absolutePath);
+        fileStream.pipe(res);
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
 });
 
 router.put('/reports/:id/read', isAuthenticated, (req, res) => {

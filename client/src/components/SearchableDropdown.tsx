@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } f
 interface Option {
     value: string;
     label: string;
+    code_name?: string;
 }
 
 interface SearchableDropdownProps {
@@ -54,7 +55,8 @@ const SearchableDropdown = forwardRef<SearchableDropdownHandle, SearchableDropdo
                     return true;
                 }
                 return option.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       option.value.toLowerCase().includes(searchTerm.toLowerCase());
+                       option.value.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                       (option.code_name && option.code_name.toLowerCase().includes(searchTerm.toLowerCase()));
             });
 
         useEffect(() => {

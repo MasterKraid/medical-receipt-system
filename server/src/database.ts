@@ -82,6 +82,48 @@ try {
     console.error("Migration check failed for customers is_deleted:", error);
 }
 
+// MIGRATION: Check if 'lab_reports' table has 'customer_id' and 'category'
+try {
+    const tableInfo = db.prepare("PRAGMA table_info(lab_reports)").all() as any[];
+    const hasCustomerId = tableInfo.some(col => col.name === 'customer_id');
+    const hasCategory = tableInfo.some(col => col.name === 'category');
+
+    if (tableInfo.length > 0) {
+        if (!hasCustomerId) {
+            console.log("Migrating database: Adding customer_id column to lab_reports...");
+            db.prepare("ALTER TABLE lab_reports ADD COLUMN customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE").run();
+        }
+        if (!hasCategory) {
+            console.log("Migrating database: Adding category column to lab_reports...");
+            db.prepare("ALTER TABLE lab_reports ADD COLUMN category TEXT CHECK(category IN ('With Header', 'Without Header', 'Bill', 'Others'))").run();
+        }
+    }
+} catch (error) {
+    console.error("Migration check failed for lab_reports columns:", error);
+}
+
+// MIGRATION: Check if 'packages' table has 'code_name'
+try {
+    const tableInfo = db.prepare("PRAGMA table_info(packages)").all() as any[];
+    const hasCodeName = tableInfo.some(col => col.name === 'code_name');
+
+    if (tableInfo.length > 0 && !hasCodeName) {
+        console.log("Migrating database: Adding code_name column to packages...");
+        db.prepare("ALTER TABLE packages ADD COLUMN code_name TEXT").run();
+
+        // Seed default code abbreviations based on common terms
+        console.log("Migrating database: Seeding default package code_names...");
+        db.prepare("UPDATE packages SET code_name = 'CBC' WHERE name LIKE '%CBC%' OR name LIKE '%Complete Blood Count%'").run();
+        db.prepare("UPDATE packages SET code_name = 'LFT' WHERE name LIKE '%LFT%' OR name LIKE '%Liver Function%'").run();
+        db.prepare("UPDATE packages SET code_name = 'KFT' WHERE name LIKE '%KFT%' OR name LIKE '%Kidney Function%'").run();
+        db.prepare("UPDATE packages SET code_name = 'TFT' WHERE name LIKE '%TFT%' OR name LIKE '%Thyroid%'").run();
+        db.prepare("UPDATE packages SET code_name = 'WIDAL' WHERE name LIKE '%Widal%'").run();
+        db.prepare("UPDATE packages SET code_name = 'ECG' WHERE name LIKE '%ECG%' OR name LIKE '%Electrocardiogram%'").run();
+    }
+} catch (error) {
+    console.error("Migration check failed for packages code_name:", error);
+}
+
 console.log('Database connected at', dbPath);
 
 const schema = `
@@ -92,6 +134,8 @@ const schema = `
         file_path TEXT NOT NULL,
         uploaded_at TEXT NOT NULL,
         is_read BOOLEAN DEFAULT 0,
+        customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+        category TEXT CHECK(category IN ('With Header', 'Without Header', 'Bill', 'Others')),
         FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
@@ -147,6 +191,7 @@ const schema = `
         mrp REAL NOT NULL,
         b2b_price REAL NOT NULL,
         package_list_id INTEGER NOT NULL,
+        code_name TEXT,
         FOREIGN KEY (package_list_id) REFERENCES package_lists(id) ON DELETE CASCADE
     );
 

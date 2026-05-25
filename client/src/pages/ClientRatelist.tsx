@@ -204,7 +204,8 @@ const ClientRatelist: React.FC = () => {
             value: p.name, 
             label: p.name,
             b2b: p.b2b_price,
-            mrp: p.mrp
+            mrp: p.mrp,
+            code_name: p.code_name
         }));
         
         return (

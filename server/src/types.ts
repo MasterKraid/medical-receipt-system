@@ -66,6 +66,7 @@ export interface Package {
     mrp: number;
     b2b_price: number;
     package_list_id: number;
+    code_name?: string;
 }
 
 export interface Lab {

@@ -2,30 +2,53 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
 import { apiService } from '../../services/api';
-import { FormattedCustomer } from '../../types';
+import { FormattedCustomer, LabReport } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 
 const ViewCustomers: React.FC = () => {
     const { user } = useAuth();
     const [customers, setCustomers] = useState<FormattedCustomer[]>([]);
+    const [reports, setReports] = useState<LabReport[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
+    // Modal state for viewing customer files
+    const [selectedCustForModal, setSelectedCustForModal] = useState<FormattedCustomer | null>(null);
+    const [modalReports, setModalReports] = useState<LabReport[]>([]);
+    const [isOpenModal, setIsOpenModal] = useState(false);
+
     const loadCustomers = async () => {
-        setIsLoading(true);
         try {
             const data = await apiService.getAllCustomers();
             setCustomers(data);
         } catch (err) {
             console.error("Failed to fetch customers", err);
-        } finally {
-            setIsLoading(false);
         }
+    };
+
+    const loadReports = async () => {
+        try {
+            let reportsData: LabReport[] = [];
+            if (user?.role === 'ADMIN' || user?.role === 'GENERAL_EMPLOYEE') {
+                reportsData = await apiService.getReportsAdmin();
+            } else if (user?.role === 'CLIENT') {
+                reportsData = await apiService.getReportsClient();
+            }
+            setReports(reportsData);
+        } catch (err) {
+            console.error("Failed to load reports", err);
+        }
+    };
+
+    const loadData = async () => {
+        setIsLoading(true);
+        await Promise.all([loadCustomers(), loadReports()]);
+        setIsLoading(false);
     };
 
     useEffect(() => {
         if (user) {
-            loadCustomers();
+            loadData();
         }
     }, [user]);
 
@@ -38,6 +61,99 @@ const ViewCustomers: React.FC = () => {
             cust.display_id.toLowerCase().includes(query)
         );
     }, [customers, searchTerm]);
+
+    const reportsByCustomerId = React.useMemo(() => {
+        const map: { [key: number]: LabReport[] } = {};
+        reports.forEach(r => {
+            if (r.customer_id) {
+                if (!map[r.customer_id]) map[r.customer_id] = [];
+                map[r.customer_id].push(r);
+            }
+        });
+        return map;
+    }, [reports]);
+
+    const handleOpenReportsModal = (cust: FormattedCustomer, custReports: LabReport[]) => {
+        setSelectedCustForModal(cust);
+        setModalReports(custReports);
+        setIsOpenModal(true);
+    };
+
+    const handleDownloadReport = async (report: LabReport) => {
+        try {
+            const response = await fetch(`/api/reports/${report.id}/download`);
+            if (response.status === 403) {
+                const errData = await response.json();
+                alert(errData.message || "Download blocked: Wallet account balance is negative.");
+                return;
+            }
+            if (!response.ok) throw new Error('File download failed');
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            
+            const sanitizedCustomerName = report.customer_name.replace(/[^a-zA-Z0-9]/g, '_');
+            const sanitizedCategory = (report.category || 'report').toLowerCase().replace(/\s+/g, '_');
+            const filename = `${sanitizedCustomerName}_${sanitizedCategory}.pdf`;
+            a.download = filename;
+
+            document.body.appendChild(a);
+            a.click();
+
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            // Real-time update read status on client download
+            if (user?.role === 'CLIENT' && !report.is_read) {
+                loadReports();
+                setModalReports(prev => prev.map(r => r.id === report.id ? { ...r, is_read: true } : r));
+            }
+        } catch (err) {
+            console.error("Download failed:", err);
+            alert("Failed to download file.");
+        }
+    };
+
+    const handleViewReport = async (report: LabReport) => {
+        window.open(`/api/reports/${report.id}/download?inline=true`, '_blank');
+        if (user?.role === 'CLIENT' && !report.is_read) {
+            try {
+                await apiService.markReportAsRead(report.id);
+                loadReports();
+                setModalReports(prev => prev.map(r => r.id === report.id ? { ...r, is_read: true } : r));
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    };
+
+    const groupedModalReports = React.useMemo(() => {
+        const groups: { [key: string]: LabReport[] } = {
+            'With Header': [],
+            'Without Header': [],
+            'Bill': [],
+            'Others': []
+        };
+        modalReports.forEach(r => {
+            const cat = r.category || 'Others';
+            if (groups[cat]) {
+                groups[cat].push(r);
+            } else {
+                groups['Others'].push(r);
+            }
+        });
+        return groups;
+    }, [modalReports]);
+
+    const categories = [
+        { id: 'With Header', label: 'With Header', icon: 'fa-file-invoice', color: 'indigo' },
+        { id: 'Without Header', label: 'Without Header', icon: 'fa-file-signature', color: 'amber' },
+        { id: 'Bill', label: 'Bill', icon: 'fa-receipt', color: 'emerald' },
+        { id: 'Others', label: 'Others', icon: 'fa-ellipsis-h', color: 'slate' }
+    ] as const;
 
     return (
         <div className="p-3 sm:p-6 max-w-7xl mx-auto space-y-6">
@@ -73,61 +189,86 @@ const ViewCustomers: React.FC = () => {
                                         <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Identity</th>
                                         <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Contact & Info</th>
                                         <th className="py-3 px-4 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Registration</th>
-                                        {user?.role === 'ADMIN' && <th className="py-3 px-4 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Actions</th>}
+                                        <th className="py-3 px-4 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-300">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 text-sm">
                                     {isLoading ? (
-                                        <tr><td colSpan={user?.role === 'ADMIN' ? 4 : 3} className="text-center py-12 text-gray-400 italic text-sm">Synchronizing customer records...</td></tr>
+                                        <tr><td colSpan={4} className="text-center py-12 text-gray-400 italic text-sm">Synchronizing customer records...</td></tr>
                                     ) : filteredCustomers.length === 0 ? (
-                                        <tr><td colSpan={user?.role === 'ADMIN' ? 4 : 3} className="text-center py-12 text-gray-400 italic text-sm">No customers matching your search found.</td></tr>
+                                        <tr><td colSpan={4} className="text-center py-12 text-gray-400 italic text-sm">No customers matching your search found.</td></tr>
                                     ) : (
-                                        filteredCustomers.map(cust => (
-                                            <tr key={cust.id} className="hover:bg-gray-50/50 transition-colors group">
-                                                <td className="py-3 px-4">
-                                                    <div className="text-sm font-bold text-gray-800">{cust.name}</div>
-                                                    <div className="text-[10px] text-gray-400 font-mono italic">{cust.display_id}</div>
-                                                </td>
-                                                <td className="py-3 px-4">
-                                                    <div className="flex flex-col gap-1">
-                                                        <div className="flex items-center gap-2 text-xs text-gray-600">
-                                                            <i className="fa-solid fa-phone text-[10px] text-gray-400"></i>
-                                                            {cust.mobile || 'No Mobile'}
+                                        filteredCustomers.map(cust => {
+                                            const custReports = reportsByCustomerId[cust.id] || [];
+                                            return (
+                                                <tr key={cust.id} className="hover:bg-gray-50/50 transition-colors group">
+                                                    <td className="py-3 px-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="text-sm font-bold text-gray-800">{cust.name}</div>
+                                                            {custReports.length > 0 && (
+                                                                <button
+                                                                    onClick={() => handleOpenReportsModal(cust, custReports)}
+                                                                    className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all shadow-sm shrink-0"
+                                                                    title={`${custReports.length} report(s) available`}
+                                                                >
+                                                                    <i className="fa-solid fa-paperclip text-[10px]"></i>
+                                                                </button>
+                                                            )}
                                                         </div>
-                                                        <div className="flex items-center gap-2 text-[10px] text-gray-400">
-                                                            <i className={`fa-solid ${cust.gender === 'Male' ? 'fa-mars' : 'fa-venus'} text-gray-300`}></i>
-                                                            {cust.gender || 'N/A'} • {cust.dob_formatted !== 'N/A' ? cust.dob_formatted : cust.display_age}
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="py-3 px-4 text-xs font-semibold text-gray-500">
-                                                    {cust.display_created_at}
-                                                </td>
-                                                {user?.role === 'ADMIN' && (
-                                                    <td className="py-3 px-4 text-right">
-                                                        <div className="flex gap-2 justify-end">
-                                                            <Link to={`/admin/customers/edit/${cust.id}`} className="w-8 h-8 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-blue-500 rounded border border-slate-100 hover:border-blue-100 transition-all" title="Edit Profile">
-                                                                <i className="fa-solid fa-pen-to-square text-xs"></i>
-                                                            </Link>
-                                                            <button
-                                                                onClick={async () => {
-                                                                    if (window.confirm(`Are you sure you want to delete customer ${cust.name}? This will remove them from the directory, but preserve all their receipt and ledger history. This action cannot be undone. Do you want to proceed?`)) {
-                                                                        try {
-                                                                            await apiService.deleteCustomer(cust.id);
-                                                                            loadCustomers();
-                                                                        } catch (err: any) { alert(`Failed to delete: ${err.message || err}`); }
-                                                                    }
-                                                                }}
-                                                                className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 hover:bg-red-600 hover:text-white rounded border border-red-100 transition-all"
-                                                                title="Delete Customer"
-                                                            >
-                                                                <i className="fa-solid fa-trash-can text-xs"></i>
-                                                            </button>
+                                                        <div className="text-[10px] text-gray-400 font-mono italic">{cust.display_id}</div>
+                                                    </td>
+                                                    <td className="py-3 px-4">
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="flex items-center gap-2 text-xs text-gray-600">
+                                                                <i className="fa-solid fa-phone text-[10px] text-gray-400"></i>
+                                                                {cust.mobile || 'No Mobile'}
+                                                            </div>
+                                                            <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                                                                <i className={`fa-solid ${cust.gender === 'Male' ? 'fa-mars' : 'fa-venus'} text-gray-300`}></i>
+                                                                {cust.gender || 'N/A'} • {cust.dob_formatted !== 'N/A' ? cust.dob_formatted : cust.display_age}
+                                                            </div>
                                                         </div>
                                                     </td>
-                                                )}
-                                            </tr>
-                                        ))
+                                                    <td className="py-3 px-4 text-xs font-semibold text-gray-500">
+                                                        {cust.display_created_at}
+                                                    </td>
+                                                    <td className="py-3 px-4 text-right">
+                                                        <div className="flex gap-2 justify-end">
+                                                            {custReports.length > 0 && (
+                                                                <button
+                                                                    onClick={() => handleOpenReportsModal(cust, custReports)}
+                                                                    className="px-2.5 py-1 text-[10px] font-bold bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded border border-indigo-100 transition-all flex items-center gap-1 shadow-sm uppercase tracking-wider"
+                                                                    title="View PDFs"
+                                                                >
+                                                                    <i className="fa-solid fa-file-pdf"></i> Reports ({custReports.length})
+                                                                </button>
+                                                            )}
+                                                            {user?.role === 'ADMIN' && (
+                                                                <>
+                                                                    <Link to={`/admin/customers/edit/${cust.id}`} className="w-8 h-8 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-blue-500 rounded border border-slate-100 hover:border-blue-100 transition-all" title="Edit Profile">
+                                                                        <i className="fa-solid fa-pen-to-square text-xs"></i>
+                                                                    </Link>
+                                                                    <button
+                                                                        onClick={async () => {
+                                                                            if (window.confirm(`Are you sure you want to delete customer ${cust.name}? This will remove them from the directory, but preserve all their receipt and ledger history. This action cannot be undone. Do you want to proceed?`)) {
+                                                                                try {
+                                                                                    await apiService.deleteCustomer(cust.id);
+                                                                                    loadCustomers();
+                                                                                } catch (err: any) { alert(`Failed to delete: ${err.message || err}`); }
+                                                                            }
+                                                                        }}
+                                                                        className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-500 hover:bg-red-600 hover:text-white rounded border border-red-100 transition-all"
+                                                                        title="Delete Customer"
+                                                                    >
+                                                                        <i className="fa-solid fa-trash-can text-xs"></i>
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
                                     )}
                                 </tbody>
                             </table>
@@ -135,6 +276,110 @@ const ViewCustomers: React.FC = () => {
                     </fieldset>
                 </div>
             </div>
+
+            {/* Premium Category Downloads Overlay Selection Modal */}
+            {isOpenModal && selectedCustForModal && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all">
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-scale-up">
+                        {/* Modal Header */}
+                        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                            <div>
+                                <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
+                                    <i className="fa-solid fa-paperclip text-indigo-500 text-sm"></i>
+                                    <span>Customer Reports</span>
+                                </h3>
+                                <p className="text-xs text-slate-500 font-semibold mt-0.5">
+                                    Patient: <span className="text-slate-800 font-bold">{selectedCustForModal.name}</span> • {selectedCustForModal.display_id}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setIsOpenModal(false)}
+                                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-all"
+                            >
+                                <i className="fa-solid fa-xmark text-sm"></i>
+                            </button>
+                        </div>
+
+                        {/* Modal Content */}
+                        <div className="p-6 overflow-y-auto space-y-6 bg-white custom-scrollbar-minimal">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {categories.map(cat => {
+                                    const files = groupedModalReports[cat.id] || [];
+                                    const folderColors = {
+                                        indigo: 'text-indigo-500 bg-indigo-50 border-indigo-100',
+                                        amber: 'text-amber-500 bg-amber-50 border-amber-100',
+                                        emerald: 'text-emerald-500 bg-emerald-50 border-emerald-100',
+                                        slate: 'text-slate-500 bg-slate-50 border-slate-100'
+                                    }[cat.color];
+
+                                    return (
+                                        <div key={cat.id} className="border border-slate-100 rounded-xl p-4 bg-slate-50/50 space-y-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${folderColors}`}>
+                                                    <i className={`fa-solid ${cat.icon} text-sm`}></i>
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs font-bold text-slate-800 uppercase tracking-wider">{cat.label}</div>
+                                                    <div className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">{files.length} document(s)</div>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar-minimal pr-1">
+                                                {files.map(report => (
+                                                    <div key={report.id} className="bg-white p-2 rounded-lg border border-slate-100 shadow-sm flex items-center justify-between gap-3 group/item">
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="text-xs font-bold text-slate-700 truncate" title={report.customer_name}>
+                                                                PDF Report
+                                                            </div>
+                                                            <div className="text-[9px] text-slate-400 font-semibold flex items-center gap-1.5 mt-0.5">
+                                                                <span>{report.uploaded_at.split(' | ')[0]}</span>
+                                                                {!report.is_read && (
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" title="Unread"></span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex gap-1 shrink-0">
+                                                            <button
+                                                                onClick={() => handleViewReport(report)}
+                                                                className="w-7 h-7 flex items-center justify-center bg-slate-50 text-slate-500 hover:bg-blue-600 hover:text-white rounded border border-slate-100 transition-all animate-none"
+                                                                title="View Report"
+                                                            >
+                                                                <i className="fa-solid fa-eye text-[10px]"></i>
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDownloadReport(report)}
+                                                                className="w-7 h-7 flex items-center justify-center bg-slate-50 text-slate-500 hover:bg-indigo-600 hover:text-white rounded border border-slate-100 transition-all animate-none"
+                                                                title="Download PDF"
+                                                            >
+                                                                <i className="fa-solid fa-download text-[10px]"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {files.length === 0 && (
+                                                    <div className="text-center py-6 text-slate-400 text-[10px] font-bold uppercase tracking-widest italic bg-white/50 border border-dashed border-slate-200 rounded-lg">
+                                                        No files
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+                            <button
+                                onClick={() => setIsOpenModal(false)}
+                                className="px-4 py-2 bg-slate-800 hover:bg-black text-white text-xs font-bold rounded-lg transition-all shadow-sm"
+                            >
+                                Close Directory
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
