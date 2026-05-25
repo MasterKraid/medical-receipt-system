@@ -136,6 +136,8 @@ export interface Document {
     amount_final?: number;
     b2b_cost?: number;
     payment_method?: string;
+    referred_by?: string;
+    num_tests?: number;
 }
 
 export interface LabReport {

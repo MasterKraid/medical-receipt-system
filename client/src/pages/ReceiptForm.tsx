@@ -448,7 +448,12 @@ const ReceiptForm: React.FC = () => {
         try {
             if (isEditMode) {
                 await apiService.updateReceipt(parseInt(id!, 10), payload);
-                navigate(`/receipt/${id}`);
+                if (user?.role === 'CLIENT') {
+                    alert("Receipt saved successfully!");
+                    navigate('/');
+                } else {
+                    navigate(`/receipt/${id}`);
+                }
             } else {
                 const { newReceipt, updatedUser } = await apiService.createReceipt(
                     payload,
@@ -461,7 +466,12 @@ const ReceiptForm: React.FC = () => {
                         updateUser(updatedUser);
                     }
                 }
-                navigate(`/receipt/${newReceipt.id}`);
+                if (user?.role === 'CLIENT') {
+                    alert("Receipt saved successfully!");
+                    navigate('/');
+                } else {
+                    navigate(`/receipt/${newReceipt.id}`);
+                }
             }
         } catch (error) {
             alert(`Failed to save receipt: ${error}`);
@@ -868,6 +878,7 @@ const ReceiptForm: React.FC = () => {
                                 <p className="font-bold text-slate-800">{labs.find(l => l.id === parseInt(selectedLabId))?.name}</p>
                                 <p className="text-sm text-slate-500">{packageLists.find(p => p.id === parseInt(selectedListId))?.name}</p>
                                 <p className="text-sm font-bold text-slate-600">Payment: {details.payment_method}</p>
+                                <p className="text-sm text-slate-500 font-semibold">Doctor / Reference: {details.referred_by || 'Self'}</p>
                             </div>
                         </section>
                     </div>

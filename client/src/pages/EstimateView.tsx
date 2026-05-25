@@ -311,7 +311,7 @@ const EstimateView: React.FC = () => {
                     <div><span className="font-bold text-slate-400 text-xs block uppercase">Patient Name</span> <span className="font-bold text-slate-800">{customer.prefix || ''} {customer.name}</span></div>
                     <div><span className="font-bold text-slate-400 text-xs block uppercase">Age / DOB</span> {customer.dob ? new Date(customer.dob).toLocaleDateString('en-GB') : (customer.age ? `${customer.age} yrs` : 'N/A')}</div>
                     <div><span className="font-bold text-slate-400 text-xs block uppercase">Gender</span> {customer.gender || 'N/A'}</div>
-                    <div><span className="font-bold text-slate-400 text-xs block uppercase">Referred By Dr.</span> {estimate.referred_by || 'N/A'}</div>
+                    <div><span className="font-bold text-slate-400 text-xs block uppercase">Referred By Dr.</span> {estimate.referred_by || 'Self'}</div>
                 </div>
 
                 {/* Items Table */}

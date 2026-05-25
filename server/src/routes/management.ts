@@ -87,7 +87,7 @@ router.get('/customers', isAuthenticated, (req, res) => {
 router.get('/admin/receipts', isAdmin, (req, res) => {
     try {
         const receipts = db.prepare(`
-            SELECT r.id, r.created_at, c.name as customer_name, c.id as customer_id, c.prefix, r.amount_final, r.total_mrp, r.payment_method,
+            SELECT r.id, r.created_at, c.name as customer_name, c.id as customer_id, c.prefix, r.amount_final, r.total_mrp, r.payment_method, r.referred_by, r.num_tests,
                    u.alias as user_alias, u.username as username, r.acting_as_client_id, r.created_by_user_id,
                    cl.alias as client_alias, cl.username as client_username,
                    (SELECT amount_deducted FROM transactions WHERE receipt_id = r.id AND type = 'RECEIPT_DEDUCTION') AS b2b_cost
@@ -117,7 +117,9 @@ router.get('/admin/receipts', isAdmin, (req, res) => {
                 payment_method: r.payment_method,
                 created_by_user: creator,
                 acting_as_client_id: r.acting_as_client_id || undefined,
-                created_by_user_id: r.created_by_user_id
+                created_by_user_id: r.created_by_user_id,
+                referred_by: r.referred_by || 'Self',
+                num_tests: r.num_tests || 0
             };
         });
         res.json(formatted);

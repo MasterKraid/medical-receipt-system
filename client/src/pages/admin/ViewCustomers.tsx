@@ -353,6 +353,41 @@ const ViewCustomers: React.FC = () => {
                                     <div className="flex items-center gap-1.5"><i className="fa-solid fa-phone text-slate-400 text-[10px]"></i>{selectedCustForModal.mobile || 'No Mobile'}</div>
                                     <div className="flex items-center gap-1.5"><i className={`fa-solid ${selectedCustForModal.gender === 'Male' ? 'fa-mars text-blue-500' : 'fa-venus text-pink-500'} text-[10px]`}></i>{selectedCustForModal.gender || 'Gender: N/A'}</div>
                                     <div className="flex items-center gap-1.5"><i className="fa-solid fa-calendar text-slate-400 text-[10px]"></i>{selectedCustForModal.dob_formatted !== 'N/A' ? selectedCustForModal.dob_formatted : selectedCustForModal.display_age}</div>
+                                    {selectedCustForModal.email && (
+                                        <div className="flex items-center gap-1.5"><i className="fa-solid fa-envelope text-slate-400 text-[10px]"></i>{selectedCustForModal.email}</div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Demographic & Registration Grid */}
+                            <div className="mt-5 p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200 pb-1.5 flex justify-between">
+                                    <span>Demographic Details</span>
+                                    <span>Registered: {selectedCustForModal.display_created_at}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 text-xs font-bold text-slate-650">
+                                    <div>Email: <span className="text-slate-800 font-medium font-sans">{selectedCustForModal.email || 'N/A'}</span></div>
+                                    <div>Mobile: <span className="text-slate-850 font-mono">{selectedCustForModal.mobile || 'N/A'}</span></div>
+                                    <div>Gender: <span className="text-slate-850 font-medium">{selectedCustForModal.gender || 'N/A'}</span></div>
+                                    <div>Age / DOB: <span className="text-slate-850 font-medium">{selectedCustForModal.dob_formatted !== 'N/A' ? selectedCustForModal.dob_formatted : selectedCustForModal.display_age}</span></div>
+                                </div>
+                            </div>
+
+                            {/* Clinical & Financial Summary Dashboard */}
+                            <div className="mt-4 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 space-y-3">
+                                <div className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider border-b border-indigo-200 pb-1.5 flex justify-between">
+                                    <span>Clinical & Billing Statistics</span>
+                                    <span>Visits: {customerReceipts.length}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 text-xs font-bold text-slate-650">
+                                    <div>Total Tests Done: <span className="text-indigo-800 text-sm font-black">{customerReceipts.reduce((sum, r) => sum + (r.num_tests || 0), 0)}</span></div>
+                                    <div>Last Doctor Name: <span className="text-slate-850 font-black">{customerReceipts[0]?.referred_by || 'Self'}</span></div>
+                                    <div>Total MRP Billing: <span className="text-slate-800 font-black">₹{customerReceipts.reduce((sum, r) => sum + (r.total_mrp || 0), 0).toLocaleString('en-IN')}</span></div>
+                                    {user?.role === 'ADMIN' && (
+                                        <div>Total B2B Base: <span className="text-slate-800 font-black">₹{customerReceipts.reduce((sum, r) => sum + (r.b2b_cost || 0), 0).toLocaleString('en-IN')}</span></div>
+                                    )}
+                                    <div>Total Paid transacted: <span className="text-emerald-700 font-black">₹{customerReceipts.reduce((sum, r) => sum + (r.amount_final || 0), 0).toLocaleString('en-IN')}</span></div>
+                                    <div>Last Visited Date: <span className="text-slate-700 font-medium font-mono">{customerReceipts[0]?.display_date.split(' ')[0] || 'N/A'}</span></div>
                                 </div>
                             </div>
 
