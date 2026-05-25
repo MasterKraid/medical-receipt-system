@@ -12,7 +12,7 @@ const ViewCustomers: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Modal state for viewing customer files
+    // Modal state for viewing customer details & files
     const [selectedCustForModal, setSelectedCustForModal] = useState<FormattedCustomer | null>(null);
     const [modalReports, setModalReports] = useState<LabReport[]>([]);
     const [isOpenModal, setIsOpenModal] = useState(false);
@@ -106,7 +106,7 @@ const ViewCustomers: React.FC = () => {
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
 
-            // Real-time update read status on client download
+            // Update read status for B2B Client downloaded files in real-time
             if (user?.role === 'CLIENT' && !report.is_read) {
                 loadReports();
                 setModalReports(prev => prev.map(r => r.id === report.id ? { ...r, is_read: true } : r));
@@ -130,6 +130,12 @@ const ViewCustomers: React.FC = () => {
         }
     };
 
+    const handlePastelCardClick = (files: LabReport[]) => {
+        if (files.length > 0) {
+            handleViewReport(files[0]); // Opens the latest report inline
+        }
+    };
+
     const groupedModalReports = React.useMemo(() => {
         const groups: { [key: string]: LabReport[] } = {
             'With Header': [],
@@ -149,10 +155,10 @@ const ViewCustomers: React.FC = () => {
     }, [modalReports]);
 
     const categories = [
-        { id: 'With Header', label: 'With Header', icon: 'fa-file-invoice', color: 'indigo' },
-        { id: 'Without Header', label: 'Without Header', icon: 'fa-file-signature', color: 'amber' },
-        { id: 'Bill', label: 'Bill', icon: 'fa-receipt', color: 'emerald' },
-        { id: 'Others', label: 'Others', icon: 'fa-ellipsis-h', color: 'slate' }
+        { id: 'With Header', label: 'With Header', icon: 'fa-file-invoice', color: 'indigo', pastel: 'bg-indigo-50 border-indigo-150 text-indigo-850 hover:bg-indigo-100/90' },
+        { id: 'Without Header', label: 'Without Header', icon: 'fa-file-signature', color: 'amber', pastel: 'bg-amber-50 border-amber-150 text-amber-850 hover:bg-amber-100/90' },
+        { id: 'Bill', label: 'Bill', icon: 'fa-receipt', color: 'emerald', pastel: 'bg-emerald-50 border-emerald-150 text-emerald-850 hover:bg-emerald-100/90' },
+        { id: 'Others', label: 'Others', icon: 'fa-ellipsis-h', color: 'slate', pastel: 'bg-slate-100/80 border-slate-200 text-slate-855 hover:bg-slate-200/90' }
     ] as const;
 
     return (
@@ -200,19 +206,23 @@ const ViewCustomers: React.FC = () => {
                                     ) : (
                                         filteredCustomers.map(cust => {
                                             const custReports = reportsByCustomerId[cust.id] || [];
+                                            const hasUnseenReport = custReports.some(r => !r.is_read);
                                             return (
-                                                <tr key={cust.id} className="hover:bg-gray-50/50 transition-colors group">
+                                                <tr 
+                                                    key={cust.id} 
+                                                    onClick={() => handleOpenReportsModal(cust, custReports)}
+                                                    className="hover:bg-slate-100 hover:shadow-inner active:bg-slate-200 border-b border-slate-200 cursor-pointer transition-all duration-150 group"
+                                                >
                                                     <td className="py-3 px-4">
                                                         <div className="flex items-center gap-2">
                                                             <div className="text-sm font-bold text-gray-800">{cust.name}</div>
-                                                            {custReports.length > 0 && (
-                                                                <button
-                                                                    onClick={() => handleOpenReportsModal(cust, custReports)}
-                                                                    className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all shadow-sm shrink-0"
-                                                                    title={`${custReports.length} report(s) available`}
+                                                            {hasUnseenReport && (
+                                                                <span 
+                                                                    className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-600 text-white font-extrabold text-[10px] shrink-0 border border-red-500 shadow-[0_0_8px_rgba(220,38,38,0.7)] animate-pulse"
+                                                                    title="Unread Report Attached!"
                                                                 >
-                                                                    <i className="fa-solid fa-paperclip text-[10px]"></i>
-                                                                </button>
+                                                                    !
+                                                                </span>
                                                             )}
                                                         </div>
                                                         <div className="text-[10px] text-gray-400 font-mono italic">{cust.display_id}</div>
@@ -234,22 +244,19 @@ const ViewCustomers: React.FC = () => {
                                                     </td>
                                                     <td className="py-3 px-4 text-right">
                                                         <div className="flex gap-2 justify-end">
-                                                            {custReports.length > 0 && (
-                                                                <button
-                                                                    onClick={() => handleOpenReportsModal(cust, custReports)}
-                                                                    className="px-2.5 py-1 text-[10px] font-bold bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded border border-indigo-100 transition-all flex items-center gap-1 shadow-sm uppercase tracking-wider"
-                                                                    title="View PDFs"
-                                                                >
-                                                                    <i className="fa-solid fa-file-pdf"></i> Reports ({custReports.length})
-                                                                </button>
-                                                            )}
                                                             {user?.role === 'ADMIN' && (
                                                                 <>
-                                                                    <Link to={`/admin/customers/edit/${cust.id}`} className="w-8 h-8 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-blue-500 rounded border border-slate-100 hover:border-blue-100 transition-all" title="Edit Profile">
+                                                                    <Link 
+                                                                        to={`/admin/customers/edit/${cust.id}`} 
+                                                                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                                                        className="w-8 h-8 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-blue-500 rounded border border-slate-100 hover:border-blue-100 transition-all" 
+                                                                        title="Edit Profile"
+                                                                    >
                                                                         <i className="fa-solid fa-pen-to-square text-xs"></i>
                                                                     </Link>
                                                                     <button
-                                                                        onClick={async () => {
+                                                                        onClick={async (e: React.MouseEvent) => {
+                                                                            e.stopPropagation();
                                                                             if (window.confirm(`Are you sure you want to delete customer ${cust.name}? This will remove them from the directory, but preserve all their receipt and ledger history. This action cannot be undone. Do you want to proceed?`)) {
                                                                                 try {
                                                                                     await apiService.deleteCustomer(cust.id);
@@ -277,105 +284,114 @@ const ViewCustomers: React.FC = () => {
                 </div>
             </div>
 
-            {/* Premium Category Downloads Overlay Selection Modal */}
+            {/* Hovering Customer Profile & Reports Modal */}
             {isOpenModal && selectedCustForModal && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all">
-                    <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-scale-up">
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-scale-up">
                         {/* Modal Header */}
-                        <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                            <div>
-                                <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
-                                    <i className="fa-solid fa-paperclip text-indigo-500 text-sm"></i>
-                                    <span>Customer Reports</span>
-                                </h3>
-                                <p className="text-xs text-slate-500 font-semibold mt-0.5">
-                                    Patient: <span className="text-slate-800 font-bold">{selectedCustForModal.name}</span> • {selectedCustForModal.display_id}
-                                </p>
-                            </div>
+                        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Patient Details & Reports</span>
                             <button
                                 onClick={() => setIsOpenModal(false)}
-                                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-all"
+                                className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-all animate-none"
                             >
                                 <i className="fa-solid fa-xmark text-sm"></i>
                             </button>
                         </div>
 
                         {/* Modal Content */}
-                        <div className="p-6 overflow-y-auto space-y-6 bg-white custom-scrollbar-minimal">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {categories.map(cat => {
-                                    const files = groupedModalReports[cat.id] || [];
-                                    const folderColors = {
-                                        indigo: 'text-indigo-500 bg-indigo-50 border-indigo-100',
-                                        amber: 'text-amber-500 bg-amber-50 border-amber-100',
-                                        emerald: 'text-emerald-500 bg-emerald-50 border-emerald-100',
-                                        slate: 'text-slate-500 bg-slate-50 border-slate-100'
-                                    }[cat.color];
+                        <div className="p-6 overflow-y-auto bg-white custom-scrollbar-minimal flex-1">
+                            {/* Center Top: Customer Face Icon & Main Info */}
+                            <div className="text-center">
+                                <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 shadow-inner mx-auto mb-3 border border-indigo-100 relative">
+                                    <i className="fa-solid fa-circle-user text-5xl"></i>
+                                    {modalReports.some(r => !r.is_read) && (
+                                        <span className="absolute bottom-0 right-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-600 text-white font-extrabold text-[10px] shadow-md border border-white animate-pulse">
+                                            !
+                                        </span>
+                                    )}
+                                </div>
+                                <h4 className="text-lg font-extrabold text-slate-800">{selectedCustForModal.name}</h4>
+                                <p className="text-[10px] text-slate-400 font-mono italic uppercase tracking-wider mt-0.5">{selectedCustForModal.display_id}</p>
+                                
+                                <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mt-3.5 text-xs text-slate-600 font-bold bg-slate-50 p-3 rounded-xl border border-slate-100 max-w-md mx-auto">
+                                    <div className="flex items-center gap-1.5"><i className="fa-solid fa-phone text-slate-400 text-[10px]"></i>{selectedCustForModal.mobile || 'No Mobile'}</div>
+                                    <div className="flex items-center gap-1.5"><i className={`fa-solid ${selectedCustForModal.gender === 'Male' ? 'fa-mars text-blue-500' : 'fa-venus text-pink-500'} text-[10px]`}></i>{selectedCustForModal.gender || 'Gender: N/A'}</div>
+                                    <div className="flex items-center gap-1.5"><i className="fa-solid fa-calendar text-slate-400 text-[10px]"></i>{selectedCustForModal.dob_formatted !== 'N/A' ? selectedCustForModal.dob_formatted : selectedCustForModal.display_age}</div>
+                                </div>
+                            </div>
 
-                                    return (
-                                        <div key={cat.id} className="border border-slate-100 rounded-xl p-4 bg-slate-50/50 space-y-3">
-                                            <div className="flex items-center gap-2">
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${folderColors}`}>
+                            {/* Reports Scroll Section */}
+                            <div className="border-t border-slate-100 pt-5 mt-5">
+                                <h5 className="text-xs font-extrabold uppercase tracking-widest text-slate-500 flex items-center gap-2 mb-4">
+                                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-600 text-white font-extrabold text-[10px] animate-pulse">!</span>
+                                    <span>Reports & Documents</span>
+                                </h5>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    {categories.map(cat => {
+                                        const files = groupedModalReports[cat.id] || [];
+                                        const pastelColors = {
+                                            indigo: files.length > 0 ? 'bg-indigo-50 border-indigo-100 text-indigo-800 hover:bg-indigo-100/70 shadow-sm' : 'bg-slate-50/50 border-slate-100 text-slate-400 opacity-60 cursor-not-allowed',
+                                            amber: files.length > 0 ? 'bg-amber-50 border-amber-100 text-amber-800 hover:bg-amber-100/70 shadow-sm' : 'bg-slate-50/50 border-slate-100 text-slate-400 opacity-60 cursor-not-allowed',
+                                            emerald: files.length > 0 ? 'bg-emerald-50 border-emerald-100 text-emerald-800 hover:bg-emerald-100/70 shadow-sm' : 'bg-slate-50/50 border-slate-100 text-slate-400 opacity-60 cursor-not-allowed',
+                                            slate: files.length > 0 ? 'bg-slate-100/80 border-slate-200 text-slate-800 hover:bg-slate-200/95 shadow-sm' : 'bg-slate-50/50 border-slate-100 text-slate-400 opacity-60 cursor-not-allowed'
+                                        }[cat.color];
+
+                                        return (
+                                            <div 
+                                                key={cat.id} 
+                                                onClick={() => files.length > 0 && handlePastelCardClick(files)}
+                                                className={`border rounded-2xl p-4 transition-all text-center space-y-2 flex flex-col items-center justify-center min-h-[120px] ${pastelColors} ${files.length > 0 ? 'cursor-pointer hover:scale-[1.02]' : ''}`}
+                                            >
+                                                <div className="w-9 h-9 rounded-full bg-white/95 shadow-sm flex items-center justify-center shrink-0">
                                                     <i className={`fa-solid ${cat.icon} text-sm`}></i>
                                                 </div>
                                                 <div>
-                                                    <div className="text-xs font-bold text-slate-800 uppercase tracking-wider">{cat.label}</div>
-                                                    <div className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">{files.length} document(s)</div>
+                                                    <div className="text-[11px] font-extrabold uppercase tracking-wider">{cat.label}</div>
+                                                    <div className="text-[9px] font-bold opacity-75 mt-0.5">{files.length} Document(s)</div>
                                                 </div>
-                                            </div>
 
-                                            <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar-minimal pr-1">
-                                                {files.map(report => (
-                                                    <div key={report.id} className="bg-white p-2 rounded-lg border border-slate-100 shadow-sm flex items-center justify-between gap-3 group/item">
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="text-xs font-bold text-slate-700 truncate" title={report.customer_name}>
-                                                                PDF Report
+                                                {files.length > 0 && (
+                                                    <div className="w-full mt-2 space-y-1.5" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                                                        {files.map(report => (
+                                                            <div key={report.id} className="bg-white/95 p-1.5 rounded-lg border border-white/50 text-[10px] text-slate-800 font-bold flex items-center justify-between gap-1 shadow-sm hover:bg-white transition-all">
+                                                                <div className="truncate flex-1 text-left flex items-center gap-1">
+                                                                    {!report.is_read && (
+                                                                        <span 
+                                                                            className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-red-600 text-white font-extrabold text-[8px] animate-pulse border border-red-500 shrink-0 select-none"
+                                                                            title="Unread Report"
+                                                                        >
+                                                                            !
+                                                                        </span>
+                                                                    )}
+                                                                    <span className="truncate">{report.uploaded_at.split(' | ')[0]}</span>
+                                                                </div>
+                                                                <div className="flex gap-1 shrink-0">
+                                                                    <button
+                                                                        onClick={() => handleViewReport(report)}
+                                                                        className="w-5 h-5 flex items-center justify-center bg-slate-50 hover:bg-indigo-600 hover:text-white rounded border border-slate-100 transition-colors animate-none"
+                                                                        title="View PDF"
+                                                                    >
+                                                                        <i className="fa-solid fa-eye text-[8px]"></i>
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleDownloadReport(report)}
+                                                                        className="w-5 h-5 flex items-center justify-center bg-slate-50 hover:bg-green-600 hover:text-white rounded border border-slate-100 transition-colors animate-none"
+                                                                        title="Download PDF"
+                                                                    >
+                                                                        <i className="fa-solid fa-download text-[8px]"></i>
+                                                                    </button>
+                                                                </div>
                                                             </div>
-                                                            <div className="text-[9px] text-slate-400 font-semibold flex items-center gap-1.5 mt-0.5">
-                                                                <span>{report.uploaded_at.split(' | ')[0]}</span>
-                                                                {!report.is_read && (
-                                                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" title="Unread"></span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex gap-1 shrink-0">
-                                                            <button
-                                                                onClick={() => handleViewReport(report)}
-                                                                className="w-7 h-7 flex items-center justify-center bg-slate-50 text-slate-500 hover:bg-blue-600 hover:text-white rounded border border-slate-100 transition-all animate-none"
-                                                                title="View Report"
-                                                            >
-                                                                <i className="fa-solid fa-eye text-[10px]"></i>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDownloadReport(report)}
-                                                                className="w-7 h-7 flex items-center justify-center bg-slate-50 text-slate-500 hover:bg-indigo-600 hover:text-white rounded border border-slate-100 transition-all animate-none"
-                                                                title="Download PDF"
-                                                            >
-                                                                <i className="fa-solid fa-download text-[10px]"></i>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                                {files.length === 0 && (
-                                                    <div className="text-center py-6 text-slate-400 text-[10px] font-bold uppercase tracking-widest italic bg-white/50 border border-dashed border-slate-200 rounded-lg">
-                                                        No files
+                                                        ))}
                                                     </div>
                                                 )}
                                             </div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
-                            <button
-                                onClick={() => setIsOpenModal(false)}
-                                className="px-4 py-2 bg-slate-800 hover:bg-black text-white text-xs font-bold rounded-lg transition-all shadow-sm"
-                            >
-                                Close Directory
-                            </button>
                         </div>
                     </div>
                 </div>

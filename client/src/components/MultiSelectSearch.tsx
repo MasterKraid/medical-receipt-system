@@ -14,6 +14,7 @@ interface MultiSelectSearchProps {
     onChange: (selectedValues: string[]) => void;
     placeholder?: string;
     disabled?: boolean;
+    onEnterPress?: () => void;
 }
 
 const MultiSelectSearch: React.FC<MultiSelectSearchProps> = ({
@@ -21,7 +22,8 @@ const MultiSelectSearch: React.FC<MultiSelectSearchProps> = ({
     selectedValues,
     onChange,
     placeholder = "Search...",
-    disabled = false
+    disabled = false,
+    onEnterPress
 }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isOpen, setIsOpen] = useState(false);
@@ -74,13 +76,20 @@ const MultiSelectSearch: React.FC<MultiSelectSearchProps> = ({
         } else {
             onChange([...selectedValues, value]);
         }
-        // setSearchTerm(''); // Remove auto-clear after selection
         inputRef.current?.focus();
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (onEnterPress) {
+                onEnterPress();
+            }
+            return;
+        }
+
         if (!isOpen) {
-            if (e.key === 'ArrowDown' || e.key === 'Enter') setIsOpen(true);
+            if (e.key === 'ArrowDown') setIsOpen(true);
             return;
         }
 
@@ -91,12 +100,6 @@ const MultiSelectSearch: React.FC<MultiSelectSearchProps> = ({
             } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
                 setHighlightedIndex(prev => (prev - 1 + filteredOptions.length) % filteredOptions.length);
-            } else if (e.key === 'Enter') {
-                e.preventDefault();
-                const selectedOption = highlightedIndex >= 0 ? filteredOptions[highlightedIndex] : filteredOptions[0];
-                if (selectedOption) {
-                    toggleSelection(selectedOption.value);
-                }
             } else if (e.key === 'Escape') {
                 setIsOpen(false);
             }
@@ -125,15 +128,12 @@ const MultiSelectSearch: React.FC<MultiSelectSearchProps> = ({
                     }}
                     onFocus={() => {
                         setIsOpen(true);
-                        // Auto-scroll to top on mobile to avoid keyboard covering results
-                        if (window.innerWidth < 768) {
-                            setTimeout(() => {
-                                if (wrapperRef.current) {
-                                    const y = wrapperRef.current.getBoundingClientRect().top + window.scrollY - 40;
-                                    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
-                                }
-                            }, 300);
-                        }
+                        // Scroll perfect start alignment to the top of the viewbox (thinking outside the box!)
+                        setTimeout(() => {
+                            if (wrapperRef.current) {
+                                wrapperRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }
+                        }, 150);
                     }}
                     onKeyDown={handleKeyDown}
                     placeholder={placeholder}

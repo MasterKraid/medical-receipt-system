@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
 import DashboardLink from '../components/DashboardLink';
-import { ReceiptIcon, EstimateIcon, CustomersIcon, LogoutIcon, WalletIcon, ViewIcon, RatelistIcon } from '../components/icons';
+import { ReceiptIcon, EstimateIcon, CustomersIcon, LogoutIcon, WalletIcon, RatelistIcon } from '../components/icons';
 
 const UserDashboard: React.FC = () => {
   const { user, branch, logout } = useAuth();
@@ -57,16 +57,6 @@ const UserDashboard: React.FC = () => {
                 {user?.role === 'CLIENT' ? (
                   <>
                     <li>
-                      <div className="relative">
-                        <DashboardLink to="/reports" icon={<ViewIcon />} text="My Lab Reports" />
-                        {unreadReports > 0 && (
-                          <div className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-bounce shadow-sm ring-2 ring-white">
-                            {unreadReports} New
-                          </div>
-                        )}
-                      </div>
-                    </li>
-                    <li>
                       <DashboardLink to="/my-ratelist" icon={<RatelistIcon />} text="My Ratelist" />
                     </li>
                   </>
@@ -74,7 +64,16 @@ const UserDashboard: React.FC = () => {
                   <li><DashboardLink to="/estimate-form" icon={<EstimateIcon />} text="Create New Estimate" /></li>
                 )}
 
-                <li><DashboardLink to="/customers" icon={<CustomersIcon />} text="View Customers" /></li>
+                <li>
+                  <div className="relative">
+                    <DashboardLink to="/customers" icon={<CustomersIcon />} text="View Customers" />
+                    {user?.role === 'CLIENT' && unreadReports > 0 && (
+                      <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-600 text-white font-extrabold rounded-full flex items-center justify-center animate-pulse shadow-[0_0_8px_rgba(220,38,38,0.7)] text-xs ring-2 ring-white select-none">
+                        !
+                      </span>
+                    )}
+                  </div>
+                </li>
 
                 {user?.role === 'CLIENT' && (
                   <li>

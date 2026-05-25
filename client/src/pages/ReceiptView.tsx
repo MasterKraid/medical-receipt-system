@@ -306,12 +306,12 @@ const ReceiptView: React.FC = () => {
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse border border-gray-200 -mt-px text-sm">
                         <tbody>
-                            <tr className="flex flex-col md:table-row">
-                                <td className="border border-gray-200 p-3 md:w-2/5 align-top text-slate-600 space-y-1">
+                            <tr className="table-row">
+                                <td className="border border-gray-200 p-3 w-2/5 align-top text-slate-600 space-y-1">
                                     <div><strong>NO OF TESTS:</strong> {receipt.num_tests || items.length}</div>
                                     <div><strong>PAYMENT:</strong> <span className="font-bold text-blue-600">{receipt.payment_method || 'N/A'}</span></div>
                                 </td>
-                                <td className="border border-gray-200 p-3 md:w-1/5 text-center align-middle">
+                                <td className="border border-gray-200 p-3 w-1/5 text-center align-middle">
                                     {receipt.logo_path && <img src={receipt.logo_path} alt="Lab Logo" className="max-h-12 max-w-24 inline-block" />}
                                 </td>
                                 <td className="border border-gray-200 p-3 bg-slate-50/50 align-top text-right text-slate-500 space-y-1">

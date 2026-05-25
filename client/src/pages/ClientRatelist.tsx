@@ -209,65 +209,78 @@ const ClientRatelist: React.FC = () => {
         }));
         
         return (
-            <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl space-y-4 text-left w-full min-w-0">
-                <legend className="px-3 flex items-center gap-2">
-                    <div className="w-7 h-7 rounded bg-blue-600 flex items-center justify-center text-white shadow-sm">
-                        <i className="fa-solid fa-magnifying-glass text-xs"></i>
+            <form 
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    if (selectedTests.length === 0) {
+                        alert("Please select at least one test.");
+                        return;
+                    }
+                    goNext();
+                }}
+                className="w-full min-w-0"
+            >
+                <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl space-y-4 text-left w-full min-w-0">
+                    <legend className="px-3 flex items-center gap-2">
+                        <div className="w-7 h-7 rounded bg-blue-600 flex items-center justify-center text-white shadow-sm">
+                            <i className="fa-solid fa-magnifying-glass text-xs"></i>
+                        </div>
+                        <span className="text-base md:text-lg font-bold text-gray-800 uppercase tracking-tight md:tracking-normal">Search & Select Tests</span>
+                    </legend>
+                    
+                    <div className="mb-4 sticky top-0 bg-white z-20 py-3 border-b border-slate-100">
+                        <MultiSelectSearch 
+                            options={dropdownOptions}
+                            selectedValues={selectedTests}
+                            onChange={setSelectedTests}
+                            placeholder="Type here to search tests..."
+                            onEnterPress={() => {
+                                if (selectedTests.length > 0) {
+                                    goNext();
+                                } else {
+                                    alert("Please select at least one test.");
+                                }
+                            }}
+                        />
                     </div>
-                    <span className="text-base md:text-lg font-bold text-gray-800 uppercase tracking-tight md:tracking-normal">Search & Select Tests</span>
-                </legend>
-                
-                <div className="mb-4 sticky top-0 bg-white z-20 py-3 border-b border-slate-100">
-                    <MultiSelectSearch 
-                        options={dropdownOptions}
-                        selectedValues={selectedTests}
-                        onChange={setSelectedTests}
-                        placeholder="Type here to search tests..."
-                    />
-                </div>
-                
-                <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex justify-between items-center">
-                    <span className="font-bold text-blue-800">Selected Tests</span>
-                    <span className="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold shadow-sm">
-                        {selectedTests.length}
-                    </span>
-                </div>
+                    
+                    <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex justify-between items-center">
+                        <span className="font-bold text-blue-800">Selected Tests</span>
+                        <span className="bg-blue-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold shadow-sm">
+                            {selectedTests.length}
+                        </span>
+                    </div>
 
-                {/* Hide selected tests list as requested */}
-                {/* 
-                {selectedTests.length > 0 && (
-                    <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
-                        {selectedTests.map(testName => (
-                            <div key={testName} className="flex justify-between items-center p-3 bg-white border border-slate-200 rounded-lg shadow-sm hover:border-red-200 group transition-all">
-                                <span className="font-medium text-slate-700 text-sm truncate pr-4">{testName}</span>
-                                <button 
-                                    onClick={() => setSelectedTests(prev => prev.filter(t => t !== testName))}
-                                    className="text-red-400 group-hover:text-red-600 transition-colors p-1"
-                                >
-                                    <i className="fa-solid fa-xmark"></i>
-                                </button>
-                            </div>
-                        ))}
+                    {/* Hide selected tests list as requested */}
+                    {/* 
+                    {selectedTests.length > 0 && (
+                        <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
+                            {selectedTests.map(testName => (
+                                <div key={testName} className="flex justify-between items-center p-3 bg-white border border-slate-200 rounded-lg shadow-sm hover:border-red-200 group transition-all">
+                                    <span className="font-medium text-slate-700 text-sm truncate pr-4">{testName}</span>
+                                    <button 
+                                        onClick={() => setSelectedTests(prev => prev.filter(t => t !== testName))}
+                                        className="text-red-400 group-hover:text-red-600 transition-colors p-1"
+                                    >
+                                        <i className="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    */}
+                    
+                    <div className="pt-4 flex justify-between">
+                        <button type="button" onClick={goBack} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">Back</button>
+                        <button 
+                            type="submit"
+                            className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md shadow-blue-200 transition-colors"
+                        >
+                            View Summary
+                        </button>
                     </div>
-                )}
-                */}
-                
-                <div className="pt-4 flex justify-between">
-                    <button onClick={goBack} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">Back</button>
-                    <button 
-                        onClick={() => {
-                            if (selectedTests.length === 0) {
-                                alert("Please select at least one test.");
-                                return;
-                            }
-                            goNext();
-                        }} 
-                        className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md shadow-blue-200 transition-colors"
-                    >
-                        View Summary
-                    </button>
-                </div>
-            </fieldset>
+                </fieldset>
+            </form>
         );
     };
 
