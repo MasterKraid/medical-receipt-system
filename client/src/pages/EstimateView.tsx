@@ -291,23 +291,21 @@ const EstimateView: React.FC = () => {
                     <img src="/company-logo.png" alt="Company Logo" className="mx-auto h-16 mb-2" />
                     <p className="text-xs text-slate-500 font-medium">Dedicated To Care, Committed To Service</p>
                     <div className="text-xl font-bold uppercase tracking-wider mt-3 text-slate-800">Medical Estimate</div>
-                </header>
-
-                {/* Meta Info */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5 pb-3 border-b border-slate-100 text-sm text-slate-600">
+                </header>                {/* Meta Info */}
+                <div className="flex flex-row justify-between items-start gap-3 mb-5 pb-3 border-b border-slate-100 text-sm text-slate-600">
                     <div>
                         <h3 className="font-bold text-base text-slate-850">{branch.name}</h3>
                         <p className="text-xs text-slate-500">Ph: {branch.phone}</p>
                         <p className="text-xs text-slate-500 whitespace-pre-line">{branch.address}</p>
                     </div>
-                    <div className="text-left sm:text-right text-xs text-slate-500">
+                    <div className="text-right text-xs text-slate-500">
                         <p><strong>ESTIMATE DATE:</strong> {formattedData.displayEstimateDate}</p>
                         <p className="mt-1"><strong>Estimate ID:</strong> EST-{String(estimate.id).padStart(6, '0')}</p>
                     </div>
                 </div>
 
                 {/* Customer Details */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 mb-6 pb-4 border-b border-slate-100 text-sm text-slate-600">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 mb-6 pb-4 border-b border-slate-100 text-sm text-slate-600">
                     <div><span className="font-bold text-slate-400 text-xs block uppercase">Customer ID</span> CUST-{String(customer.id).padStart(10, '0')}</div>
                     <div><span className="font-bold text-slate-400 text-xs block uppercase">Mobile No</span> {customer.mobile || 'N/A'}</div>
                     <div><span className="font-bold text-slate-400 text-xs block uppercase">Patient Name</span> <span className="font-bold text-slate-800">{customer.prefix || ''} {customer.name}</span></div>

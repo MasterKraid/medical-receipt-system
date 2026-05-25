@@ -258,20 +258,20 @@ const ReceiptView: React.FC = () => {
                 </header>
 
                 {/* Meta Info */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 pb-3 border-b text-sm text-slate-600">
+                <div className="flex flex-row justify-between items-start gap-2 mb-4 pb-3 border-b text-sm text-slate-600">
                     <div>
                         <h3 className="font-bold text-base text-slate-800">{branch.name}</h3>
                         <p className="text-xs">Ph: {branch.phone}</p>
                         <p className="text-xs whitespace-pre-line">{branch.address}</p>
                     </div>
-                    <div className="text-left sm:text-right text-xs">
+                    <div className="text-right text-xs">
                         <p><strong>DATE & TIME:</strong> {formattedData.displayReceiptDate}</p>
                         <p className="mt-1"><strong>Receipt ID:</strong> RCPT-{String(receipt.id).padStart(6, '0')}</p>
                     </div>
                 </div>
 
                 {/* Customer Details */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 mb-4 pb-3 border-b text-sm text-slate-600">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 mb-4 pb-3 border-b text-sm text-slate-600">
                     <div><span className="font-bold text-slate-400 text-xs block uppercase">Customer ID</span> CUST-{String(customer.id).padStart(10, '0')}</div>
                     <div><span className="font-bold text-slate-400 text-xs block uppercase">Mobile No</span> {customer.mobile || 'N/A'}</div>
                     <div><span className="font-bold text-slate-400 text-xs block uppercase">Patient Name</span> <span className="font-bold text-slate-800">{customer.prefix || ''} {customer.name}</span></div>
