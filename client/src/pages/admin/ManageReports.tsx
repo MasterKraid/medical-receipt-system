@@ -1,21 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiService } from '../../services/api';
-import { LabReport, Document } from '../../types';
+import { User, LabReport, Document } from '../../types';
 import PageHeader from '../../components/PageHeader';
+import SearchableDropdown from '../../components/SearchableDropdown';
 
 const ManageReports: React.FC = () => {
     const [reports, setReports] = useState<LabReport[]>([]);
     const [receipts, setReceipts] = useState<Document[]>([]);
+    const [clients, setClients] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
 
-    // Form state
-    const [selectedReceipt, setSelectedReceipt] = useState<Document | null>(null);
-    const [activeCategory, setActiveCategory] = useState<'With Header' | 'Without Header' | 'Bill' | 'Others' | null>(null);
-    const [file, setFile] = useState<File | null>(null);
+    // Form state: Map of category to selected file
+    const [categoryFiles, setCategoryFiles] = useState<Record<'With Header' | 'Without Header' | 'Bill' | 'Others', File | null>>({
+        'With Header': null,
+        'Without Header': null,
+        'Bill': null,
+        'Others': null
+    });
 
-    // Right side tabs & date filters
+    // Selected receipt for upload target
+    const [selectedReceipt, setSelectedReceipt] = useState<Document | null>(null);
+
+    // Right side tabs & filters
     const [activeRightTab, setActiveRightTab] = useState<'pending' | 'directory'>('pending');
+    
+    // Sort / Filter states
+    const [selectedClientId, setSelectedClientId] = useState<string>('all');
     const [selectedDate, setSelectedDate] = useState<string>(() => {
         const today = new Date();
         const y = today.getFullYear();
@@ -30,12 +41,14 @@ const ManageReports: React.FC = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [fetchedReports, fetchedReceipts] = await Promise.all([
+            const [fetchedReports, fetchedReceipts, fetchedClients] = await Promise.all([
                 apiService.getReportsAdmin(),
-                apiService.getReceipts()
+                apiService.getReceipts(),
+                apiService.getClientWallets()
             ]);
             setReports(fetchedReports);
             setReceipts(fetchedReceipts);
+            setClients(fetchedClients);
         } catch (err) {
             console.error("Failed to fetch data", err);
             alert("Error loading data");
@@ -82,8 +95,14 @@ const ManageReports: React.FC = () => {
 
     const handleUpload = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedReceipt || !activeCategory || !file) {
-            alert("Please select a target customer and choose a category dropzone.");
+        if (!selectedReceipt) {
+            alert("Please select a target customer from the right panel first.");
+            return;
+        }
+
+        const activePairs = Object.entries(categoryFiles).filter(([_, f]) => f !== null) as [ 'With Header' | 'Without Header' | 'Bill' | 'Others', File ][];
+        if (activePairs.length === 0) {
+            alert("Please select or drop at least one PDF file in the category dropzones.");
             return;
         }
 
@@ -97,22 +116,29 @@ const ManageReports: React.FC = () => {
 
         try {
             setUploading(true);
-            const formData = new FormData();
-            formData.append('client_id', clientId.toString());
-            formData.append('customer_id', customerId.toString());
-            formData.append('category', activeCategory);
-            formData.append('report', file);
+            
+            // Upload all files in parallel
+            await Promise.all(activePairs.map(async ([cat, f]) => {
+                const formData = new FormData();
+                formData.append('client_id', clientId.toString());
+                formData.append('customer_id', customerId.toString());
+                formData.append('category', cat);
+                formData.append('report', f);
+                return apiService.uploadReport(formData);
+            }));
 
-            await apiService.uploadReport(formData);
-
-            // Reset selected receipt and file
+            // Reset selected receipt and categoryFiles
             setSelectedReceipt(null);
-            setFile(null);
-            setActiveCategory(null);
+            setCategoryFiles({
+                'With Header': null,
+                'Without Header': null,
+                'Bill': null,
+                'Others': null
+            });
 
-            // Refresh list
+            // Refresh lists
             fetchData();
-            alert("Report uploaded successfully!");
+            alert("Reports uploaded successfully!");
         } catch (err: any) {
             console.error("Upload error", err);
             alert(err.message || "Upload failed");
@@ -141,8 +167,7 @@ const ManageReports: React.FC = () => {
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
             const droppedFile = e.dataTransfer.files[0];
             if (droppedFile.type === 'application/pdf' || droppedFile.name.endsWith('.pdf')) {
-                setFile(droppedFile);
-                setActiveCategory(category);
+                setCategoryFiles(prev => ({ ...prev, [category]: droppedFile }));
             } else {
                 alert("Only PDF files are supported.");
             }
@@ -160,9 +185,8 @@ const ManageReports: React.FC = () => {
         if (e.target.files && e.target.files[0]) {
             const selectedFile = e.target.files[0];
             if (selectedFile.type === 'application/pdf' || selectedFile.name.endsWith('.pdf')) {
-                setFile(selectedFile);
                 if (tempCategoryRef.current) {
-                    setActiveCategory(tempCategoryRef.current);
+                    setCategoryFiles(prev => ({ ...prev, [tempCategoryRef.current!]: selectedFile }));
                 }
             } else {
                 alert("Only PDF files are supported.");
@@ -171,10 +195,8 @@ const ManageReports: React.FC = () => {
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    const handleClearFile = () => {
-        setFile(null);
-        setActiveCategory(null);
-        tempCategoryRef.current = null;
+    const handleClearFile = (category: 'With Header' | 'Without Header' | 'Bill' | 'Others') => {
+        setCategoryFiles(prev => ({ ...prev, [category]: null }));
     };
 
     const categories = [
@@ -185,15 +207,43 @@ const ManageReports: React.FC = () => {
     ] as const;
 
     const filteredReceipts = React.useMemo(() => {
-        if (!selectedDate) return [];
         return receipts.filter(rcpt => {
             if (!rcpt.display_date) return false;
-            const [y, m, d] = selectedDate.split('-');
+
+            // Extract transacted date (DD/MM/YYYY)
             const datePart = rcpt.display_date.split(' ')[0];
             const [rcptD, rcptM, rcptY] = datePart.split('/');
-            return Number(y) === Number(rcptY) && Number(m) === Number(rcptM) && Number(d) === Number(rcptD);
+
+            // Select Date normalization
+            const target = selectedDate ? new Date(selectedDate) : null;
+            if (target) {
+                const targetY = target.getFullYear();
+                const targetM = target.getMonth() + 1;
+                const targetD = target.getDate();
+                if (Number(rcptY) !== targetY || Number(rcptM) !== targetM || Number(rcptD) !== targetD) {
+                    return false;
+                }
+            }
+
+            // Client filter
+            if (selectedClientId !== 'all') {
+                const targetClientId = rcpt.acting_as_client_id || rcpt.created_by_user_id || 0;
+                if (Number(targetClientId) !== Number(selectedClientId)) {
+                    return false;
+                }
+            }
+
+            return true;
         });
-    }, [receipts, selectedDate]);
+    }, [receipts, selectedDate, selectedClientId]);
+
+    const clientOptions = React.useMemo(() => {
+        const list = clients.map(c => ({
+            value: c.id.toString(),
+            label: `${c.alias || c.username} [UID: ${c.id}]`
+        }));
+        return [{ value: 'all', label: 'All Clients' }, ...list];
+    }, [clients]);
 
     return (
         <div className="p-3 sm:p-6 max-w-7xl mx-auto space-y-6">
@@ -208,7 +258,7 @@ const ManageReports: React.FC = () => {
                                 <div className="w-7 h-7 rounded bg-indigo-600 flex items-center justify-center text-white shadow-sm">
                                     <i className="fa-solid fa-cloud-arrow-up text-xs"></i>
                                 </div>
-                                <span className="text-base md:text-lg font-bold text-gray-800 uppercase">Upload Report</span>
+                                <span className="text-base md:text-lg font-bold text-gray-800 uppercase">Upload Reports</span>
                             </legend>
 
                             <form onSubmit={handleUpload} className="space-y-4 h-full flex flex-col">
@@ -216,7 +266,7 @@ const ManageReports: React.FC = () => {
                                     {/* Selected Target Customer Card */}
                                     {!selectedReceipt ? (
                                         <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center text-slate-400 font-bold text-xs mb-4 uppercase tracking-wider flex flex-col items-center justify-center gap-2 min-h-[140px] animate-pulse">
-                                            <i className="fa-solid fa-arrow-pointer text-xl text-slate-355"></i>
+                                            <i className="fa-solid fa-arrow-pointer text-xl text-indigo-550"></i>
                                             <span>Select a customer from the right panel to upload</span>
                                         </div>
                                     ) : (
@@ -238,9 +288,9 @@ const ManageReports: React.FC = () => {
                                         </div>
                                     )}
 
-                                    {/* 2x2 Dropzones Panel */}
+                                    {/* Multi-File 2x2 Dropzones Panel */}
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase ml-1 block">Drag and Drop PDF into Category Dropzone</label>
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase ml-1 block">Drag and Drop PDF into Category Dropzones</label>
                                         
                                         <input
                                             ref={fileInputRef}
@@ -252,13 +302,50 @@ const ManageReports: React.FC = () => {
 
                                         <div className={`grid grid-cols-2 gap-3 transition-all duration-300 ${!selectedReceipt ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
                                             {categories.map(cat => {
-                                                const isSelected = activeCategory === cat.id && file !== null;
-                                                const colorClasses = {
-                                                    indigo: isSelected ? 'border-indigo-500 bg-indigo-50/50 ring-2 ring-indigo-200' : 'border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/10',
-                                                    amber: isSelected ? 'border-amber-500 bg-amber-50/50 ring-2 ring-amber-200' : 'border-gray-200 hover:border-amber-300 hover:bg-amber-50/10',
-                                                    emerald: isSelected ? 'border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-200' : 'border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/10',
-                                                    slate: isSelected ? 'border-slate-500 bg-slate-50/50 ring-2 ring-slate-200' : 'border-gray-200 hover:border-slate-300 hover:bg-slate-50/10',
-                                                }[cat.color];
+                                                // Find if there is an already uploaded report in this category
+                                                const existingReport = selectedReceipt
+                                                    ? reports.find(r => r.customer_id === selectedReceipt.customer_id && (r.category === cat.id || (!r.category && cat.id === 'Others')))
+                                                    : null;
+
+                                                const catFile = categoryFiles[cat.id];
+                                                const isFileSelected = catFile !== null;
+
+                                                // State 1: Already uploaded in database
+                                                if (existingReport) {
+                                                    return (
+                                                        <div
+                                                            key={cat.id}
+                                                            onClick={(e) => e.stopPropagation()} // Prevents file select trigger
+                                                            className="flex flex-col items-center justify-between p-3 border border-emerald-250 bg-emerald-50/40 rounded-xl text-center h-36 relative select-none animate-in fade-in duration-200"
+                                                        >
+                                                            <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                                                                <i className="fa-solid fa-circle-check text-base"></i>
+                                                            </div>
+                                                            <div className="space-y-0.5">
+                                                                <div className="text-[11px] font-black text-emerald-800 leading-tight">{cat.label}</div>
+                                                                <div className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200 uppercase tracking-widest inline-block scale-90">
+                                                                    Uploaded
+                                                                </div>
+                                                            </div>
+                                                            <div className="w-full flex items-center justify-between gap-1 mt-1 bg-white px-2 py-1 rounded border border-emerald-100 shadow-sm max-w-full">
+                                                                <span className="text-[8px] font-mono font-bold text-slate-500 truncate flex-1 text-left">
+                                                                    {existingReport.file_path.split('/').pop()}
+                                                                </span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleDelete(existingReport.id)}
+                                                                    className="text-red-500 hover:text-red-700 font-bold shrink-0 p-0.5 hover:bg-red-50 rounded"
+                                                                    title="Delete Report"
+                                                                >
+                                                                    <i className="fa-solid fa-trash-can text-xs"></i>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                // State 2: Staged or Empty dropzone
+                                                const colorClasses = isFileSelected ? 'border-indigo-500 bg-indigo-50/50 ring-2 ring-indigo-200' : 'border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/10';
 
                                                 return (
                                                     <div
@@ -269,9 +356,9 @@ const ManageReports: React.FC = () => {
                                                         className={`flex flex-col items-center justify-center p-3 border-2 border-dashed rounded-xl cursor-pointer transition-all text-center space-y-1 h-36 ${colorClasses}`}
                                                     >
                                                         <div className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-                                                            isSelected ? 'bg-white shadow-sm' : 'bg-gray-50'
+                                                            isFileSelected ? 'bg-white shadow-sm' : 'bg-gray-50'
                                                         }`}>
-                                                            {isSelected ? (
+                                                            {isFileSelected ? (
                                                                 <i className="fa-solid fa-circle-check text-green-500 text-base animate-scale"></i>
                                                             ) : (
                                                                 <i className={`fa-solid ${cat.icon} text-gray-400 text-xs`}></i>
@@ -281,12 +368,12 @@ const ManageReports: React.FC = () => {
                                                             <div className="text-[11px] font-bold text-gray-800 leading-tight">{cat.label}</div>
                                                             <div className="text-[9px] text-gray-400 font-medium px-1 leading-tight">{cat.desc}</div>
                                                         </div>
-                                                        {isSelected && (
+                                                        {isFileSelected && (
                                                             <div className="w-full mt-1 bg-white/95 px-1.5 py-0.5 rounded border border-gray-200 shadow-sm text-[9px] font-bold text-gray-700 truncate flex items-center justify-between gap-1" onClick={(e) => e.stopPropagation()}>
-                                                                <span className="truncate flex-1 text-left">{file.name}</span>
+                                                                <span className="truncate flex-1 text-left">{catFile.name}</span>
                                                                 <button
                                                                     type="button"
-                                                                    onClick={handleClearFile}
+                                                                    onClick={() => handleClearFile(cat.id)}
                                                                     className="text-red-500 hover:text-red-700 font-bold"
                                                                 >
                                                                     <i className="fa-solid fa-xmark"></i>
@@ -302,15 +389,15 @@ const ManageReports: React.FC = () => {
                                     <div className="pt-4 mt-auto">
                                         <button
                                             type="submit"
-                                            disabled={uploading || !selectedReceipt || !activeCategory || !file}
+                                            disabled={uploading || !selectedReceipt || !Object.values(categoryFiles).some(f => f !== null)}
                                             className={`w-full py-3 font-bold rounded-xl transition-all shadow-md flex justify-center items-center gap-2 text-sm ${
-                                                (!selectedReceipt || !activeCategory || !file)
+                                                (!selectedReceipt || !Object.values(categoryFiles).some(f => f !== null))
                                                     ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none'
                                                     : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-100 hover:scale-[1.01] active:scale-95'
                                             }`}
                                         >
                                             {uploading ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-circle-check"></i>}
-                                            {uploading ? 'Processing Upload...' : 'Confirm & Upload Report'}
+                                            {uploading ? 'Processing Uploads...' : 'Confirm & Upload Reports'}
                                         </button>
                                     </div>
                                 </div>
@@ -356,20 +443,36 @@ const ManageReports: React.FC = () => {
 
                             {activeRightTab === 'pending' ? (
                                 <div className="space-y-4">
-                                    {/* Date and count filters */}
-                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-3 bg-slate-50 border border-slate-200/60 rounded-xl">
-                                        <div className="flex items-center gap-2">
-                                            <i className="fa-solid fa-calendar-days text-slate-400 text-xs"></i>
-                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Statement Date:</label>
-                                            <input
-                                                type="date"
-                                                value={selectedDate}
-                                                onChange={e => setSelectedDate(e.target.value)}
-                                                className="p-1 border border-slate-200 rounded-lg text-xs font-bold bg-white focus:ring-2 focus:ring-indigo-100 outline-none text-slate-700 font-mono"
+                                    {/* Sort & Filter Panel */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 border border-slate-200/60 rounded-2xl shadow-sm items-end relative z-20">
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block pl-1">Statement Date</label>
+                                            <div className="flex items-center gap-2 bg-white px-2.5 py-1.5 border border-slate-200 rounded-xl h-10">
+                                                <i className="fa-solid fa-calendar-day text-slate-400 text-xs text-center shrink-0"></i>
+                                                <input
+                                                    type="date"
+                                                    value={selectedDate}
+                                                    onChange={e => setSelectedDate(e.target.value)}
+                                                    className="w-full border-none outline-none text-xs font-bold text-slate-700 font-mono bg-transparent"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block pl-1">Franchise / B2B Client</label>
+                                            <SearchableDropdown
+                                                options={clientOptions}
+                                                value={selectedClientId}
+                                                onChange={(val) => setSelectedClientId(val)}
+                                                placeholder="Search or Select Client"
                                             />
                                         </div>
-                                        <span className="text-[10px] font-black bg-indigo-50 border border-indigo-100 text-indigo-600 px-2.5 py-1 rounded-full uppercase tracking-wider">
-                                            {filteredReceipts.length} Generated on Date
+                                    </div>
+
+                                    {/* Record counts */}
+                                    <div className="flex justify-between items-center px-1">
+                                        <span className="text-[10px] font-black bg-indigo-50 border border-indigo-100 text-indigo-600 px-3 py-1 rounded-full uppercase tracking-wider">
+                                            {filteredReceipts.length} Receipts Found
                                         </span>
                                     </div>
 
@@ -385,7 +488,6 @@ const ManageReports: React.FC = () => {
                                                     <tr className="border-b border-slate-200">
                                                         <th className="p-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-4">Patient Name</th>
                                                         <th className="p-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Receipt ID</th>
-                                                        <th className="p-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Transacted</th>
                                                         <th className="p-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Status</th>
                                                         <th className="p-3 text-right pr-4 w-24">Action</th>
                                                     </tr>
@@ -393,55 +495,38 @@ const ManageReports: React.FC = () => {
                                                 <tbody className="divide-y divide-slate-100 text-xs">
                                                     {filteredReceipts.map(rcpt => {
                                                         const isSelected = selectedReceipt?.id === rcpt.id;
-                                                        const hasUploadedReport = reports.some(r => r.customer_id === rcpt.customer_id);
+                                                        const customerReports = reports.filter(r => r.customer_id === rcpt.customer_id);
+                                                        const hasUploadedReport = customerReports.length > 0;
 
                                                         return (
                                                             <tr
                                                                 key={rcpt.id}
                                                                 onClick={() => setSelectedReceipt(rcpt)}
-                                                                className={`hover:bg-slate-50 border-b border-slate-100 cursor-pointer transition-all duration-155 ${
-                                                                    isSelected ? 'bg-indigo-50/50 border-l-4 border-l-indigo-600 font-medium' : ''
+                                                                className={`hover:bg-slate-50 border-b border-slate-100 cursor-pointer transition-all duration-155 hover:relative hover:z-20 ${
+                                                                    isSelected ? 'bg-indigo-50/30 font-medium' : ''
                                                                 }`}
                                                             >
-                                                                <td className="p-3 pl-4">
+                                                                {/* Left Selection Border indicator mapped on first cell */}
+                                                                <td className={`p-3 pl-4 transition-all ${
+                                                                    isSelected ? 'border-l-4 border-l-indigo-650 bg-indigo-50/20' : ''
+                                                                }`}>
                                                                     <div className="relative group cursor-help inline-block">
-                                                                        <span className="font-bold text-slate-800 hover:text-indigo-650 transition-colors">
+                                                                        <span className="font-bold text-slate-800 hover:text-indigo-650 transition-colors flex items-center gap-1.5">
+                                                                            {isSelected && <span className="text-indigo-600 font-black animate-pulse">&gt;</span>}
                                                                             {rcpt.customer_name}
                                                                         </span>
                                                                         
-                                                                        {/* Glassmorphic Metadata Tooltip Card */}
-                                                                        <div className="absolute left-0 bottom-full mb-2 w-72 p-4 bg-slate-950/95 backdrop-blur-md text-white rounded-2xl border border-slate-800 shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-205 z-50 transform translate-y-1 group-hover:translate-y-0">
-                                                                            <div className="space-y-2 text-xs text-left">
-                                                                                <div className="border-b border-slate-800 pb-1.5 flex justify-between items-center">
-                                                                                    <span className="font-mono text-[9px] text-slate-400 font-extrabold uppercase tracking-widest">Billing Creator Metadata</span>
-                                                                                    <span className="bg-blue-500/20 text-blue-300 text-[8px] px-2 py-0.5 rounded-full font-black uppercase">
-                                                                                        SYSTEM REF
-                                                                                    </span>
-                                                                                </div>
-                                                                                <div className="flex justify-between items-center">
-                                                                                    <span className="text-slate-400 font-medium">Creator/Operator:</span>
-                                                                                    <span className="font-bold text-white">{rcpt.created_by_user}</span>
-                                                                                </div>
-                                                                                <div className="flex justify-between items-center">
-                                                                                    <span className="text-slate-400 font-medium">Client UID:</span>
-                                                                                    <span className="font-mono font-bold text-slate-300">
-                                                                                        {rcpt.acting_as_client_id || rcpt.created_by_user_id || 'N/A'}
-                                                                                    </span>
-                                                                                </div>
-                                                                                <div className="flex justify-between items-center pt-1 border-t border-slate-850">
-                                                                                    <span className="text-slate-400 font-medium">Transacted Date:</span>
-                                                                                    <span className="font-bold text-slate-300 font-mono">{rcpt.display_date}</span>
-                                                                                </div>
-                                                                            </div>
+                                                                        {/* Compact Upward Tooltip showing Client Name & UID */}
+                                                                        <div className="absolute left-0 bottom-full mb-1 bg-slate-950/95 text-white rounded-lg px-2.5 py-1 text-[10px] font-bold shadow-md opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-150 z-[9999] whitespace-nowrap">
+                                                                            {rcpt.created_by_user} [UID: {rcpt.acting_as_client_id || rcpt.created_by_user_id || 'N/A'}]
                                                                         </div>
                                                                     </div>
                                                                     <div className="text-[9px] text-slate-400 font-mono">{rcpt.display_customer_id}</div>
                                                                 </td>
-                                                                <td className="p-3 font-mono font-medium text-slate-650">{rcpt.display_doc_id}</td>
-                                                                <td className="p-3 font-bold text-slate-900">{rcpt.display_amount}</td>
-                                                                <td className="p-3">
+                                                                <td className={`p-3 font-mono font-medium text-slate-650 ${isSelected ? 'bg-indigo-50/20' : ''}`}>{rcpt.display_doc_id}</td>
+                                                                <td className={`p-3 ${isSelected ? 'bg-indigo-50/20' : ''}`}>
                                                                     {hasUploadedReport ? (
-                                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-600 border border-green-150">
+                                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-600 border border-green-150 shadow-sm">
                                                                             <i className="fa-solid fa-check-circle mr-1"></i> Uploaded
                                                                         </span>
                                                                     ) : (
@@ -450,13 +535,13 @@ const ManageReports: React.FC = () => {
                                                                         </span>
                                                                     )}
                                                                 </td>
-                                                                <td className="p-3 text-right pr-4 w-24">
+                                                                <td className={`p-3 text-right pr-4 w-24 ${isSelected ? 'bg-indigo-50/20' : ''}`}>
                                                                     <button
                                                                         type="button"
                                                                         className={`px-2 py-1 rounded text-[10px] font-bold transition-all shadow-sm ${
                                                                             isSelected
-                                                                                ? 'bg-indigo-650 text-white'
-                                                                                : 'bg-white hover:bg-slate-50 text-indigo-600 border border-slate-200'
+                                                                                ? 'bg-indigo-600 text-white'
+                                                                                : 'bg-white hover:bg-slate-50 text-indigo-650 border border-slate-200'
                                                                         }`}
                                                                     >
                                                                         {isSelected ? 'Selected' : 'Select'}
@@ -466,12 +551,12 @@ const ManageReports: React.FC = () => {
                                                         );
                                                     })}
                                                     {filteredReceipts.length === 0 && (
-                                                        <tr>
-                                                            <td colSpan={5} className="p-10 text-center text-slate-400 italic font-bold text-xs uppercase tracking-wider">
-                                                                No receipts generated on this date.
-                                                            </td>
-                                                        </tr>
-                                                    )}
+                                                         <tr>
+                                                             <td colSpan={4} className="p-10 text-center text-slate-400 italic font-bold text-xs uppercase tracking-wider">
+                                                                 No receipts found matching the filters.
+                                                             </td>
+                                                         </tr>
+                                                     )}
                                                 </tbody>
                                             </table>
                                         </div>

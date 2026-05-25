@@ -381,7 +381,7 @@ const ViewCustomers: React.FC = () => {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4 text-xs font-bold text-slate-650">
                                     <div>Total Tests Done: <span className="text-indigo-800 text-sm font-black">{customerReceipts.reduce((sum, r) => sum + (r.num_tests || 0), 0)}</span></div>
-                                    <div>Last Doctor Name: <span className="text-slate-850 font-black">{customerReceipts[0]?.referred_by || 'Self'}</span></div>
+                                    <div>Doctor Name: <span className="text-slate-850 font-black">{customerReceipts[0]?.referred_by || 'Self'}</span></div>
                                     <div>Total MRP Billing: <span className="text-slate-800 font-black">₹{customerReceipts.reduce((sum, r) => sum + (r.total_mrp || 0), 0).toLocaleString('en-IN')}</span></div>
                                     {user?.role === 'ADMIN' && (
                                         <div>Total B2B Base: <span className="text-slate-800 font-black">₹{customerReceipts.reduce((sum, r) => sum + (r.b2b_cost || 0), 0).toLocaleString('en-IN')}</span></div>
