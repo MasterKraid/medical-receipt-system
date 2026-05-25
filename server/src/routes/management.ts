@@ -314,15 +314,16 @@ router.post('/package-lists/:id/upload', isAdmin, (req, res) => {
     const transaction = db.transaction(() => {
         let inserted = 0, updated = 0;
         const selectPkg = db.prepare('SELECT id FROM packages WHERE package_list_id = ? AND name = ?');
-        const updatePkg = db.prepare('UPDATE packages SET mrp = ?, b2b_price = ? WHERE id = ?');
-        const insertPkg = db.prepare('INSERT INTO packages (name, mrp, b2b_price, package_list_id) VALUES (?, ?, ?, ?)');
+        const updatePkg = db.prepare('UPDATE packages SET mrp = ?, b2b_price = ?, code_name = ? WHERE id = ?');
+        const insertPkg = db.prepare('INSERT INTO packages (name, mrp, b2b_price, code_name, package_list_id) VALUES (?, ?, ?, ?, ?)');
         packages.forEach(pkg => {
             const existing = selectPkg.get(listId, pkg.name) as Package;
+            const code = pkg.code_name || null;
             if (existing) {
-                updatePkg.run(pkg.mrp, pkg.b2b_price, existing.id);
+                updatePkg.run(pkg.mrp, pkg.b2b_price, code, existing.id);
                 updated++;
             } else {
-                insertPkg.run(pkg.name, pkg.mrp, pkg.b2b_price, listId);
+                insertPkg.run(pkg.name, pkg.mrp, pkg.b2b_price, code, listId);
                 inserted++;
             }
         });
@@ -334,17 +335,17 @@ router.post('/package-lists/:id/upload', isAdmin, (req, res) => {
 });
 
 router.post('/packages', isAdmin, (req, res) => {
-    const { name, mrp, b2b_price, package_list_id } = req.body;
+    const { name, mrp, b2b_price, code_name, package_list_id } = req.body;
     try {
-        const result = db.prepare('INSERT INTO packages (name, mrp, b2b_price, package_list_id) VALUES (?, ?, ?, ?)').run(name, mrp, b2b_price, package_list_id);
+        const result = db.prepare('INSERT INTO packages (name, mrp, b2b_price, code_name, package_list_id) VALUES (?, ?, ?, ?, ?)').run(name, mrp, b2b_price, code_name || null, package_list_id);
         res.status(201).json({ id: result.lastInsertRowid, ...req.body });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });
 
 router.put('/packages/:id', isAdmin, (req, res) => {
-    const { name, mrp, b2b_price } = req.body;
+    const { name, mrp, b2b_price, code_name } = req.body;
     try {
-        db.prepare('UPDATE packages SET name = ?, mrp = ?, b2b_price = ? WHERE id = ?').run(name, mrp, b2b_price, req.params.id);
+        db.prepare('UPDATE packages SET name = ?, mrp = ?, b2b_price = ?, code_name = ? WHERE id = ?').run(name, mrp, b2b_price, code_name || null, req.params.id);
         res.status(204).send();
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });

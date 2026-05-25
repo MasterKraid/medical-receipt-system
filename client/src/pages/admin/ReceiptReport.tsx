@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { apiService } from '../../services/api';
 import { User, Document } from '../../types';
 import SearchableDropdown from '../../components/SearchableDropdown';
+import CleanSelect from '../../components/CleanSelect';
 
 const ReceiptReport: React.FC = () => {
     const [clients, setClients] = useState<User[]>([]);
@@ -66,7 +67,7 @@ const ReceiptReport: React.FC = () => {
             // Search query filter
             if (searchQuery) {
                 const q = searchQuery.toLowerCase().trim();
-                const matchesSearch = 
+                const matchesSearch =
                     r.customer_name.toLowerCase().includes(q) ||
                     r.display_doc_id.toLowerCase().includes(q) ||
                     (r.display_customer_id && r.display_customer_id.toLowerCase().includes(q));
@@ -131,23 +132,23 @@ const ReceiptReport: React.FC = () => {
 
     // Grouping & Chart Datasets
     const revenueByDate = useMemo(() => {
-        const groups: { 
-            [date: string]: { 
-                amount: number; 
-                mrp: number; 
-                b2b: number; 
-                profit: number; 
-                count: number; 
-            } 
+        const groups: {
+            [date: string]: {
+                amount: number;
+                mrp: number;
+                b2b: number;
+                profit: number;
+                count: number;
+            }
         } = {};
-        
+
         filteredReceipts.forEach(r => {
             const dateStr = r.display_date.split(' ')[0]; // DD/MM/YYYY
             const amt = r.amount_final || parseFloat(r.display_amount.replace('₹', '').replace(/,/g, '')) || 0;
             const mrp = r.total_mrp || amt;
             const b2b = r.b2b_cost || 0;
             const profit = mrp - b2b;
-            
+
             if (!groups[dateStr]) {
                 groups[dateStr] = { amount: 0, mrp: 0, b2b: 0, profit: 0, count: 0 };
             }
@@ -161,10 +162,10 @@ const ReceiptReport: React.FC = () => {
         return Object.entries(groups)
             .map(([date, data]) => {
                 const [d, m, y] = date.split('/').map(Number);
-                return { 
-                    date, 
-                    dateObj: new Date(y, m - 1, d), 
-                    ...data 
+                return {
+                    date,
+                    dateObj: new Date(y, m - 1, d),
+                    ...data
                 };
             })
             .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
@@ -210,18 +211,18 @@ const ReceiptReport: React.FC = () => {
         let mrp = 0;
         let b2b = 0;
         let profit = 0;
-        
+
         filteredReceipts.forEach(r => {
             const amt = r.amount_final || parseFloat(r.display_amount.replace('₹', '').replace(/,/g, '')) || 0;
             const mVal = r.total_mrp || amt;
             const bVal = r.b2b_cost || 0;
-            
+
             amount += amt;
             mrp += mVal;
             b2b += bVal;
             profit += (mVal - bVal);
         });
-        
+
         return { amount, mrp, b2b, profit, average: totalCount > 0 ? amount / totalCount : 0 };
     }, [filteredReceipts, totalCount]);
 
@@ -312,8 +313,8 @@ const ReceiptReport: React.FC = () => {
 
                     {/* Data dots */}
                     {points.map((p, i) => (
-                        <g 
-                            key={i} 
+                        <g
+                            key={i}
                             className="group cursor-pointer"
                             onMouseEnter={() => {
                                 setTooltip({
@@ -350,7 +351,7 @@ const ReceiptReport: React.FC = () => {
 
                 {/* Custom hovering interactive tooltip modal */}
                 {tooltip.show && (
-                    <div 
+                    <div
                         className="absolute bg-slate-950/95 backdrop-blur-md text-white p-3.5 rounded-2xl shadow-2xl border border-slate-800/80 pointer-events-none transition-all duration-150 z-30"
                         style={{
                             left: `${(tooltip.x / width) * 100}%`,
@@ -366,7 +367,7 @@ const ReceiptReport: React.FC = () => {
                                     {tooltip.count} Receipt{tooltip.count > 1 ? 's' : ''}
                                 </span>
                             </div>
-                            
+
                             <div className="flex justify-between items-center">
                                 <span className="text-slate-400 font-medium">MRP Billing:</span>
                                 <span className="font-extrabold text-white">₹{tooltip.mrp.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
@@ -375,7 +376,7 @@ const ReceiptReport: React.FC = () => {
                                 <span className="text-slate-400 font-medium">B2B Base Cost:</span>
                                 <span className="font-extrabold text-slate-300">₹{tooltip.b2b.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                             </div>
-                            
+
                             <div className="border-t border-slate-800/80 pt-1.5 flex justify-between items-center">
                                 <span className="text-emerald-400 font-extrabold flex items-center gap-1">
                                     <i className="fa-solid fa-chart-line text-[9px]"></i>
@@ -385,7 +386,7 @@ const ReceiptReport: React.FC = () => {
                                     ₹{tooltip.profit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                                 </span>
                             </div>
-                            
+
                             <div className="flex justify-between items-center text-[10px] text-slate-500 italic mt-1 font-semibold pt-1 border-t border-slate-850">
                                 <span>Collected Cash:</span>
                                 <span>₹{tooltip.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
@@ -569,47 +570,47 @@ const ReceiptReport: React.FC = () => {
 
                     {/* Receipt Type */}
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Receipt Type</label>
-                        <select
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Receipt Type</label>
+                        <CleanSelect
+                            options={[
+                                { value: 'ALL', label: 'All Billings' },
+                                { value: 'B2B', label: 'B2B Clients Only' },
+                                { value: 'WALK_IN', label: 'Direct Walk-ins Only' }
+                            ]}
                             value={typeFilter}
-                            onChange={(e) => setTypeFilter(e.target.value as any)}
-                            className="w-full p-2.5 border border-gray-200 rounded-xl bg-slate-50/50 focus:bg-white focus:ring-4 focus:ring-indigo-50/50 outline-none text-xs font-bold text-slate-700 transition-all cursor-pointer h-[38px]"
-                        >
-                            <option value="ALL">All Billings</option>
-                            <option value="B2B">B2B Clients Only</option>
-                            <option value="WALK_IN">Direct Walk-ins Only</option>
-                        </select>
+                            onChange={(val) => setTypeFilter(val as any)}
+                        />
                     </div>
 
                     {/* Payment Method */}
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Payment Method</label>
-                        <select
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Payment Method</label>
+                        <CleanSelect
+                            options={[
+                                { value: '', label: 'All' },
+                                { value: 'CASH', label: 'Cash Only' },
+                                { value: 'UPI', label: 'UPI Only' },
+                                { value: 'B2B_WALLET', label: 'B2B Wallet Only' }
+                            ]}
                             value={paymentFilter}
-                            onChange={(e) => setPaymentFilter(e.target.value)}
-                            className="w-full p-2.5 border border-gray-200 rounded-xl bg-slate-50/50 focus:bg-white focus:ring-4 focus:ring-indigo-50/50 outline-none text-xs font-bold text-slate-700 transition-all cursor-pointer h-[38px]"
-                        >
-                            <option value="">All Payment Modes</option>
-                            <option value="CASH">Cash Only</option>
-                            <option value="UPI">UPI Only</option>
-                            <option value="B2B_WALLET">B2B Wallet Only</option>
-                        </select>
+                            onChange={(val) => setPaymentFilter(val)}
+                        />
                     </div>
 
                     {/* Value Size */}
                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Value Size</label>
-                        <select
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Value Size</label>
+                        <CleanSelect
+                            options={[
+                                { value: '', label: 'All Sizes' },
+                                { value: 'SMALL', label: 'Small (<₹1k)' },
+                                { value: 'MEDIUM', label: 'Medium (₹1k-₹2.5k)' },
+                                { value: 'PREMIUM', label: 'Premium (₹2.5k-₹5k)' },
+                                { value: 'ENTERPRISE', label: 'Enterprise (>₹5k)' }
+                            ]}
                             value={sizeFilter}
-                            onChange={(e) => setSizeFilter(e.target.value)}
-                            className="w-full p-2.5 border border-gray-200 rounded-xl bg-slate-50/50 focus:bg-white focus:ring-4 focus:ring-indigo-50/50 outline-none text-xs font-bold text-slate-700 transition-all cursor-pointer h-[38px]"
-                        >
-                            <option value="">All Sizes</option>
-                            <option value="SMALL">Small (&lt;₹1k)</option>
-                            <option value="MEDIUM">Medium (₹1k-₹2.5k)</option>
-                            <option value="PREMIUM">Premium (₹2.5k-₹5k)</option>
-                            <option value="ENTERPRISE">Enterprise (&gt;₹5k)</option>
-                        </select>
+                            onChange={(val) => setSizeFilter(val)}
+                        />
                     </div>
 
                     {/* Start Date */}
@@ -647,64 +648,64 @@ const ReceiptReport: React.FC = () => {
                     {/* Highlight Metrics Cards */}
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
 
-                        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-md flex justify-between items-center group hover:border-indigo-100 transition-all">
+                        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm flex justify-between items-center">
                             <div className="space-y-1.5 min-w-0">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block truncate">Receipts Count</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">Receipts Count</span>
                                 <div className="flex items-baseline gap-1">
-                                    <span className="text-3xl font-black text-slate-800">{totalCount}</span>
-                                    <span className="text-[9px] font-black text-slate-400 uppercase">items</span>
+                                    <span className="text-3xl font-bold text-slate-800">{totalCount}</span>
+                                    <span className="text-[9px] font-medium text-slate-400 uppercase">items</span>
                                 </div>
                             </div>
-                            <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-base font-black group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300 shrink-0">
+                            <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-base shrink-0">
                                 <i className="fa-solid fa-receipt"></i>
                             </div>
                         </div>
 
-                        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-md flex justify-between items-center group hover:border-amber-100 transition-all">
+                        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm flex justify-between items-center">
                             <div className="space-y-1.5 min-w-0">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block truncate">Total MRP Billing</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">Total MRP Billing</span>
                                 <div className="flex items-baseline">
-                                    <span className="text-2xl font-black text-slate-850">₹{totalMRP.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                                    <span className="text-2xl font-bold text-slate-850">₹{totalMRP.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                                 </div>
                             </div>
-                            <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-base font-black group-hover:bg-amber-600 group-hover:text-white transition-all duration-300 shrink-0">
+                            <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-base shrink-0">
                                 <i className="fa-solid fa-file-invoice"></i>
                             </div>
                         </div>
 
-                        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-md flex justify-between items-center group hover:border-blue-100 transition-all">
+                        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm flex justify-between items-center">
                             <div className="space-y-1.5 min-w-0">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block truncate">Franchise Base Cost</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">Franchise Base Cost</span>
                                 <div className="flex items-baseline">
-                                    <span className="text-2xl font-black text-slate-800">₹{totalB2BCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                                    <span className="text-2xl font-bold text-slate-800">₹{totalB2BCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                                 </div>
                             </div>
-                            <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-base font-black group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shrink-0">
+                            <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-base shrink-0">
                                 <i className="fa-solid fa-wallet"></i>
                             </div>
                         </div>
 
-                        <div className="bg-emerald-50/50 p-5 rounded-3xl border border-emerald-250 shadow-md flex justify-between items-center group hover:bg-emerald-55 transition-all">
+                        <div className="bg-emerald-50/40 p-5 rounded-3xl border border-emerald-100 shadow-sm flex justify-between items-center">
                             <div className="space-y-1.5 min-w-0">
-                                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest block truncate">Net Operational Profit</span>
+                                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block truncate">Net Operational Profit</span>
                                 <div className="flex items-baseline">
-                                    <span className="text-2xl font-black text-emerald-800">₹{totalProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                                    <span className="text-2xl font-bold text-emerald-800">₹{totalProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                                 </div>
                             </div>
-                            <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-base font-black shrink-0 shadow-[0_0_10px_rgba(16,185,129,0.4)] animate-pulse">
+                            <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-base shrink-0">
                                 <i className="fa-solid fa-calculator"></i>
                             </div>
                         </div>
 
-                        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-md flex justify-between items-center group hover:border-purple-100 transition-all">
+                        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm flex justify-between items-center">
                             <div className="space-y-1.5 min-w-0">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block truncate">Final Billings (Cash)</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">Final Billings (Cash)</span>
                                 <div className="flex items-baseline">
-                                    <span className="text-2xl font-black text-slate-850 font-sans">₹{totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                                    <span className="text-2xl font-bold text-slate-850">₹{totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                                 </div>
-                                <div className="text-[9px] font-black text-slate-400 uppercase tracking-wider block truncate">Avg: ₹{averageAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+                                <div className="text-[9px] font-medium text-slate-400 uppercase tracking-wider block truncate">Avg Transactions: ₹{averageAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
                             </div>
-                            <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-base font-black group-hover:bg-purple-600 group-hover:text-white transition-all duration-300 shrink-0">
+                            <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-base shrink-0">
                                 <i className="fa-solid fa-cash-register"></i>
                             </div>
                         </div>
@@ -784,22 +785,22 @@ const ReceiptReport: React.FC = () => {
                                 <tbody className="divide-y divide-slate-50 text-xs">
                                     {filteredReceipts.map(receipt => (
                                         <tr key={receipt.id} className="hover:bg-slate-50/50 transition-colors">
-                                            <td className="p-3 pl-4 font-black text-slate-700 font-mono">
+                                            <td className="p-3 pl-4 font-semibold text-slate-600 font-mono">
                                                 {receipt.display_doc_id}
                                             </td>
-                                            <td className="p-3 text-slate-500 font-medium">
+                                            <td className="p-3 text-slate-500 font-normal">
                                                 {receipt.display_date}
                                             </td>
-                                            <td className="p-3 text-slate-800 font-extrabold text-sm">
+                                            <td className="p-3 text-slate-700 font-medium text-sm">
                                                 {receipt.customer_name}
                                             </td>
-                                            <td className="p-3 text-slate-500 font-mono font-medium">
+                                            <td className="p-3 text-slate-500 font-mono font-normal">
                                                 {receipt.display_customer_id}
                                             </td>
-                                            <td className="p-3 text-slate-600 font-bold">
+                                            <td className="p-3 text-slate-600 font-normal">
                                                 {receipt.created_by_user}
                                             </td>
-                                            <td className="p-3 text-right pr-4 font-black text-slate-900 text-sm">
+                                            <td className="p-3 text-right pr-4 font-bold text-slate-900 text-sm">
                                                 {receipt.display_amount}
                                             </td>
                                         </tr>

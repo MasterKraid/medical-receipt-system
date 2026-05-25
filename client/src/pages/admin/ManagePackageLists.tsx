@@ -14,10 +14,12 @@ const ManagePackageLists: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingList, setEditingList] = useState<PackageList | null>(null);
     const [packages, setPackages] = useState<Package[]>([]);
+    const [originalPackages, setOriginalPackages] = useState<Package[]>([]);
+    const [modalSearchQuery, setModalSearchQuery] = useState('');
 
     // Form States
     const [newListName, setNewListName] = useState('');
-    const [newPackage, setNewPackage] = useState({ name: '', mrp: '', b2b_price: '' });
+    const [newPackage, setNewPackage] = useState({ name: '', mrp: '', b2b_price: '', code_name: '' });
 
     useEffect(() => {
         fetchLists();
@@ -106,7 +108,7 @@ const ManagePackageLists: React.FC = () => {
 
                 const requiredHeaders = ['name', 'mrp', 'b2b_price'];
                 if (headers.length < 1 || !requiredHeaders.every(h => headers.includes(h))) {
-                    throw new Error(`Invalid Excel format. The first row must contain these exact column headers: ${requiredHeaders.join(', ')}`);
+                    throw new Error(`Invalid Excel format. The first row must contain these exact column headers: ${requiredHeaders.join(', ')} (and optionally 'code_name' for package test codes)`);
                 }
 
                 const { inserted, updated } = await apiService.uploadPackages(listId, json);
@@ -125,21 +127,25 @@ const ManagePackageLists: React.FC = () => {
     const openEditModal = async (list: PackageList) => {
         setEditingList(list);
         setIsModalOpen(true);
+        setModalSearchQuery('');
         try {
             const pkgs = await apiService.getPackagesForList(list.id);
             setPackages(pkgs);
+            setOriginalPackages(JSON.parse(JSON.stringify(pkgs)));
         } catch (error) {
             console.error("Failed to fetch packages for list", error);
         }
     };
 
-    const handlePackageChange = (id: number, field: 'name' | 'mrp' | 'b2b_price', value: string | number) => {
+    const handlePackageChange = (id: number, field: 'name' | 'mrp' | 'b2b_price' | 'code_name', value: string | number) => {
         setPackages(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
-    }
+    };
 
     const handleSavePackage = async (pkg: Package) => {
         try {
             await apiService.updatePackageInList(pkg);
+            // Sync up originalPackages for this item
+            setOriginalPackages(prev => prev.map(o => o.id === pkg.id ? JSON.parse(JSON.stringify(pkg)) : o));
             alert("Package saved!");
         } catch (error) {
             alert(`Error saving package: ${error}`);
@@ -154,14 +160,61 @@ const ManagePackageLists: React.FC = () => {
                 name: newPackage.name,
                 mrp: parseFloat(newPackage.mrp),
                 b2b_price: parseFloat(newPackage.b2b_price),
+                code_name: newPackage.code_name || undefined,
                 package_list_id: editingList.id
             });
             setPackages(prev => [...prev, newPkg]);
-            setNewPackage({ name: '', mrp: '', b2b_price: '' });
+            setOriginalPackages(prev => [...prev, JSON.parse(JSON.stringify(newPkg))]);
+            setNewPackage({ name: '', mrp: '', b2b_price: '', code_name: '' });
         } catch (error) {
             alert(`Error adding package: ${error}`);
         }
-    }
+    };
+
+    const filteredModalPackages = React.useMemo(() => {
+        const q = modalSearchQuery.toLowerCase().trim();
+        if (!q) return packages;
+        return packages.filter(p => 
+            p.name.toLowerCase().includes(q) ||
+            (p.code_name && p.code_name.toLowerCase().includes(q))
+        );
+    }, [packages, modalSearchQuery]);
+
+    const hasEdits = React.useMemo(() => {
+        if (packages.length !== originalPackages.length) return true;
+        return packages.some(pkg => {
+            const orig = originalPackages.find(o => o.id === pkg.id);
+            if (!orig) return true;
+            return pkg.name !== orig.name || 
+                   pkg.mrp !== orig.mrp || 
+                   pkg.b2b_price !== orig.b2b_price ||
+                   (pkg.code_name || '') !== (orig.code_name || '');
+        });
+    }, [packages, originalPackages]);
+
+    const handleGlobalSave = async () => {
+        try {
+            const modified = packages.filter(pkg => {
+                const orig = originalPackages.find(o => o.id === pkg.id);
+                if (!orig) return false;
+                return pkg.name !== orig.name || 
+                       pkg.mrp !== orig.mrp || 
+                       pkg.b2b_price !== orig.b2b_price ||
+                       (pkg.code_name || '') !== (orig.code_name || '');
+            });
+
+            if (modified.length === 0) return;
+
+            setIsLoading(true);
+            await Promise.all(modified.map(pkg => apiService.updatePackageInList(pkg)));
+            setOriginalPackages(JSON.parse(JSON.stringify(packages)));
+            alert("All edits saved successfully!");
+        } catch (error) {
+            alert(`Failed to save edits: ${error}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
 
     return (
@@ -272,7 +325,7 @@ const ManagePackageLists: React.FC = () => {
 
             {isModalOpen && editingList && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-                    <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col border border-gray-200">
+                    <div className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col border border-gray-200 relative">
                         <div className="flex items-center justify-between mb-6 border-b border-gray-300 pb-4">
                             <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded bg-yellow-500 flex items-center justify-center text-white shadow-sm">
@@ -290,8 +343,12 @@ const ManagePackageLists: React.FC = () => {
 
                         {/* Add new package form */}
                         <form onSubmit={handleAddNewPackage} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end mb-6 p-4 bg-gray-50/50 rounded-lg border border-gray-100">
-                            <div className="sm:col-span-5 space-y-1">
-                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Package Label</label>
+                            <div className="sm:col-span-2 space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Test Code</label>
+                                <input value={newPackage.code_name} onChange={e => setNewPackage({ ...newPackage, code_name: e.target.value })} placeholder="e.g. PANEL-01" className="w-full p-2 border border-gray-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-yellow-50 text-sm font-mono" />
+                            </div>
+                            <div className="sm:col-span-4 space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">Package Name</label>
                                 <input value={newPackage.name} onChange={e => setNewPackage({ ...newPackage, name: e.target.value })} placeholder="e.g. Master Panel" className="w-full p-2 border border-gray-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-yellow-50 text-sm" required />
                             </div>
                             <div className="sm:col-span-2 space-y-1">
@@ -302,26 +359,53 @@ const ManagePackageLists: React.FC = () => {
                                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">B2B (₹)</label>
                                 <input type="number" value={newPackage.b2b_price} onChange={e => setNewPackage({ ...newPackage, b2b_price: e.target.value })} placeholder="0.00" className="w-full p-2 border border-gray-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-yellow-50 text-sm" required />
                             </div>
-                            <button type="submit" className="sm:col-span-3 px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-all shadow-sm flex items-center justify-center gap-2 text-sm h-[38px]">
+                            <button type="submit" className="sm:col-span-2 px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-all shadow-sm flex items-center justify-center gap-2 text-sm h-[38px]">
                                 <i className="fa-solid fa-plus-circle"></i> Add Item
                             </button>
                         </form>
+
+                        {/* Search packages inside modal */}
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
+                            <div className="flex items-center gap-2">
+                                <i className="fa-solid fa-cubes text-slate-400 text-xs"></i>
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Packages ({filteredModalPackages.length} items)</span>
+                            </div>
+                            <div className="relative w-full sm:w-72">
+                                <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                                <input
+                                    type="text"
+                                    value={modalSearchQuery}
+                                    onChange={e => setModalSearchQuery(e.target.value)}
+                                    placeholder="Search package name or code..."
+                                    className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg bg-gray-50/50 focus:bg-white focus:ring-2 focus:ring-blue-100 outline-none text-xs font-medium transition-all"
+                                />
+                            </div>
+                        </div>
 
                         {/* Existing packages table */}
                         <div className="overflow-y-auto flex-grow rounded-lg border border-gray-200 bg-white shadow-inner custom-scrollbar-minimal">
                             <table className="w-full text-sm divide-y divide-gray-100">
                                 <thead className="bg-gray-50 sticky top-0 z-10">
                                     <tr>
-                                        <th className="p-2 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-4 border-b border-gray-200">Package Name</th>
+                                        <th className="p-2 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest pl-4 border-b border-gray-200 w-36">Test Code</th>
+                                        <th className="p-2 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-200">Package Name</th>
                                         <th className="p-2 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest w-24 border-b border-gray-200">MRP</th>
                                         <th className="p-2 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest w-24 border-b border-gray-200">B2B Price</th>
                                         <th className="p-2 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest pr-4 border-b border-gray-200">Save</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
-                                    {packages.map(pkg => (
+                                    {filteredModalPackages.map(pkg => (
                                         <tr key={pkg.id} className="hover:bg-gray-50/50 transition-colors group">
-                                            <td className="p-1 pl-4">
+                                            <td className="p-1 pl-4 w-36">
+                                                <input
+                                                    value={pkg.code_name || ''}
+                                                    onChange={e => handlePackageChange(pkg.id, 'code_name', e.target.value)}
+                                                    placeholder="N/A"
+                                                    className="w-full p-1.5 bg-transparent border-b border-transparent focus:border-yellow-400 outline-none font-medium text-gray-700 text-sm font-mono"
+                                                />
+                                            </td>
+                                            <td className="p-1">
                                                 <input value={pkg.name} onChange={e => handlePackageChange(pkg.id, 'name', e.target.value)} className="w-full p-1.5 bg-transparent border-b border-transparent focus:border-yellow-400 outline-none font-medium text-gray-700 text-sm" />
                                             </td>
                                             <td className="p-1">
@@ -337,17 +421,34 @@ const ManagePackageLists: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="p-1 text-right pr-4">
-                                                <button onClick={() => handleSavePackage(pkg)} className="w-7 h-7 flex items-center justify-center bg-gray-50 text-gray-400 hover:bg-blue-600 hover:text-white rounded border border-gray-100 transition-all" title="Save Product">
+                                                <button onClick={() => handleSavePackage(pkg)} className="w-7 h-7 flex items-center justify-center bg-gray-50 text-gray-400 hover:bg-blue-600 hover:text-white rounded border border-gray-100 transition-all mx-auto" title="Save Product">
                                                     <i className="fa-solid fa-floppy-disk text-[10px]"></i>
                                                 </button>
                                             </td>
                                         </tr>
                                     ))}
+                                    {filteredModalPackages.length === 0 && (
+                                        <tr>
+                                            <td colSpan={5} className="text-center py-12 text-gray-400 italic text-xs uppercase tracking-wider font-bold">
+                                                No packages match your search filter
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
 
-                        <div className="flex justify-end mt-4 pt-4 border-t border-gray-300">
+                        <div className="flex justify-end mt-4 pt-4 border-t border-gray-300 gap-3">
+                            {hasEdits && (
+                                <button
+                                    type="button"
+                                    onClick={handleGlobalSave}
+                                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-all text-xs flex items-center gap-1.5 shadow-sm"
+                                >
+                                    <i className="fa-solid fa-floppy-disk"></i>
+                                    Save All Changes
+                                </button>
+                            )}
                             <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2 bg-gray-100 text-gray-600 font-bold rounded-lg hover:bg-gray-200 transition-all border border-gray-200 text-xs">Finish Editing</button>
                         </div>
                     </div>
