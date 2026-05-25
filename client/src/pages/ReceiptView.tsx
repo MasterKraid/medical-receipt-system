@@ -17,7 +17,7 @@ interface ReceiptPageData {
 
 const ReceiptView: React.FC = () => {
     const { id } = useParams() as { id: string };
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
     const navigate = useNavigate();
     const [data, setData] = useState<ReceiptPageData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -387,12 +387,14 @@ const ReceiptView: React.FC = () => {
                 onRevert={async () => {
                     try {
                         await apiService.revertReceipt(receipt.id);
+                        await refreshUser();
                         navigate('/admin/documents?type=receipt');
                     } catch (err) { alert(`Action failed: ${err}`); }
                 }}
                 onDelete={async () => {
                     try {
                         await apiService.deleteReceipt(receipt.id);
+                        await refreshUser();
                         navigate('/admin/documents?type=receipt');
                     } catch (err) { alert(`Action failed: ${err}`); }
                 }}

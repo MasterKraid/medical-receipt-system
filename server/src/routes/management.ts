@@ -150,7 +150,7 @@ router.get('/admin/estimates', isAdmin, (req, res) => {
 // Users Management
 router.get('/users/:id', isAdmin, (req, res) => {
     try {
-        const user = db.prepare('SELECT id, username, alias, branchId, role, master_data_entry FROM users WHERE id = ?').get(req.params.id) as User;
+        const user = db.prepare('SELECT id, username, alias, branchId, role, master_data_entry, wallet_balance, allow_negative_balance, negative_balance_allowed_until FROM users WHERE id = ?').get(req.params.id) as User;
         if (user) {
             user.assigned_list_ids = db.prepare('SELECT package_list_id FROM user_package_list_access WHERE user_id = ?').all(req.params.id).map((r: any) => r.package_list_id);
         }

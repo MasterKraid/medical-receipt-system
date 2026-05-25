@@ -376,7 +376,7 @@ const EstimateForm: React.FC = () => {
 
     return (
         <div className="p-4 sm:p-8 max-w-6xl mx-auto">
-            <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-8 rounded-xl shadow-lg space-y-6">
+            <form onSubmit={handleSubmit} onKeyDown={(e) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA' && (e.target as HTMLElement).getAttribute('type') !== 'submit') { e.preventDefault(); } }} className="bg-white p-6 sm:p-8 rounded-xl shadow-lg space-y-6">
                 <header>
                     <h1 className="text-3xl font-bold text-slate-800">Estimate Price Comparison</h1>
                     {branch && user && (

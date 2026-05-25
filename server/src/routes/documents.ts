@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../database';
 import { User, Receipt, Estimate, Customer, Branch, PackageList, Package, Transaction, Lab } from '../types';
-import { isAuthenticated, getISTDateTimeString } from './shared';
+import { isAuthenticated, isAdmin, getISTDateTimeString } from './shared';
 
 const router = Router();
 
@@ -132,6 +132,116 @@ router.post('/receipts', isAuthenticated, (req, res) => {
         res.status(201).json(transaction());
     } catch (e: any) {
         res.status(500).json({ message: `Receipt creation failed: ${e.message}` });
+    }
+});
+
+router.put('/receipts/:id', isAuthenticated, isAdmin, (req, res) => {
+    const user = (req.session as any).user as User;
+    const { payload } = req.body;
+    const receiptId = parseInt(req.params.id, 10);
+
+    if (isNaN(receiptId)) {
+        return res.status(400).json({ message: "Invalid receipt ID." });
+    }
+
+    try {
+        const result = db.transaction(() => {
+            const existingReceipt = db.prepare('SELECT * FROM receipts WHERE id = ?').get(receiptId) as Receipt;
+            if (!existingReceipt) throw new Error("Receipt not found.");
+
+            // 1. Determine old B2B client and old B2B cost from existing transaction
+            const oldTx = db.prepare('SELECT * FROM transactions WHERE receipt_id = ? AND type = ?').get(receiptId, 'RECEIPT_DEDUCTION') as Transaction | undefined;
+            const oldB2BCost = oldTx ? oldTx.amount_deducted : 0;
+            const oldClientId = oldTx ? oldTx.user_id : -1;
+
+            // 2. Update customer data
+            const customerId = handleCustomerData(payload.customer_data, user.id);
+
+            // 3. Determine new B2B target client
+            let newTargetClientId = -1;
+            if (existingReceipt.acting_as_client_id) {
+                newTargetClientId = existingReceipt.acting_as_client_id;
+            } else {
+                const creator = db.prepare('SELECT role FROM users WHERE id = ?').get(existingReceipt.created_by_user_id) as { role: string } | undefined;
+                if (creator && creator.role === 'CLIENT') {
+                    newTargetClientId = existingReceipt.created_by_user_id;
+                }
+            }
+
+            // 4. Calculate new B2B cost from the submitted items
+            let newB2BCost = 0;
+            if (newTargetClientId !== -1) {
+                newB2BCost = (payload.items || []).reduce((sum: number, item: any) => sum + (Number(item.b2b_price) || 0), 0);
+            }
+
+            // 5. Handle wallet adjustments
+            if (oldClientId !== -1 && newTargetClientId !== -1 && oldClientId === newTargetClientId) {
+                // Same client: apply delta
+                const balanceDiff = oldB2BCost - newB2BCost;
+                db.prepare('UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?').run(balanceDiff, newTargetClientId);
+
+                const newBalanceObj = db.prepare('SELECT wallet_balance FROM users WHERE id = ?').get(newTargetClientId) as { wallet_balance: number };
+
+                if (oldTx) {
+                    db.prepare('UPDATE transactions SET amount_deducted = ?, balance_snapshot = ?, date = ?, notes = ? WHERE id = ?')
+                        .run(newB2BCost, newBalanceObj.wallet_balance, getISTDateTimeString(), `Edited receipt RCPT-${String(receiptId).padStart(6, '0')}`, oldTx.id);
+                }
+            } else {
+                // Client changed or one side was walk-in
+                if (oldClientId !== -1 && oldTx) {
+                    // Refund old client
+                    db.prepare('UPDATE users SET wallet_balance = wallet_balance + ? WHERE id = ?').run(oldB2BCost, oldClientId);
+                    db.prepare('DELETE FROM transactions WHERE id = ?').run(oldTx.id);
+                }
+
+                if (newTargetClientId !== -1 && newB2BCost > 0) {
+                    // Deduct new client
+                    const client = db.prepare('SELECT wallet_balance, allow_negative_balance, negative_balance_allowed_until FROM users WHERE id = ?').get(newTargetClientId) as User;
+                    if (!client) throw new Error("Target B2B Client not found.");
+
+                    let canProceed = false;
+                    if (client.wallet_balance >= newB2BCost) {
+                        canProceed = true;
+                    } else if (client.allow_negative_balance) {
+                        if (client.negative_balance_allowed_until) {
+                            const untilDate = new Date(client.negative_balance_allowed_until);
+                            if (untilDate >= new Date()) canProceed = true;
+                        } else {
+                            canProceed = true;
+                        }
+                    }
+                    if (!canProceed) {
+                        throw new Error(`Insufficient wallet balance for B2B transaction (Required: ₹${newB2BCost.toFixed(2)}, Available: ₹${client.wallet_balance.toFixed(2)})`);
+                    }
+
+                    db.prepare('UPDATE users SET wallet_balance = wallet_balance - ? WHERE id = ?').run(newB2BCost, newTargetClientId);
+                    const newBalanceObj = db.prepare('SELECT wallet_balance FROM users WHERE id = ?').get(newTargetClientId) as { wallet_balance: number };
+
+                    db.prepare('INSERT INTO transactions (user_id, date, type, amount_deducted, balance_snapshot, receipt_id, notes) VALUES (?, ?, ?, ?, ?, ?, ?)')
+                        .run(newTargetClientId, getISTDateTimeString(), 'RECEIPT_DEDUCTION', newB2BCost, newBalanceObj.wallet_balance, receiptId, `Edited receipt RCPT-${String(receiptId).padStart(6, '0')}`);
+                }
+            }
+
+            // 6. Replace receipt items
+            db.prepare('DELETE FROM receipt_items WHERE receipt_id = ?').run(receiptId);
+            const insertItem = db.prepare('INSERT INTO receipt_items (receipt_id, package_name, mrp, discount_percentage) VALUES (?, ?, ?, ?)');
+            (payload.items || []).forEach((item: any) => insertItem.run(receiptId, item.name, item.mrp, isNaN(item.discount) ? 0 : item.discount));
+
+            // 7. Resolve lab logo
+            const lab = (payload.items && payload.items.length > 0 && payload.items[0].package_list_id)
+                ? db.prepare('SELECT logo_path FROM labs JOIN lab_package_lists lpl ON labs.id = lpl.lab_id WHERE lpl.package_list_id = ? LIMIT 1').get(payload.items[0].package_list_id) as Lab | undefined
+                : undefined;
+
+            // 8. Update receipt metadata
+            db.prepare(`UPDATE receipts SET customer_id = ?, total_mrp = ?, amount_final = ?, amount_received = ?, amount_due = ?, payment_method = ?, referred_by = ?, notes = ?, num_tests = ?, logo_path = ? WHERE id = ?`)
+                .run(customerId, payload.total_mrp, payload.amount_final, payload.amount_received, payload.amount_due, payload.payment_method, payload.referred_by, payload.notes, payload.num_tests || (payload.items || []).length, lab?.logo_path || existingReceipt.logo_path, receiptId);
+
+            return db.prepare('SELECT * FROM receipts WHERE id = ?').get(receiptId) as Receipt;
+        })();
+
+        res.json(result);
+    } catch (e: any) {
+        res.status(500).json({ message: `Receipt update failed: ${e.message}` });
     }
 });
 

@@ -144,9 +144,14 @@ const SearchableDropdown = forwardRef<SearchableDropdownHandle, SearchableDropdo
                             <li
                                 key={option.value}
                                 onClick={() => handleSelect(option)}
-                                className={`p-2 cursor-pointer ${index === highlightedIndex ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`}
+                                className={`p-2 cursor-pointer flex items-center justify-between gap-2 ${index === highlightedIndex ? 'bg-blue-600 text-white' : 'hover:bg-gray-100'}`}
                             >
-                                {option.label}
+                                <span>{option.label}</span>
+                                {option.code_name && (
+                                    <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${index === highlightedIndex ? 'bg-blue-500 text-blue-100' : 'bg-slate-100 text-slate-500'}`}>
+                                        {option.code_name}
+                                    </span>
+                                )}
                             </li>
                         ))}
                     </ul>

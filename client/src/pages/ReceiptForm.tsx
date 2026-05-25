@@ -711,21 +711,15 @@ const ReceiptForm: React.FC = () => {
     );
 
     const renderPackagesStep = () => (
-        <div className="relative flex flex-col">
-            <div className="absolute top-[15px] md:top-[10px] right-6 -translate-y-1/2 z-10 flex justify-end px-1 bg-white">
-                <span className="text-[10px] md:text-sm bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-semibold uppercase tracking-widest border border-blue-200 shadow-sm">
-                    {isMobileView ? `Total Tests: ${calculations.totalTests}` : `Total number of tests: ${calculations.totalTests}`}
-                </span>
-            </div>
-
-            <fieldset className="border-2 border-slate-200 p-4 rounded-xl space-y-4 order-2">
-                <legend className="px-2 font-bold text-lg text-slate-700 flex justify-between items-center w-full">
-                    <span>Select Tests</span>
+        <div className="flex flex-col">
+            <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+                <h3 className="font-bold text-lg text-slate-700">Select Tests</h3>
+                <div className="flex items-center gap-3 flex-wrap">
                     {isClientMode && (
                         <button
                             type="button"
                             onClick={() => setShowB2BDetails(!showB2BDetails)}
-                            className={`px-3 py-1 text-xs font-bold rounded-lg border transition-all ${
+                            className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${
                                 showB2BDetails 
                                     ? 'bg-green-50 text-green-700 border-green-200' 
                                     : 'bg-slate-50 text-slate-500 border-slate-200'
@@ -735,7 +729,13 @@ const ReceiptForm: React.FC = () => {
                             B2B Prices: {showB2BDetails ? 'SHOWING' : 'HIDDEN'}
                         </button>
                     )}
-                </legend>
+                    <span className="text-[10px] md:text-sm bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-semibold uppercase tracking-widest border border-blue-200 shadow-sm">
+                        {isMobileView ? `Tests: ${calculations.totalTests}` : `Total number of tests: ${calculations.totalTests}`}
+                    </span>
+                </div>
+            </div>
+
+            <fieldset className="border-2 border-slate-200 p-4 rounded-xl space-y-4">
 
                 <div className="hidden md:grid md:grid-cols-12 gap-2 text-xs font-black text-slate-400 uppercase tracking-tighter mb-2 px-1">
                     <div className={`${(isClientMode && showB2BDetails) ? 'col-span-5' : 'col-span-7'}`}>Test Name/Package</div>
@@ -930,8 +930,8 @@ const ReceiptForm: React.FC = () => {
                         <button type="button" onClick={() => setShowPreview(false)} className="flex-1 py-4 px-4 bg-slate-100 text-slate-600 font-black rounded-xl hover:bg-slate-800 hover:text-white transition-all uppercase text-xs tracking-widest">
                             Edit
                         </button>
-                        <button type="button" onClick={handleConfirmSave} className="flex-[2] py-4 px-4 bg-green-500 text-white font-black rounded-xl hover:bg-green-600 shadow-xl shadow-green-100 transform active:scale-95 transition-all flex items-center justify-center gap-2 uppercase text-sm tracking-widest">
-                            Save & Generate Receipt
+                        <button type="button" onClick={handleConfirmSave} disabled={isSubmitting} className="flex-[2] py-4 px-4 bg-green-500 text-white font-black rounded-xl hover:bg-green-600 shadow-xl shadow-green-100 transform active:scale-95 transition-all flex items-center justify-center gap-2 uppercase text-sm tracking-widest disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed">
+                            {isSubmitting ? 'Saving...' : 'Save & Generate Receipt'}
                         </button>
                     </div>
                 </div>
@@ -941,7 +941,7 @@ const ReceiptForm: React.FC = () => {
 
     return (
         <div className="p-4 sm:p-8 max-w-5xl mx-auto min-h-screen">
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} onKeyDown={(e) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA' && (e.target as HTMLElement).getAttribute('type') !== 'submit') { e.preventDefault(); } }} className="space-y-6">
                 {!isMobileView ? (
                     <div className="bg-white p-8 rounded-2xl shadow-2xl space-y-8 border border-slate-100">
                         <PageHeader
@@ -961,8 +961,8 @@ const ReceiptForm: React.FC = () => {
                         {!isClientMode && renderPaymentStep()}
 
                         <div className="pt-6 border-t border-slate-100">
-                            <button type="submit" className="w-full py-5 bg-blue-600 text-white font-black text-lg rounded-2xl hover:bg-blue-700 shadow-2xl shadow-blue-100 transform active:scale-[0.98] transition-all uppercase tracking-widest">
-                                Preview & Save
+                            <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-blue-600 text-white font-black text-lg rounded-2xl hover:bg-blue-700 shadow-2xl shadow-blue-100 transform active:scale-[0.98] transition-all uppercase tracking-widest disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed">
+                                {isSubmitting ? 'Processing...' : 'Preview & Save'}
                             </button>
                         </div>
                     </div>
@@ -1014,9 +1014,10 @@ const ReceiptForm: React.FC = () => {
                                 <button
                                     key="review-btn"
                                     type="submit"
-                                    className="py-4 bg-green-500 shadow-green-100 text-white font-bold rounded-2xl active:scale-95 transition-all shadow-lg text-xs uppercase tracking-widest"
+                                    disabled={isSubmitting}
+                                    className="py-4 bg-green-500 shadow-green-100 text-white font-bold rounded-2xl active:scale-95 transition-all shadow-lg text-xs uppercase tracking-widest disabled:bg-slate-300 disabled:shadow-none"
                                 >
-                                    Review Order
+                                    {isSubmitting ? 'Processing...' : 'Review Order'}
                                 </button>
                             )}
                         </footer>
