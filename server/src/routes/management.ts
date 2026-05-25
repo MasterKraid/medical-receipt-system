@@ -87,16 +87,17 @@ router.get('/customers', isAuthenticated, (req, res) => {
 router.get('/admin/receipts', isAdmin, (req, res) => {
     try {
         const receipts = db.prepare(`
-            SELECT r.id, r.created_at, c.name as customer_name, c.id as customer_id, c.prefix, r.amount_final, 
+            SELECT r.id, r.created_at, c.name as customer_name, c.id as customer_id, c.prefix, r.amount_final, r.total_mrp, r.payment_method,
                    u.alias as user_alias, u.username as username, r.acting_as_client_id, r.created_by_user_id,
-                   cl.alias as client_alias, cl.username as client_username
+                   cl.alias as client_alias, cl.username as client_username,
+                   (SELECT amount_deducted FROM transactions WHERE receipt_id = r.id AND type = 'RECEIPT_DEDUCTION') AS b2b_cost
             FROM receipts r 
             JOIN customers c ON r.customer_id = c.id 
             JOIN users u ON r.created_by_user_id = u.id 
             LEFT JOIN users cl ON r.acting_as_client_id = cl.id
             ORDER BY r.id DESC
         `).all() as any[];
-        const formatted: Document[] = receipts.map(r => {
+        const formatted = receipts.map(r => {
             let creator = r.user_alias || r.username;
             if (r.acting_as_client_id) {
                 const clientName = r.client_alias || r.client_username;
@@ -108,7 +109,12 @@ router.get('/admin/receipts', isAdmin, (req, res) => {
                 display_date: `${r.created_at.split(' | ')[0]} ${r.created_at.split(' | ')[1]}`,
                 customer_name: `${r.prefix || ''} ${r.customer_name}`,
                 display_customer_id: `CUST-${String(r.customer_id).padStart(10, '0')}`,
+                customer_id: r.customer_id,
                 display_amount: `₹${r.amount_final.toFixed(2)}`,
+                amount_final: r.amount_final,
+                total_mrp: r.total_mrp,
+                b2b_cost: r.b2b_cost || 0,
+                payment_method: r.payment_method,
                 created_by_user: creator,
                 acting_as_client_id: r.acting_as_client_id || undefined,
                 created_by_user_id: r.created_by_user_id

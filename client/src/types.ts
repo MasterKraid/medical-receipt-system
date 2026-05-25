@@ -127,10 +127,15 @@ export interface Document {
     display_date: string;
     customer_name: string;
     display_customer_id: string;
+    customer_id?: number;
     display_amount: string;
     created_by_user: string;
     acting_as_client_id?: number;
     created_by_user_id?: number;
+    total_mrp?: number;
+    amount_final?: number;
+    b2b_cost?: number;
+    payment_method?: string;
 }
 
 export interface LabReport {

@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PageHeader from '../../components/PageHeader';
 import { apiService } from '../../services/api';
-import { FormattedCustomer, LabReport } from '../../types';
+import { FormattedCustomer, LabReport, Document } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 
 const ViewCustomers: React.FC = () => {
     const { user } = useAuth();
     const [customers, setCustomers] = useState<FormattedCustomer[]>([]);
     const [reports, setReports] = useState<LabReport[]>([]);
+    const [allReceipts, setAllReceipts] = useState<Document[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -40,9 +41,20 @@ const ViewCustomers: React.FC = () => {
         }
     };
 
+    const loadReceipts = async () => {
+        if (user?.role === 'ADMIN') {
+            try {
+                const receiptsData = await apiService.getReceipts();
+                setAllReceipts(receiptsData);
+            } catch (err) {
+                console.error("Failed to load receipts for admin", err);
+            }
+        }
+    };
+
     const loadData = async () => {
         setIsLoading(true);
-        await Promise.all([loadCustomers(), loadReports()]);
+        await Promise.all([loadCustomers(), loadReports(), loadReceipts()]);
         setIsLoading(false);
     };
 
@@ -51,16 +63,6 @@ const ViewCustomers: React.FC = () => {
             loadData();
         }
     }, [user]);
-
-    const filteredCustomers = React.useMemo(() => {
-        const query = searchTerm.toLowerCase().trim();
-        if (!query) return customers;
-        return customers.filter(cust =>
-            cust.name.toLowerCase().includes(query) ||
-            cust.mobile?.includes(query) ||
-            cust.display_id.toLowerCase().includes(query)
-        );
-    }, [customers, searchTerm]);
 
     const reportsByCustomerId = React.useMemo(() => {
         const map: { [key: number]: LabReport[] } = {};
@@ -72,6 +74,34 @@ const ViewCustomers: React.FC = () => {
         });
         return map;
     }, [reports]);
+
+    const filteredCustomers = React.useMemo(() => {
+        const query = searchTerm.toLowerCase().trim();
+        let list = [...customers];
+        
+        if (query) {
+            list = list.filter(cust =>
+                cust.name.toLowerCase().includes(query) ||
+                cust.mobile?.includes(query) ||
+                cust.display_id.toLowerCase().includes(query)
+            );
+        }
+
+        list.sort((a, b) => {
+            if (user?.role === 'CLIENT') {
+                const aReports = reportsByCustomerId[a.id] || [];
+                const bReports = reportsByCustomerId[b.id] || [];
+                const aHasUnseen = aReports.some(r => !r.is_read);
+                const bHasUnseen = bReports.some(r => !r.is_read);
+
+                if (aHasUnseen && !bHasUnseen) return -1;
+                if (!aHasUnseen && bHasUnseen) return 1;
+            }
+            return b.id - a.id;
+        });
+
+        return list;
+    }, [customers, searchTerm, user, reportsByCustomerId]);
 
     const handleOpenReportsModal = (cust: FormattedCustomer, custReports: LabReport[]) => {
         setSelectedCustForModal(cust);
@@ -153,6 +183,11 @@ const ViewCustomers: React.FC = () => {
         });
         return groups;
     }, [modalReports]);
+
+    const customerReceipts = React.useMemo(() => {
+        if (!selectedCustForModal) return [];
+        return allReceipts.filter(r => r.customer_id === selectedCustForModal.id);
+    }, [allReceipts, selectedCustForModal]);
 
     const categories = [
         { id: 'With Header', label: 'With Header', icon: 'fa-file-invoice', color: 'indigo', pastel: 'bg-indigo-50 border-indigo-150 text-indigo-850 hover:bg-indigo-100/90' },
@@ -392,6 +427,54 @@ const ViewCustomers: React.FC = () => {
                                     })}
                                 </div>
                             </div>
+
+                            {/* Customer Receipts Section for Admin only */}
+                            {user?.role === 'ADMIN' && (
+                                <div className="border-t border-slate-100 pt-5 mt-5">
+                                    <h5 className="text-xs font-extrabold uppercase tracking-widest text-slate-500 flex items-center gap-2 mb-4">
+                                        <i className="fa-solid fa-file-invoice-dollar text-indigo-500 text-sm"></i>
+                                        <span>Customer Receipts & Billing</span>
+                                    </h5>
+                                    
+                                    {customerReceipts.length === 0 ? (
+                                        <p className="text-xs text-slate-400 italic bg-slate-50 p-4 rounded-xl border border-dashed border-slate-200 text-center font-bold">
+                                            No billing history found for this patient.
+                                        </p>
+                                    ) : (
+                                        <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                                            {customerReceipts.map(rcpt => (
+                                                <div key={rcpt.id} className="bg-slate-50/50 hover:bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center justify-between gap-4 transition-all">
+                                                    <div className="space-y-0.5">
+                                                        <div className="text-xs font-black text-slate-800">{rcpt.display_doc_id}</div>
+                                                        <div className="text-[10px] text-slate-400 font-mono font-medium">{rcpt.display_date}</div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-black bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                                            {rcpt.display_amount}
+                                                        </span>
+                                                        <div className="flex gap-1.5">
+                                                            <Link 
+                                                                to={`/receipt/${rcpt.id}`} 
+                                                                className="w-7 h-7 flex items-center justify-center bg-white hover:bg-indigo-600 hover:text-white text-slate-400 hover:border-indigo-600 rounded-lg border border-slate-200 shadow-sm transition-all"
+                                                                title="View PDF Page"
+                                                            >
+                                                                <i className="fa-solid fa-file-pdf text-[11px]"></i>
+                                                            </Link>
+                                                            <Link 
+                                                                to={`/admin/receipts/edit/${rcpt.id}`} 
+                                                                className="w-7 h-7 flex items-center justify-center bg-white hover:bg-yellow-500 hover:text-white text-slate-400 hover:border-yellow-500 rounded-lg border border-slate-200 shadow-sm transition-all"
+                                                                title="Edit Receipt"
+                                                            >
+                                                                <i className="fa-solid fa-pen text-[10px]"></i>
+                                                            </Link>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
