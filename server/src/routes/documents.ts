@@ -70,7 +70,7 @@ router.post('/receipts', isAuthenticated, (req, res) => {
 
     try {
         const transaction = db.transaction(() => {
-            const customerId = handleCustomerData(payload.customer_data, user.id);
+            const customerId = handleCustomerData(payload.customer_data, acting_as_client_id || user.id);
 
             const lab = db.prepare('SELECT logo_path FROM labs JOIN lab_package_lists lpl ON labs.id = lpl.lab_id WHERE lpl.package_list_id = ? LIMIT 1').get(payload.items[0].package_list_id) as Lab | undefined;
 
@@ -158,9 +158,6 @@ router.put('/receipts/:id', isAuthenticated, isAdmin, (req, res) => {
             const oldB2BCost = oldTx ? oldTx.amount_deducted : 0;
             const oldClientId = oldTx ? oldTx.user_id : -1;
 
-            // 2. Update customer data
-            const customerId = handleCustomerData(payload.customer_data, user.id);
-
             // 3. Determine new B2B target client
             let newTargetClientId = -1;
             if (existingReceipt.acting_as_client_id) {
@@ -171,6 +168,9 @@ router.put('/receipts/:id', isAuthenticated, isAdmin, (req, res) => {
                     newTargetClientId = existingReceipt.created_by_user_id;
                 }
             }
+
+            // 2. Update customer data
+            const customerId = handleCustomerData(payload.customer_data, newTargetClientId !== -1 ? newTargetClientId : user.id);
 
             // 4. Calculate new B2B cost from the submitted items
             let newB2BCost = 0;
@@ -252,11 +252,11 @@ router.put('/receipts/:id', isAuthenticated, isAdmin, (req, res) => {
 router.post('/estimates', isAuthenticated, (req, res) => {
     const user = (req.session as any).user as User;
     const { payload, context } = req.body;
-    const { branch } = context || {};
+    const { branch, acting_as_client_id } = context || {};
 
     try {
         const transaction = db.transaction(() => {
-            const customerId = handleCustomerData(payload.customer_data, user.id);
+            const customerId = handleCustomerData(payload.customer_data, acting_as_client_id || user.id);
 
             const estimateResult = db.prepare(`INSERT INTO estimates (customer_id, branch_id, created_at, amount_after_discount, referred_by, notes, created_by_user_id) VALUES (?, ?, ?, ?, ?, ?, ?)`)
                 .run(customerId, branch.id, getISTDateTimeString(), payload.amount_after_discount, payload.referred_by, payload.notes, user.id);

@@ -68,10 +68,12 @@ router.get('/client-wallets', isAuthenticated, (req, res) => {
 router.get('/customers', isAuthenticated, (req, res) => {
     const user = (req.session as any).user as User;
     try {
-        const query = user.role === 'ADMIN'
+        const query = (user.role === 'ADMIN' || user.role === 'GENERAL_EMPLOYEE' || user.role === 'DATA_ENTRY')
             ? `SELECT * FROM customers WHERE is_deleted = 0 ORDER BY id DESC`
-            : `SELECT * FROM customers WHERE is_deleted = 0 AND created_by_user_id = ? ORDER BY id DESC`;
-        const params = user.role === 'ADMIN' ? [] : [user.id];
+            : `SELECT * FROM customers WHERE is_deleted = 0 AND (created_by_user_id = ? OR id IN (SELECT customer_id FROM receipts WHERE created_by_user_id = ? OR acting_as_client_id = ?) OR id IN (SELECT customer_id FROM estimates WHERE created_by_user_id = ?)) ORDER BY id DESC`;
+        const params = (user.role === 'ADMIN' || user.role === 'GENERAL_EMPLOYEE' || user.role === 'DATA_ENTRY')
+            ? []
+            : [user.id, user.id, user.id, user.id];
         const customers = db.prepare(query).all(...params) as Customer[];
         const formattedCustomers: FormattedCustomer[] = customers.map((c: Customer) => ({
             ...c,
