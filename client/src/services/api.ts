@@ -127,7 +127,7 @@ export const apiService = {
   getClientWallets: (query?: string): Promise<User[]> => apiFetch(`/client-wallets?q=${encodeURIComponent(query || '')}`),
   getAllCustomers: (): Promise<FormattedCustomer[]> => apiFetch('/customers'),
   getCustomerById: (id: number): Promise<Customer> => apiFetch(`/customers/${id}`),
-  getReceipts: (): Promise<Document[]> => apiFetch('/admin/receipts'),
+  getReceipts: (): Promise<Document[]> => apiFetch('/receipts'),
   getEstimates: (): Promise<Document[]> => apiFetch('/admin/estimates'),
   getDataEntryReceipts: (date?: string): Promise<any[]> => apiFetch(`/data-entry/receipts${date ? `?date=${encodeURIComponent(date)}` : ''}`),
   updateDataEntryStatus: (id: number, isDone: boolean): Promise<void> => apiFetch(`/receipts/${id}/data-entry`, { method: 'PUT', body: JSON.stringify({ isDone }) }),

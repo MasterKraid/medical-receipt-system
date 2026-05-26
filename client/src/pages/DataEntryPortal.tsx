@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
 import PageHeader from '../components/PageHeader';
@@ -92,7 +91,6 @@ const CopyableBadge: React.FC<{ text: string }> = ({ text }) => {
 
 const DataEntryPortal: React.FC = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
 
   const [dateFilter, setDateFilter] = useState(() => {
     const today = new Date();
@@ -163,7 +161,7 @@ const DataEntryPortal: React.FC = () => {
         <PageHeader title="Data Entry Workspace" showActingAs={false} />
 
         {/* Filters and Date Bar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-slate-50 border border-slate-200 rounded-2xl mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-slate-50 border border-slate-200 rounded-2xl mb-6">
           <div className="space-y-1">
             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block pl-1">
               Filter Transaction Date
@@ -178,13 +176,6 @@ const DataEntryPortal: React.FC = () => {
               />
             </div>
           </div>
-
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs uppercase tracking-wider transition-all shadow-sm shrink-0 flex items-center gap-2 h-10"
-          >
-            <i className="fa-solid fa-arrow-left"></i> Return to Dashboard
-          </button>
         </div>
 
         {/* Tab Selection */}

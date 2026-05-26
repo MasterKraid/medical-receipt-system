@@ -42,13 +42,11 @@ const ViewCustomers: React.FC = () => {
     };
 
     const loadReceipts = async () => {
-        if (user?.role === 'ADMIN') {
-            try {
-                const receiptsData = await apiService.getReceipts();
-                setAllReceipts(receiptsData);
-            } catch (err) {
-                console.error("Failed to load receipts for admin", err);
-            }
+        try {
+            const receiptsData = await apiService.getReceipts();
+            setAllReceipts(receiptsData);
+        } catch (err) {
+            console.error("Failed to load receipts", err);
         }
     };
 
@@ -383,7 +381,7 @@ const ViewCustomers: React.FC = () => {
                                     <div>Total Tests Done: <span className="text-indigo-800 text-sm font-black">{customerReceipts.reduce((sum, r) => sum + (r.num_tests || 0), 0)}</span></div>
                                     <div>Doctor Name: <span className="text-slate-850 font-black">{customerReceipts[0]?.referred_by || 'Self'}</span></div>
                                     <div>Total MRP Billing: <span className="text-slate-800 font-black">₹{customerReceipts.reduce((sum, r) => sum + (r.total_mrp || 0), 0).toLocaleString('en-IN')}</span></div>
-                                    {user?.role === 'ADMIN' && (
+                                    {(user?.role === 'ADMIN' || user?.role === 'CLIENT') && (
                                         <div>Total B2B Base: <span className="text-slate-800 font-black">₹{customerReceipts.reduce((sum, r) => sum + (r.b2b_cost || 0), 0).toLocaleString('en-IN')}</span></div>
                                     )}
                                     <div>Total Paid transacted: <span className="text-emerald-700 font-black">₹{customerReceipts.reduce((sum, r) => sum + (r.amount_final || 0), 0).toLocaleString('en-IN')}</span></div>
@@ -463,8 +461,8 @@ const ViewCustomers: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Customer Receipts Section for Admin only */}
-                            {user?.role === 'ADMIN' && (
+                            {/* Customer Receipts Section */}
+                            {(user?.role === 'ADMIN' || user?.role === 'CLIENT' || user?.role === 'GENERAL_EMPLOYEE') && (
                                 <div className="border-t border-slate-100 pt-5 mt-5">
                                     <h5 className="text-xs font-extrabold uppercase tracking-widest text-slate-500 flex items-center gap-2 mb-4">
                                         <i className="fa-solid fa-file-invoice-dollar text-indigo-500 text-sm"></i>
@@ -495,13 +493,15 @@ const ViewCustomers: React.FC = () => {
                                                             >
                                                                 <i className="fa-solid fa-file-pdf text-[11px]"></i>
                                                             </Link>
-                                                            <Link 
-                                                                to={`/admin/receipts/edit/${rcpt.id}`} 
-                                                                className="w-7 h-7 flex items-center justify-center bg-white hover:bg-yellow-500 hover:text-white text-slate-400 hover:border-yellow-500 rounded-lg border border-slate-200 shadow-sm transition-all"
-                                                                title="Edit Receipt"
-                                                            >
-                                                                <i className="fa-solid fa-pen text-[10px]"></i>
-                                                            </Link>
+                                                            {user?.role === 'ADMIN' && (
+                                                                <Link 
+                                                                    to={`/admin/receipts/edit/${rcpt.id}`} 
+                                                                    className="w-7 h-7 flex items-center justify-center bg-white hover:bg-yellow-500 hover:text-white text-slate-400 hover:border-yellow-500 rounded-lg border border-slate-200 shadow-sm transition-all"
+                                                                    title="Edit Receipt"
+                                                                >
+                                                                    <i className="fa-solid fa-pen text-[10px]"></i>
+                                                                </Link>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>

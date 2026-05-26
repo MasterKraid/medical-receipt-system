@@ -617,7 +617,7 @@ const ManageLabs: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="space-y-1 flex-grow overflow-y-auto pr-2 custom-scrollbar-minimal my-2">
+                            <div className="space-y-1 flex-grow overflow-y-auto max-h-[300px] custom-scrollbar-minimal pr-2 border border-gray-150 p-2 rounded-lg my-2">
                                 {allLists.map(list => (
                                     <label key={list.id} className={`flex items-center space-x-3 px-3 py-2 rounded-lg border transition-all cursor-pointer ${assignedLists.has(list.id) ? 'bg-blue-600 border-blue-700 text-white shadow-sm' : 'bg-gray-50 border-gray-100 hover:border-gray-250 text-gray-600'}`}>
                                         <div className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${assignedLists.has(list.id) ? 'bg-white border-white text-blue-600' : 'bg-white border-gray-300'}`}>

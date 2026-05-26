@@ -84,19 +84,36 @@ router.get('/customers', isAuthenticated, (req, res) => {
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });
 
-router.get('/admin/receipts', isAdmin, (req, res) => {
+router.get('/receipts', isAuthenticated, (req, res) => {
+    const user = (req.session as any).user as User;
     try {
-        const receipts = db.prepare(`
-            SELECT r.id, r.created_at, c.name as customer_name, c.id as customer_id, c.prefix, r.amount_final, r.total_mrp, r.payment_method, r.referred_by, r.num_tests,
-                   u.alias as user_alias, u.username as username, r.acting_as_client_id, r.created_by_user_id,
-                   cl.alias as client_alias, cl.username as client_username,
-                   (SELECT amount_deducted FROM transactions WHERE receipt_id = r.id AND type = 'RECEIPT_DEDUCTION') AS b2b_cost
-            FROM receipts r 
-            JOIN customers c ON r.customer_id = c.id 
-            JOIN users u ON r.created_by_user_id = u.id 
-            LEFT JOIN users cl ON r.acting_as_client_id = cl.id
-            ORDER BY r.id DESC
-        `).all() as any[];
+        let receipts;
+        if (user.role === 'CLIENT') {
+            receipts = db.prepare(`
+                SELECT r.id, r.created_at, c.name as customer_name, c.id as customer_id, c.prefix, r.amount_final, r.total_mrp, r.payment_method, r.referred_by, r.num_tests,
+                       u.alias as user_alias, u.username as username, r.acting_as_client_id, r.created_by_user_id,
+                       cl.alias as client_alias, cl.username as client_username,
+                       (SELECT amount_deducted FROM transactions WHERE receipt_id = r.id AND type = 'RECEIPT_DEDUCTION') AS b2b_cost
+                FROM receipts r 
+                JOIN customers c ON r.customer_id = c.id 
+                JOIN users u ON r.created_by_user_id = u.id 
+                LEFT JOIN users cl ON r.acting_as_client_id = cl.id
+                WHERE r.created_by_user_id = ? OR r.acting_as_client_id = ?
+                ORDER BY r.id DESC
+            `).all(user.id, user.id) as any[];
+        } else {
+            receipts = db.prepare(`
+                SELECT r.id, r.created_at, c.name as customer_name, c.id as customer_id, c.prefix, r.amount_final, r.total_mrp, r.payment_method, r.referred_by, r.num_tests,
+                       u.alias as user_alias, u.username as username, r.acting_as_client_id, r.created_by_user_id,
+                       cl.alias as client_alias, cl.username as client_username,
+                       (SELECT amount_deducted FROM transactions WHERE receipt_id = r.id AND type = 'RECEIPT_DEDUCTION') AS b2b_cost
+                FROM receipts r 
+                JOIN customers c ON r.customer_id = c.id 
+                JOIN users u ON r.created_by_user_id = u.id 
+                LEFT JOIN users cl ON r.acting_as_client_id = cl.id
+                ORDER BY r.id DESC
+            `).all() as any[];
+        }
         const formatted = receipts.map(r => {
             let creator = r.user_alias || r.username;
             if (r.acting_as_client_id) {
@@ -222,11 +239,24 @@ router.put('/branches/:id', isAdmin, (req, res) => {
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });
 
-// Lab Management
 router.post('/labs', isAdmin, (req, res) => {
+    const { name } = req.body;
     try {
-        db.prepare('INSERT INTO labs (name) VALUES (?)').run(req.body.name);
-        res.status(201).json({ message: 'Lab created' });
+        const result = db.transaction(() => {
+            const labRun = db.prepare('INSERT INTO labs (name) VALUES (?)').run(name);
+            const labId = labRun.lastInsertRowid;
+            
+            // Auto create Mother Ratelist
+            const listName = `${name} Mother Ratelist`;
+            const listRun = db.prepare('INSERT INTO package_lists (name) VALUES (?)').run(listName);
+            const listId = listRun.lastInsertRowid;
+            
+            // Map the list to the lab
+            db.prepare('INSERT INTO lab_package_lists (lab_id, package_list_id) VALUES (?, ?)').run(labId, listId);
+            
+            return { labId, listId };
+        })();
+        res.status(201).json({ message: 'Lab created and Mother Ratelist mapped', ...result });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });
 
@@ -877,7 +907,7 @@ router.get('/admin/system-status', isAdmin, (req, res) => {
         let freeDisk = 0;
         let diskPercentage = '0';
         try {
-            const dfOutput = execSync('df -k /').toString().split('\n');
+            const dfOutput = execSync('df -k /home').toString().split('\n');
             if (dfOutput.length > 1) {
                 const dataLine = dfOutput[1];
                 const parts = dataLine.trim().split(/\s+/);

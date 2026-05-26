@@ -25,7 +25,6 @@ import ClientRatelist from './pages/ClientRatelist';
 import ReloadPrompt from './components/ReloadPrompt';
 import DataEntryPortal from './pages/DataEntryPortal';
 import ClientAnalysis from './pages/ClientAnalysis';
-import LedgerReport from './pages/admin/LedgerReport';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement; roles?: string[] }> = ({ children, roles }) => {
   const { user } = useAuth();
@@ -79,7 +78,6 @@ const AppRoutes: React.FC = () => {
        <Route path="/admin/receipts" element={<AdminRoute><ViewDocuments docType="receipt" /></AdminRoute>} />
       <Route path="/admin/receipts/edit/:id" element={<AdminRoute><ReceiptForm /></AdminRoute>} />
       <Route path="/admin/receipt-report" element={<AdminRoute><ReceiptReport /></AdminRoute>} />
-      <Route path="/admin/ledger-report" element={<AdminRoute><LedgerReport /></AdminRoute>} />
       <Route path="/admin/estimates" element={<AdminRoute><ViewDocuments docType="estimate" /></AdminRoute>} />
       <Route path="/admin/reports" element={<AdminRoute><ManageReports /></AdminRoute>} />
       <Route path="/admin/comparison" element={<AdminRoute><ManageComparison /></AdminRoute>} />

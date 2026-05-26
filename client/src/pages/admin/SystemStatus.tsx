@@ -71,12 +71,12 @@ const SystemStatus: React.FC = () => {
 
     return (
         <div className="p-3 sm:p-6 max-w-7xl mx-auto space-y-6">
-            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
+            <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
                 <PageHeader title="System Status & Telemetry" showActingAs={false} />
 
                 {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl flex items-center gap-3 mb-6">
-                        <i className="fa-solid fa-triangle-exclamation text-lg"></i>
+                    <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-xl flex items-center gap-3 mb-6 shadow-sm">
+                        <i className="fa-solid fa-triangle-exclamation text-lg animate-pulse"></i>
                         <div>
                             <span className="font-bold">Error loading system telemetry:</span> {error}
                         </div>
@@ -95,7 +95,7 @@ const SystemStatus: React.FC = () => {
                         <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
                             <div className="flex justify-between items-center mb-4">
                                 <div className="flex items-center gap-2.5">
-                                    <div className="w-9 h-9 rounded-xl bg-indigo-500 flex items-center justify-center text-white">
+                                    <div className="w-9 h-9 rounded-xl bg-indigo-500 flex items-center justify-center text-white shadow-sm">
                                         <i className="fa-solid fa-memory text-sm"></i>
                                     </div>
                                     <div>
@@ -112,25 +112,24 @@ const SystemStatus: React.FC = () => {
                                 </span>
                             </div>
 
-                            {/* Radial/Bar Gauge */}
                             <div className="space-y-4">
                                 <div className="h-4 w-full bg-gray-200 rounded-full overflow-hidden shadow-inner flex">
-                                    <div 
+                                    <div
                                         className={`h-full transition-all duration-1000 ${
                                             stats.memory.percentage > 90 ? 'bg-gradient-to-r from-red-500 to-rose-600' :
                                             stats.memory.percentage > 75 ? 'bg-gradient-to-r from-amber-500 to-orange-600' :
                                             'bg-gradient-to-r from-green-500 to-emerald-600'
-                                        }`} 
+                                        }`}
                                         style={{ width: `${stats.memory.percentage}%` }}
                                     ></div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-gray-500">
-                                    <div className="p-3 bg-white rounded-lg border border-gray-100">
+                                    <div className="p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
                                         <div className="text-[9px] font-bold text-gray-400 uppercase">Active Used</div>
                                         <div className="text-sm font-black text-gray-800 mt-1">{formatBytes(stats.memory.used)}</div>
                                     </div>
-                                    <div className="p-3 bg-white rounded-lg border border-gray-100">
+                                    <div className="p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
                                         <div className="text-[9px] font-bold text-gray-400 uppercase">Total Capacity</div>
                                         <div className="text-sm font-black text-gray-800 mt-1">{formatBytes(stats.memory.total)}</div>
                                     </div>
@@ -142,12 +141,12 @@ const SystemStatus: React.FC = () => {
                         <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
                             <div className="flex justify-between items-center mb-4">
                                 <div className="flex items-center gap-2.5">
-                                    <div className="w-9 h-9 rounded-xl bg-cyan-500 flex items-center justify-center text-white">
+                                    <div className="w-9 h-9 rounded-xl bg-cyan-500 flex items-center justify-center text-white shadow-sm">
                                         <i className="fa-solid fa-hard-drive text-sm"></i>
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-gray-800 text-sm">Storage Disk</h3>
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase">Partition "/"</p>
+                                        <p className="text-[10px] text-gray-400 font-bold uppercase">Partition "/home"</p>
                                     </div>
                                 </div>
                                 <span className={`px-2.5 py-1 rounded-full text-xs font-black border ${
@@ -159,25 +158,24 @@ const SystemStatus: React.FC = () => {
                                 </span>
                             </div>
 
-                            {/* Storage Gauge */}
                             <div className="space-y-4">
                                 <div className="h-4 w-full bg-gray-200 rounded-full overflow-hidden shadow-inner flex">
-                                    <div 
+                                    <div
                                         className={`h-full transition-all duration-1000 ${
                                             stats.disk.percentage > 90 ? 'bg-gradient-to-r from-red-500 to-rose-600' :
                                             stats.disk.percentage > 75 ? 'bg-gradient-to-r from-amber-500 to-orange-600' :
-                                            'bg-gradient-to-r from-cyan-500 to-blue-600'
-                                        }`} 
+                                            'bg-gradient-to-r from-green-500 to-emerald-600'
+                                        }`}
                                         style={{ width: `${stats.disk.percentage}%` }}
                                     ></div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-gray-500">
-                                    <div className="p-3 bg-white rounded-lg border border-gray-100">
+                                    <div className="p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
                                         <div className="text-[9px] font-bold text-gray-400 uppercase">Consumed</div>
                                         <div className="text-sm font-black text-gray-800 mt-1">{formatBytes(stats.disk.used)}</div>
                                     </div>
-                                    <div className="p-3 bg-white rounded-lg border border-gray-100">
+                                    <div className="p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
                                         <div className="text-[9px] font-bold text-gray-400 uppercase">Available</div>
                                         <div className="text-sm font-black text-gray-800 mt-1">{formatBytes(stats.disk.free)}</div>
                                     </div>
@@ -189,7 +187,7 @@ const SystemStatus: React.FC = () => {
                         <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
                             <div className="flex justify-between items-center mb-4">
                                 <div className="flex items-center gap-2.5">
-                                    <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center text-white">
+                                    <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center text-white shadow-sm">
                                         <i className="fa-solid fa-database text-sm"></i>
                                     </div>
                                     <div>
@@ -202,17 +200,19 @@ const SystemStatus: React.FC = () => {
                                 </span>
                             </div>
 
-                            <div className="p-4 bg-white rounded-xl border border-gray-100 flex flex-col justify-center items-center h-28 shadow-sm">
-                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Active File Footprint</div>
-                                <div className="text-3xl font-black text-gray-800 mt-2">{formatBytes(stats.db.size)}</div>
-                                <div className="text-[9px] font-bold text-gray-400 mt-1 font-mono">/server/data/data.db</div>
+                            <div className="space-y-4">
+                                <div className="p-4 bg-white rounded-xl border border-gray-100 flex flex-col justify-center items-center h-28 shadow-sm">
+                                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Active File Footprint</div>
+                                    <div className="text-2xl font-black text-gray-800 mt-2">{formatBytes(stats.db.size)}</div>
+                                    <div className="text-[9px] font-bold text-gray-400 mt-1 font-mono">/server/data/data.db</div>
+                                </div>
                             </div>
                         </div>
 
                         {/* Uptime & Loads Panel */}
                         <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow md:col-span-2">
                             <div className="flex items-center gap-2.5 mb-4">
-                                <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center text-white">
+                                <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center text-white shadow-sm">
                                     <i className="fa-solid fa-clock text-sm"></i>
                                 </div>
                                 <div>
@@ -222,19 +222,19 @@ const SystemStatus: React.FC = () => {
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="p-4 bg-white rounded-xl border border-gray-100 flex flex-col justify-center">
+                                <div className="p-4 bg-white rounded-xl border border-gray-100 flex flex-col justify-center shadow-sm">
                                     <div className="text-[10px] font-bold text-gray-400 uppercase">OS Continuous Uptime</div>
                                     <div className="text-xl font-black text-gray-800 mt-1">{formatUptime(stats.uptime)}</div>
                                     <div className="text-[9px] text-gray-400 mt-1">Uptime clock parsed in GMT+5:30 context</div>
                                 </div>
 
-                                <div className="p-4 bg-white rounded-xl border border-gray-100 flex flex-col justify-center">
+                                <div className="p-4 bg-white rounded-xl border border-gray-100 flex flex-col justify-center shadow-sm">
                                     <div className="text-[10px] font-bold text-gray-400 uppercase mb-2">CPU Load Averages</div>
                                     <div className="flex gap-2">
                                         {stats.load.map((l, index) => {
                                             const times = ['1m', '5m', '15m'];
                                             return (
-                                                <div key={index} className="flex-grow text-center p-1.5 bg-gray-50 border border-gray-100 rounded-lg">
+                                                <div key={index} className="flex-grow text-center p-1.5 bg-gray-50 border border-gray-100 rounded-lg shadow-sm">
                                                     <div className="text-[8px] font-bold text-gray-400 uppercase">{times[index]}</div>
                                                     <div className="text-xs font-black text-gray-800 mt-0.5">{l.toFixed(2)}</div>
                                                 </div>
@@ -248,7 +248,7 @@ const SystemStatus: React.FC = () => {
                         {/* Process details / Server Engine Panel */}
                         <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
                             <div className="flex items-center gap-2.5 mb-4">
-                                <div className="w-9 h-9 rounded-xl bg-purple-500 flex items-center justify-center text-white">
+                                <div className="w-9 h-9 rounded-xl bg-purple-500 flex items-center justify-center text-white shadow-sm">
                                     <i className="fa-solid fa-gears text-sm"></i>
                                 </div>
                                 <div>
@@ -257,10 +257,10 @@ const SystemStatus: React.FC = () => {
                                 </div>
                             </div>
 
-                            <div className="text-xs text-gray-600 space-y-2 font-medium">
+                            <div className="text-xs text-gray-650 space-y-2 font-medium">
                                 <div className="flex justify-between border-b border-gray-100 pb-1.5">
                                     <span className="text-gray-400 font-bold">Node.js Version:</span>
-                                    <span className="font-mono font-bold text-gray-800">{window.navigator.userAgent.includes('Electron') ? 'Electron Runtime' : 'v18.x / v20.x'}</span>
+                                    <span className="font-mono font-bold text-gray-800">v18.x / v20.x</span>
                                 </div>
                                 <div className="flex justify-between border-b border-gray-100 pb-1.5">
                                     <span className="text-gray-400 font-bold">OS Platform:</span>
@@ -268,7 +268,7 @@ const SystemStatus: React.FC = () => {
                                 </div>
                                 <div className="flex justify-between pb-0.5">
                                     <span className="text-gray-400 font-bold">Active Engine:</span>
-                                    <span className="font-bold text-purple-600">Project LISP Express</span>
+                                    <span className="font-bold text-indigo-600">Project LISP Express</span>
                                 </div>
                             </div>
                         </div>

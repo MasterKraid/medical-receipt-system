@@ -11,6 +11,20 @@ const ManageReports: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
 
+    const [alarms, setAlarms] = useState<{ warningCount: number; alarmCount: number; criticalList: any[] } | null>(null);
+    const [dismissedAlarms, setDismissedAlarms] = useState(() => sessionStorage.getItem('dismissedPendingAlarm') === 'true');
+
+    useEffect(() => {
+        apiService.getPendingReportAlarms().then(data => {
+            setAlarms(data);
+        }).catch(console.error);
+    }, []);
+
+    const dismissAlarmBanner = () => {
+        sessionStorage.setItem('dismissedPendingAlarm', 'true');
+        setDismissedAlarms(true);
+    };
+
     // Form state: Map of category to selected file
     const [categoryFiles, setCategoryFiles] = useState<Record<'With Header' | 'Without Header' | 'Bill' | 'Others', File | null>>({
         'With Header': null,
@@ -249,6 +263,26 @@ const ManageReports: React.FC = () => {
         <div className="p-3 sm:p-6 max-w-7xl mx-auto space-y-6">
             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
                 <PageHeader title="Lab Reports Management" showActingAs={false} />
+
+                {/* Dismissible Pending Reports Alarm Warning Banner */}
+                {!dismissedAlarms && alarms && (alarms.alarmCount > 0 || alarms.warningCount > 0) && (
+                    <div className="bg-red-50 border border-red-200 p-4 mb-6 rounded-xl flex items-start justify-between gap-3 text-slate-800 shadow-sm">
+                        <div className="flex items-start gap-3 text-xs">
+                            <i className="fa-solid fa-circle-exclamation text-red-600 text-xl shrink-0 mt-0.5 animate-pulse"></i>
+                            <div>
+                                <span className="font-bold text-red-800 text-sm block mb-1">Pending Lab Reports Warning!</span>
+                                There are <strong className="text-red-700">{alarms.warningCount} Day-2 Reminders</strong> and <strong className="text-red-800 font-black">{alarms.alarmCount} Day-3+ Critical Alarms</strong> pending upload. Please upload report PDFs immediately.
+                            </div>
+                        </div>
+                        <button
+                            onClick={dismissAlarmBanner}
+                            className="text-slate-400 hover:text-slate-800 font-bold shrink-0 transition-colors px-1"
+                            title="Dismiss for session"
+                        >
+                            <i className="fa-solid fa-times text-xs"></i>
+                        </button>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     {/* Left Upload Form Panel */}
@@ -502,8 +536,12 @@ const ManageReports: React.FC = () => {
                                                             <tr
                                                                 key={rcpt.id}
                                                                 onClick={() => setSelectedReceipt(rcpt)}
-                                                                className={`hover:bg-slate-50 border-b border-slate-100 cursor-pointer transition-all duration-155 hover:relative hover:z-20 ${
-                                                                    isSelected ? 'bg-indigo-50/30 font-medium' : ''
+                                                                className={`border-b border-slate-100 cursor-pointer transition-all duration-155 hover:relative hover:z-20 ${
+                                                                    isSelected 
+                                                                        ? 'bg-indigo-50/30 font-medium' 
+                                                                        : !hasUploadedReport 
+                                                                            ? 'bg-red-50/50 hover:bg-red-100/50' 
+                                                                            : 'hover:bg-slate-50'
                                                                 }`}
                                                             >
                                                                 {/* Left Selection Border indicator mapped on first cell */}

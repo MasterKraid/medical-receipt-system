@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { apiService } from '../services/api';
 import PageHeader from '../components/PageHeader';
 
@@ -22,7 +21,6 @@ interface TopTest {
 }
 
 const ClientAnalysis: React.FC = () => {
-  const navigate = useNavigate();
   const [stats, setStats] = useState<ClientStats | null>(null);
   const [trend, setTrend] = useState<TrendMonth[]>([]);
   const [topTests, setTopTests] = useState<TopTest[]>([]);
@@ -62,21 +60,12 @@ const ClientAnalysis: React.FC = () => {
       <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
         <PageHeader title="Performance Analysis" showActingAs={false} />
 
-        {/* Back and Period Information */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-slate-50 border border-slate-200 rounded-2xl mb-6">
-          <div>
-            <h3 className="m-0 text-sm font-bold text-slate-700 leading-tight">B2B Franchise Business Insights</h3>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mt-0.5">
-              Refreshes in real-time on receipt generation
-            </span>
-          </div>
-
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl text-xs uppercase tracking-wider transition-all shadow-sm shrink-0 flex items-center gap-2 h-10"
-          >
-            <i className="fa-solid fa-arrow-left"></i> Return to Dashboard
-          </button>
+        {/* Period Information Bar */}
+        <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl mb-6">
+          <h3 className="m-0 text-sm font-bold text-slate-700 leading-tight">B2B Franchise Business Insights</h3>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mt-0.5">
+            Refreshes in real-time on receipt generation
+          </span>
         </div>
 
         {loading ? (
@@ -141,16 +130,16 @@ const ClientAnalysis: React.FC = () => {
               {/* Card 4: Net Savings */}
               <div className="bg-amber-50 border border-amber-150 p-5 rounded-2xl flex flex-col justify-between relative overflow-hidden group shadow-sm hover:scale-[1.01] transition-transform duration-200">
                 <div className="absolute right-3 top-3 opacity-15 text-amber-600 group-hover:scale-110 transition-transform duration-200">
-                  <i className="fa-solid fa-percent text-3xl"></i>
+                  <i className="fa-solid fa-piggy-bank text-3xl"></i>
                 </div>
                 <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest leading-none mb-2 block">
-                  Earned Savings (B2B Discount)
+                  Earned Savings (B2B)
                 </span>
                 <span className="text-2xl font-black text-amber-900 leading-tight">
                   ₹{(stats?.total_savings || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </span>
-                <div className="text-[9px] font-bold text-amber-600 leading-none mt-3 uppercase tracking-wider flex items-center gap-1">
-                  <i className="fa-solid fa-circle-check text-xs"></i> Saved vs Retail MRP
+                <div className="text-[9px] font-semibold text-amber-500 leading-none mt-3">
+                  Saved vs Retail MRP
                 </div>
               </div>
             </div>
@@ -162,7 +151,7 @@ const ClientAnalysis: React.FC = () => {
                 <div>
                   <h3 className="m-0 text-sm font-bold text-slate-800 leading-tight">Order Spends & Volume Trend</h3>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mt-0.5">
-                    Monthly spending and volume metrics (Last 6 Months)
+                    Monthly spend and invoice count trend for B2B portal
                   </span>
                 </div>
 
@@ -173,8 +162,8 @@ const ClientAnalysis: React.FC = () => {
                 ) : (
                   <div className="w-full mt-6 overflow-x-auto">
                     <svg
-                      viewBox={`0 0 ${chartWidth} ${chartHeight + 40}`}
-                      className="w-full min-w-[400px] h-auto overflow-visible select-none"
+                       viewBox={`0 0 ${chartWidth} ${chartHeight + 40}`}
+                       className="w-full min-w-[400px] h-auto overflow-visible select-none"
                     >
                       {/* Grid Lines */}
                       {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => {
