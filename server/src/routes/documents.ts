@@ -149,6 +149,10 @@ router.put('/receipts/:id', isAuthenticated, isAdmin, (req, res) => {
             const existingReceipt = db.prepare('SELECT * FROM receipts WHERE id = ?').get(receiptId) as Receipt;
             if (!existingReceipt) throw new Error("Receipt not found.");
 
+            if (existingReceipt.data_entry_done === 1) {
+                throw new Error("Cannot edit a receipt that has already been marked as completed by data entry.");
+            }
+
             // 1. Determine old B2B client and old B2B cost from existing transaction
             const oldTx = db.prepare('SELECT * FROM transactions WHERE receipt_id = ? AND type = ?').get(receiptId, 'RECEIPT_DEDUCTION') as Transaction | undefined;
             const oldB2BCost = oldTx ? oldTx.amount_deducted : 0;
@@ -366,6 +370,193 @@ router.get('/transactions', isAuthenticated, (req, res) => {
             return tx;
         });
         res.json(enrichedTxs);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.get('/data-entry/receipts', isAuthenticated, (req, res) => {
+    const user = (req.session as any).user as User;
+    if (user.role !== 'ADMIN' && user.role !== 'DATA_ENTRY') {
+        return res.status(403).json({ message: "Forbidden: Data Entry Portal access required." });
+    }
+    try {
+        const dateFilter = req.query.date as string; // Expects "DD/MM/YYYY" or "YYYY-MM-DD"
+        
+        let query = `
+            SELECT r.id, r.customer_id, r.branch_id, r.created_at, r.referred_by, r.notes, r.num_tests, r.created_by_user_id, r.acting_as_client_id, r.data_entry_done,
+                   c.prefix, c.name as customer_name, c.mobile, c.email, c.dob, c.age_years, c.age_months, c.age_days, c.gender,
+                   u.alias as created_by_user
+            FROM receipts r
+            JOIN customers c ON c.id = r.customer_id
+            JOIN users u ON u.id = r.created_by_user_id
+        `;
+        const params: any[] = [];
+        if (dateFilter) {
+            query += ` WHERE r.created_at LIKE ?`;
+            params.push(`${dateFilter}%`);
+        }
+        query += ` ORDER BY r.id DESC`;
+        
+        const receipts = db.prepare(query).all(params) as any[];
+        
+        // Enrich with items (only names, no pricing)
+        const enriched = receipts.map(r => {
+            const items = db.prepare('SELECT package_name FROM receipt_items WHERE receipt_id = ?').all(r.id) as any[];
+            const display_doc_id = `RCPT-${String(r.id).padStart(6, '0')}`;
+            const display_date = r.created_at;
+            const display_customer_id = `CUST-${String(r.customer_id).padStart(6, '0')}`;
+            return {
+                ...r,
+                display_doc_id,
+                display_date,
+                display_customer_id,
+                items
+            };
+        });
+        res.json(enriched);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.put('/receipts/:id/data-entry', isAuthenticated, (req, res) => {
+    const user = (req.session as any).user as User;
+    if (user.role !== 'ADMIN' && user.role !== 'DATA_ENTRY') {
+        return res.status(403).json({ message: "Forbidden: Data Entry Portal access required." });
+    }
+    const receiptId = parseInt(req.params.id, 10);
+    const { isDone } = req.body;
+    
+    if (isNaN(receiptId)) {
+        return res.status(400).json({ message: "Invalid receipt ID." });
+    }
+    
+    try {
+        const receipt = db.prepare('SELECT * FROM receipts WHERE id = ?').get(receiptId) as Receipt;
+        if (!receipt) {
+            return res.status(404).json({ message: "Receipt not found." });
+        }
+        
+        // Reverting (isDone = false) can only be done by Admin
+        if (!isDone && user.role !== 'ADMIN') {
+            return res.status(403).json({ message: "Only administrators can mark a completed receipt as incomplete." });
+        }
+        
+        db.prepare('UPDATE receipts SET data_entry_done = ? WHERE id = ?').run(isDone ? 1 : 0, receiptId);
+        res.status(204).end();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.get('/client/analysis', isAuthenticated, (req, res) => {
+    const user = (req.session as any).user as User;
+    if (user.role !== 'CLIENT') {
+        return res.status(403).json({ message: "Forbidden: B2B Client role required." });
+    }
+    try {
+        const clientId = user.id;
+
+        // 1. Spends, Count and Savings
+        const stats = db.prepare(`
+            SELECT 
+                COUNT(*) as total_orders,
+                SUM(amount_final) as total_spend,
+                SUM(total_mrp - amount_final) as total_savings
+            FROM receipts
+            WHERE acting_as_client_id = ? OR (acting_as_client_id IS NULL AND created_by_user_id = ?)
+        `).get(clientId, clientId) as { total_orders: number; total_spend: number; total_savings: number };
+
+        // 2. Volume Trend (Last 6 Months)
+        // Group by YYYY-MM by parsing DD/MM/YYYY
+        // SQLite: substr(created_at, 7, 4) || '-' || substr(created_at, 4, 2)
+        const trend = db.prepare(`
+            SELECT 
+                (substr(created_at, 7, 4) || '-' || substr(created_at, 4, 2)) as month,
+                COUNT(*) as count,
+                SUM(amount_final) as spend
+            FROM receipts
+            WHERE acting_as_client_id = ? OR (acting_as_client_id IS NULL AND created_by_user_id = ?)
+            GROUP BY month
+            ORDER BY month DESC
+            LIMIT 6
+        `).all(clientId, clientId) as any[];
+
+        // 3. Top 5 Ordered Tests
+        const topTests = db.prepare(`
+            SELECT 
+                package_name,
+                COUNT(*) as count
+            FROM receipt_items
+            WHERE receipt_id IN (
+                SELECT id FROM receipts 
+                WHERE acting_as_client_id = ? OR (acting_as_client_id IS NULL AND created_by_user_id = ?)
+            )
+            GROUP BY package_name
+            ORDER BY count DESC
+            LIMIT 5
+        `).all(clientId, clientId) as any[];
+
+        res.json({
+            stats: {
+                total_orders: stats.total_orders || 0,
+                total_spend: stats.total_spend || 0,
+                total_savings: stats.total_savings || 0,
+                wallet_balance: user.wallet_balance || 0
+            },
+            trend: trend.reverse(), // Chronological order
+            topTests
+        });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.get('/reports/pending-alarm', isAuthenticated, (req, res) => {
+    const user = (req.session as any).user as User;
+    if (user.role !== 'ADMIN' && user.role !== 'GENERAL_EMPLOYEE' && user.role !== 'DATA_ENTRY') {
+        return res.status(403).json({ message: "Forbidden" });
+    }
+    try {
+        // Find all receipts where customer doesn't have an uploaded lab report
+        const pendingReceipts = db.prepare(`
+            SELECT r.id, r.created_at, c.name as customer_name, c.id as customer_id
+            FROM receipts r
+            JOIN customers c ON c.id = r.customer_id
+            WHERE r.customer_id NOT IN (SELECT customer_id FROM lab_reports WHERE customer_id IS NOT NULL)
+        `).all() as any[];
+
+        let warningCount = 0; // Day 2 (24h - 48h)
+        let alarmCount = 0;   // Day 3+ (> 48h)
+        const criticalList: any[] = [];
+
+        // Parse now
+        const now = new Date();
+
+        pendingReceipts.forEach(r => {
+            try {
+                const datePart = r.created_at.split(' | ')[0]; // "DD/MM/YYYY"
+                const [d, m, y] = datePart.split('/').map(Number);
+                const createdDate = new Date(y, m - 1, d);
+                
+                const msDiff = now.getTime() - createdDate.getTime();
+                const daysDiff = Math.floor(msDiff / (1000 * 3600 * 24));
+
+                if (daysDiff === 1) {
+                    warningCount++;
+                } else if (daysDiff >= 2) {
+                    alarmCount++;
+                    criticalList.push({
+                        id: r.id,
+                        customer_name: r.customer_name,
+                        display_doc_id: `RCPT-${String(r.id).padStart(6, '0')}`,
+                        days_pending: daysDiff + 1,
+                        created_at: r.created_at
+                    });
+                }
+            } catch (err) {
+                // Ignore parse errors for corrupt dates
+            }
+        });
+
+        res.json({
+            warningCount,
+            alarmCount,
+            criticalList: criticalList.slice(0, 5) // Return top 5 longest pending
+        });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });
 

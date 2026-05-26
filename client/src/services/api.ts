@@ -129,6 +129,12 @@ export const apiService = {
   getCustomerById: (id: number): Promise<Customer> => apiFetch(`/customers/${id}`),
   getReceipts: (): Promise<Document[]> => apiFetch('/admin/receipts'),
   getEstimates: (): Promise<Document[]> => apiFetch('/admin/estimates'),
+  getDataEntryReceipts: (date?: string): Promise<any[]> => apiFetch(`/data-entry/receipts${date ? `?date=${encodeURIComponent(date)}` : ''}`),
+  updateDataEntryStatus: (id: number, isDone: boolean): Promise<void> => apiFetch(`/receipts/${id}/data-entry`, { method: 'PUT', body: JSON.stringify({ isDone }) }),
+  getClientAnalysis: (): Promise<any> => apiFetch('/client/analysis'),
+  getPendingReportAlarms: (): Promise<{ warningCount: number; alarmCount: number; criticalList: any[] }> => apiFetch('/reports/pending-alarm'),
+  getSystemStatus: (): Promise<any> => apiFetch('/admin/system-status'),
+
 
   // --- Admin: User Management ---
   createUser: async (userData: any): Promise<User> => {
@@ -168,6 +174,7 @@ export const apiService = {
   createPackageList: (name: string): Promise<PackageList> => apiFetch('/package-lists', { method: 'POST', body: JSON.stringify({ name }) }),
   deletePackageList: (listId: number): Promise<void> => apiFetch(`/package-lists/${listId}`, { method: 'DELETE' }),
   uploadPackages: (listId: number, packages: any[]): Promise<{ inserted: number; updated: number }> => apiFetch(`/package-lists/${listId}/upload`, { method: 'POST', body: JSON.stringify({ packages }) }),
+  clonePackageList: (id: number, sourceListId: number, discountPercent: number, markupPercent: number): Promise<{ message: string }> => apiFetch(`/package-lists/${id}/clone`, { method: 'POST', body: JSON.stringify({ sourceListId, discountPercent, markupPercent }) }),
   addPackageToList: (pkgData: Omit<Package, 'id'>): Promise<Package> => apiFetch('/packages', { method: 'POST', body: JSON.stringify(pkgData) }),
   updatePackageInList: (pkgData: Package): Promise<void> => apiFetch(`/packages/${pkgData.id}`, { method: 'PUT', body: JSON.stringify(pkgData) }),
 

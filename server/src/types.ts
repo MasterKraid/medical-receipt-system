@@ -39,7 +39,7 @@ export interface User {
     username: string;
     alias?: string;
     branchId: number;
-    role: 'ADMIN' | 'GENERAL_EMPLOYEE' | 'CLIENT';
+    role: 'ADMIN' | 'GENERAL_EMPLOYEE' | 'CLIENT' | 'DATA_ENTRY';
     wallet_balance: number;
     allow_negative_balance: boolean;
     negative_balance_allowed_until?: string;
@@ -129,6 +129,7 @@ export interface Receipt {
     logo_path?: string;
     created_by_user_id: number;
     acting_as_client_id?: number;
+    data_entry_done?: number;
 }
 
 export interface Estimate {

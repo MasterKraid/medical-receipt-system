@@ -45,6 +45,7 @@ const ReceiptForm: React.FC = () => {
     const [newCustomer, setNewCustomer] = useState({ prefix: 'Mr.', name: '', mobile: '', email: '', dob: '', age: '', age_years: '', age_months: '', age_days: '', gender: 'Male' as 'Male' | 'Female' });
     const [isGenderDisabled, setIsGenderDisabled] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isLocked, setIsLocked] = useState(false);
     const [showB2BDetails, setShowB2BDetails] = useState(true);
 
     const [items, setItems] = useState<ItemRow[]>([{ id: Date.now(), name: '', mrp: 0, b2b_price: 0, discount: 0, isFromDb: false }]);
@@ -101,6 +102,10 @@ const ReceiptForm: React.FC = () => {
                 setIsSubmitting(true);
                 apiService.getReceiptById(receiptId).then(data => {
                     const { receipt, customer, items: receiptItems } = data;
+
+                    if (receipt.data_entry_done === 1) {
+                        setIsLocked(true);
+                    }
 
                     // Load customer
                     setSelectedCustomer(customer);
@@ -930,7 +935,7 @@ const ReceiptForm: React.FC = () => {
                         <button type="button" onClick={() => setShowPreview(false)} className="flex-1 py-4 px-4 bg-slate-100 text-slate-600 font-black rounded-xl hover:bg-slate-800 hover:text-white transition-all uppercase text-xs tracking-widest">
                             Edit
                         </button>
-                        <button type="button" onClick={handleConfirmSave} disabled={isSubmitting} className="flex-[2] py-4 px-4 bg-green-500 text-white font-black rounded-xl hover:bg-green-600 shadow-xl shadow-green-100 transform active:scale-95 transition-all flex items-center justify-center gap-2 uppercase text-sm tracking-widest disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed">
+                        <button type="button" onClick={handleConfirmSave} disabled={isSubmitting || isLocked} className="flex-[2] py-4 px-4 bg-green-500 text-white font-black rounded-xl hover:bg-green-600 shadow-xl shadow-green-100 transform active:scale-95 transition-all flex items-center justify-center gap-2 uppercase text-sm tracking-widest disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed">
                             {isSubmitting ? 'Saving...' : 'Save & Generate Receipt'}
                         </button>
                     </div>
@@ -941,6 +946,12 @@ const ReceiptForm: React.FC = () => {
 
     return (
         <div className="p-4 sm:p-8 max-w-5xl mx-auto min-h-screen">
+            {isLocked && (
+                <div className="bg-red-50 border border-red-250 text-red-850 p-4 rounded-2xl mb-6 text-sm font-bold flex items-start gap-3 shadow-sm animate-pulse border-dashed">
+                    <i className="fa-solid fa-lock text-red-650 text-xl shrink-0 mt-0.5 animate-bounce"></i>
+                    <span>This receipt is locked because it has already been finalized by data entry. To edit it, you must first mark it as incomplete from the Data Entry Workspace.</span>
+                </div>
+            )}
             <form onSubmit={handleSubmit} onKeyDown={(e) => { if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA' && (e.target as HTMLElement).getAttribute('type') !== 'submit') { e.preventDefault(); } }} className="space-y-6">
                 {!isMobileView ? (
                     <div className="bg-white p-8 rounded-2xl shadow-2xl space-y-8 border border-slate-100">
@@ -961,7 +972,7 @@ const ReceiptForm: React.FC = () => {
                         {!isClientMode && renderPaymentStep()}
 
                         <div className="pt-6 border-t border-slate-100">
-                            <button type="submit" disabled={isSubmitting} className="w-full py-5 bg-blue-600 text-white font-black text-lg rounded-2xl hover:bg-blue-700 shadow-2xl shadow-blue-100 transform active:scale-[0.98] transition-all uppercase tracking-widest disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed">
+                            <button type="submit" disabled={isSubmitting || isLocked} className="w-full py-5 bg-blue-600 text-white font-black text-lg rounded-2xl hover:bg-blue-700 shadow-2xl shadow-blue-100 transform active:scale-[0.98] transition-all uppercase tracking-widest disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed">
                                 {isSubmitting ? 'Processing...' : 'Preview & Save'}
                             </button>
                         </div>
@@ -1014,7 +1025,7 @@ const ReceiptForm: React.FC = () => {
                                 <button
                                     key="review-btn"
                                     type="submit"
-                                    disabled={isSubmitting}
+                                    disabled={isSubmitting || isLocked}
                                     className="py-4 bg-green-500 shadow-green-100 text-white font-bold rounded-2xl active:scale-95 transition-all shadow-lg text-xs uppercase tracking-widest disabled:bg-slate-300 disabled:shadow-none"
                                 >
                                     {isSubmitting ? 'Processing...' : 'Review Order'}

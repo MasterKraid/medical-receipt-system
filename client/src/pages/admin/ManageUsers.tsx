@@ -108,6 +108,7 @@ const ManageUsers: React.FC = () => {
         const styles: Record<string, string> = {
             'ADMIN': 'bg-blue-50 text-blue-600 border-blue-100',
             'CLIENT': 'bg-green-50 text-green-600 border-green-100',
+            'DATA_ENTRY': 'bg-indigo-50 text-indigo-600 border-indigo-100',
             'GENERAL_EMPLOYEE': 'bg-gray-50 text-gray-600 border-gray-100'
         };
         return <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${styles[role] || styles['GENERAL_EMPLOYEE']}`}>{role.replace('_', ' ')}</span>;
@@ -168,6 +169,7 @@ const ManageUsers: React.FC = () => {
                                 <CleanSelect
                                     options={[
                                         { value: 'GENERAL_EMPLOYEE', label: 'General Employee' },
+                                        { value: 'DATA_ENTRY', label: 'Data Entry' },
                                         { value: 'CLIENT', label: 'B2B Client' },
                                         { value: 'ADMIN', label: 'Administrator' }
                                     ]}

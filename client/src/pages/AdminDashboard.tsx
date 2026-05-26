@@ -1,11 +1,18 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { apiService } from '../services/api';
 import DashboardLink from '../components/DashboardLink';
-import { ReceiptIcon, EstimateIcon, ViewIcon, CustomersIcon, LabsIcon, PackageListIcon, BranchesIcon, UsersIcon, WalletIcon, LogoutIcon } from '../components/icons';
+import { ReceiptIcon, EstimateIcon, ViewIcon, CustomersIcon, LabsIcon, BranchesIcon, UsersIcon, WalletIcon, LogoutIcon } from '../components/icons';
 
 const AdminDashboard: React.FC = () => {
     const { user, branch, logout } = useAuth();
+    const [alarms, setAlarms] = useState<{ warningCount: number; alarmCount: number; criticalList: any[] } | null>(null);
+
+    useEffect(() => {
+        apiService.getPendingReportAlarms()
+            .then(data => setAlarms(data))
+            .catch(console.error);
+    }, []);
 
     return (
         <div className="relative min-h-screen bg-slate-50">
@@ -33,6 +40,16 @@ const AdminDashboard: React.FC = () => {
                         </div>
                     </header>
 
+                    {alarms && (alarms.alarmCount > 0 || alarms.warningCount > 0) && (
+                        <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl mb-6 flex items-start gap-3 shadow-sm border-dashed text-slate-700 animate-pulse">
+                            <i className="fa-solid fa-triangle-exclamation text-amber-600 text-xl shrink-0 mt-0.5 animate-bounce"></i>
+                            <div className="text-xs">
+                                <span className="font-bold text-slate-800 text-sm block mb-1">⚠️ Lab Reports Pending Warning!</span>
+                                There are <strong className="text-amber-800">{alarms.warningCount} Day-2 Reminders</strong> and <strong className="text-red-750 font-black">{alarms.alarmCount} Day-3+ Critical Alarms</strong> pending upload. Please upload report PDFs inside <strong>Manage Reports</strong> as soon as possible.
+                            </div>
+                        </div>
+                    )}
+
                     <nav className="relative">
                         <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl">
                             <legend className="px-3 flex items-center gap-2">
@@ -48,13 +65,15 @@ const AdminDashboard: React.FC = () => {
                                 <li><DashboardLink to="/admin/estimates" icon={<ViewIcon />} text="View Estimates" /></li>
                                 <li><DashboardLink to="/admin/customers" icon={<CustomersIcon />} text="View Customers" /></li>
                                 <li><DashboardLink to="/admin/labs" icon={<LabsIcon />} text="Manage Labs" /></li>
-                                <li><DashboardLink to="/admin/package-lists" icon={<PackageListIcon />} text="Manage Rate Lists" /></li>
+                                <li><DashboardLink to="/admin/system-status" icon={<i className="fa-solid fa-server text-blue-550 text-lg mr-2"></i>} text="System Telemetry" /></li>
                                 <li><DashboardLink to="/admin/branches" icon={<BranchesIcon />} text="Manage Branches" /></li>
                                 <li><DashboardLink to="/admin/users" icon={<UsersIcon />} text="Manage Users" /></li>
                                 <li><DashboardLink to="/admin/wallet" icon={<WalletIcon />} text="Manage Wallets" /></li>
                                 <li><DashboardLink to="/admin/reports" icon={<ViewIcon />} text="Manage Reports" /></li>
                                 <li><DashboardLink to="/admin/receipt-report" icon={<ReceiptIcon />} text="Business Intelligence" /></li>
+                                <li><DashboardLink to="/admin/ledger-report" icon={<WalletIcon />} text="Ledger Reports" /></li>
                                 <li><DashboardLink to="/admin/comparison" icon={<EstimateIcon />} text="Comparison Data" /></li>
+                                <li><DashboardLink to="/data-entry-portal" icon={<i className="fa-solid fa-cloud-arrow-up text-indigo-550 text-lg mr-2"></i>} text="Data Entry Workspace" /></li>
                             </ul>
                         </fieldset>
                     </nav>

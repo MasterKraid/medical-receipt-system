@@ -336,6 +336,50 @@ router.post('/package-lists/:id/upload', isAdmin, (req, res) => {
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });
 
+router.post('/package-lists/:id/clone', isAdmin, (req, res) => {
+    const targetListId = parseInt(req.params.id, 10);
+    const { sourceListId, discountPercent, markupPercent } = req.body;
+    
+    if (isNaN(targetListId)) {
+        return res.status(400).json({ message: "Invalid target list ID." });
+    }
+    
+    try {
+        const transaction = db.transaction(() => {
+            // Verify target exists
+            const target = db.prepare('SELECT id FROM package_lists WHERE id = ?').get(targetListId);
+            if (!target) throw new Error("Target package list not found.");
+            
+            // Verify source exists
+            const source = db.prepare('SELECT id FROM package_lists WHERE id = ?').get(sourceListId);
+            if (!source) throw new Error("Source package list not found.");
+            
+            // Clear existing target packages
+            db.prepare('DELETE FROM packages WHERE package_list_id = ?').run(targetListId);
+            
+            // Fetch packages
+            const pkgs = db.prepare('SELECT name, mrp, b2b_price, code_name FROM packages WHERE package_list_id = ?').all(sourceListId) as Package[];
+            
+            // Apply multipliers
+            const disc = parseFloat(discountPercent) || 0;
+            const mark = parseFloat(markupPercent) || 0;
+            const multiplier = 1 - (disc / 100) + (mark / 100);
+            
+            const insertStmt = db.prepare('INSERT INTO packages (name, mrp, b2b_price, code_name, package_list_id) VALUES (?, ?, ?, ?, ?)');
+            
+            pkgs.forEach(p => {
+                const finalB2B = Math.max(0, p.b2b_price * multiplier);
+                insertStmt.run(p.name, p.mrp, finalB2B, p.code_name || null, targetListId);
+            });
+            
+            return pkgs.length;
+        });
+        
+        const copied = transaction();
+        res.json({ message: `Success: Copied and synced ${copied} packages successfully.` });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
 router.post('/packages', isAdmin, (req, res) => {
     const { name, mrp, b2b_price, code_name, package_list_id } = req.body;
     try {
@@ -810,4 +854,78 @@ router.delete('/comparison/labs/:id', isAdmin, (req, res) => {
     }
 });
 
+router.get('/admin/system-status', isAdmin, (req, res) => {
+    try {
+        const os = require('os');
+        const { execSync } = require('child_process');
+
+        // RAM Metrics
+        const totalMem = os.totalmem();
+        const freeMem = os.freemem();
+        const usedMem = totalMem - freeMem;
+        const memPercentage = ((usedMem / totalMem) * 100).toFixed(1);
+
+        // Uptime Metrics
+        const uptime = os.uptime(); // in seconds
+
+        // CPU Load
+        const load = os.loadavg();
+
+        // Disk Metrics for root partition
+        let totalDisk = 0;
+        let usedDisk = 0;
+        let freeDisk = 0;
+        let diskPercentage = '0';
+        try {
+            const dfOutput = execSync('df -k /').toString().split('\n');
+            if (dfOutput.length > 1) {
+                const dataLine = dfOutput[1];
+                const parts = dataLine.trim().split(/\s+/);
+                if (parts.length >= 5) {
+                    totalDisk = parseInt(parts[1], 10) * 1024;
+                    usedDisk = parseInt(parts[2], 10) * 1024;
+                    freeDisk = parseInt(parts[3], 10) * 1024;
+                    diskPercentage = parts[4].replace('%', '');
+                }
+            }
+        } catch (diskErr) {
+            console.error("Failed to read disk usage", diskErr);
+        }
+
+        // Database Metrics
+        let dbSize = 0;
+        try {
+            const dbFilePath = db.name || path.join(__dirname, '..', 'data', 'data.db');
+            if (fs.existsSync(dbFilePath)) {
+                dbSize = fs.statSync(dbFilePath).size;
+            }
+        } catch (dbErr) {
+            console.error("Failed to read database size", dbErr);
+        }
+
+        res.json({
+            memory: {
+                total: totalMem,
+                free: freeMem,
+                used: usedMem,
+                percentage: parseFloat(memPercentage)
+            },
+            disk: {
+                total: totalDisk,
+                used: usedDisk,
+                free: freeDisk,
+                percentage: parseFloat(diskPercentage)
+            },
+            db: {
+                size: dbSize
+            },
+            uptime: uptime,
+            load: load
+        });
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
+});
+
 export default router;
+

@@ -5,7 +5,7 @@ export interface User {
     username: string;
     alias?: string;
     branchId: number;
-    role: 'ADMIN' | 'GENERAL_EMPLOYEE' | 'CLIENT';
+    role: 'ADMIN' | 'GENERAL_EMPLOYEE' | 'CLIENT' | 'DATA_ENTRY';
     wallet_balance: number;
     allow_negative_balance: boolean;
     negative_balance_allowed_until?: string;
@@ -94,6 +94,7 @@ export interface Receipt {
     num_tests: number;
     logo_path?: string;
     created_by_user_id: number;
+    data_entry_done?: number;
 }
 
 export interface Estimate {
@@ -138,6 +139,7 @@ export interface Document {
     payment_method?: string;
     referred_by?: string;
     num_tests?: number;
+    data_entry_done?: number;
 }
 
 export interface LabReport {

@@ -154,6 +154,7 @@ const EditUser: React.FC = () => {
                                     <CleanSelect
                                         options={[
                                             { value: 'GENERAL_EMPLOYEE', label: 'General Employee' },
+                                            { value: 'DATA_ENTRY', label: 'Data Entry' },
                                             { value: 'CLIENT', label: 'B2B Client' },
                                             { value: 'ADMIN', label: 'Administrator' }
                                         ]}

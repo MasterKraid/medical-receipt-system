@@ -11,7 +11,7 @@ import EstimateView from './pages/EstimateView';
 import ManageUsers from './pages/admin/ManageUsers';
 import ManageBranches from './pages/admin/ManageBranches';
 import ManageLabs from './pages/admin/ManageLabs';
-import ManagePackageLists from './pages/admin/ManagePackageLists';
+import SystemStatus from './pages/admin/SystemStatus';
 import ManageWallets from './pages/admin/ManageWallets';
 import ViewCustomers from './pages/admin/ViewCustomers';
 import ViewDocuments from './pages/admin/ViewDocuments';
@@ -23,6 +23,9 @@ import ManageComparison from './pages/admin/ManageComparison';
 import ReceiptReport from './pages/admin/ReceiptReport';
 import ClientRatelist from './pages/ClientRatelist';
 import ReloadPrompt from './components/ReloadPrompt';
+import DataEntryPortal from './pages/DataEntryPortal';
+import ClientAnalysis from './pages/ClientAnalysis';
+import LedgerReport from './pages/admin/LedgerReport';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement; roles?: string[] }> = ({ children, roles }) => {
   const { user } = useAuth();
@@ -58,13 +61,15 @@ const AppRoutes: React.FC = () => {
       <Route path="/transactions" element={<ProtectedRoute roles={['CLIENT']}><TransactionHistoryPage /></ProtectedRoute>} />
       <Route path="/reports" element={<Navigate to="/customers" />} />
       <Route path="/my-ratelist" element={<ProtectedRoute roles={['CLIENT']}><ClientRatelist /></ProtectedRoute>} />
+      <Route path="/data-entry-portal" element={<ProtectedRoute roles={['ADMIN', 'DATA_ENTRY']}><DataEntryPortal /></ProtectedRoute>} />
+      <Route path="/my-analysis" element={<ProtectedRoute roles={['CLIENT']}><ClientAnalysis /></ProtectedRoute>} />
 
       <Route path="/admin/users" element={<AdminRoute><ManageUsers /></AdminRoute>} />
       <Route path="/admin/users/edit/:id" element={<AdminRoute><EditUser /></AdminRoute>} />
 
       <Route path="/admin/branches" element={<AdminRoute><ManageBranches /></AdminRoute>} />
       <Route path="/admin/labs" element={<AdminRoute><ManageLabs /></AdminRoute>} />
-      <Route path="/admin/package-lists" element={<AdminRoute><ManagePackageLists /></AdminRoute>} />
+      <Route path="/admin/system-status" element={<AdminRoute><SystemStatus /></AdminRoute>} />
       <Route path="/admin/wallet" element={<AdminRoute><ManageWallets /></AdminRoute>} />
 
       <Route path="/customers" element={<ProtectedRoute><ViewCustomers /></ProtectedRoute>} />
@@ -74,6 +79,7 @@ const AppRoutes: React.FC = () => {
        <Route path="/admin/receipts" element={<AdminRoute><ViewDocuments docType="receipt" /></AdminRoute>} />
       <Route path="/admin/receipts/edit/:id" element={<AdminRoute><ReceiptForm /></AdminRoute>} />
       <Route path="/admin/receipt-report" element={<AdminRoute><ReceiptReport /></AdminRoute>} />
+      <Route path="/admin/ledger-report" element={<AdminRoute><LedgerReport /></AdminRoute>} />
       <Route path="/admin/estimates" element={<AdminRoute><ViewDocuments docType="estimate" /></AdminRoute>} />
       <Route path="/admin/reports" element={<AdminRoute><ManageReports /></AdminRoute>} />
       <Route path="/admin/comparison" element={<AdminRoute><ManageComparison /></AdminRoute>} />

@@ -7,11 +7,16 @@ import { ReceiptIcon, EstimateIcon, CustomersIcon, LogoutIcon, WalletIcon, Ratel
 const UserDashboard: React.FC = () => {
   const { user, branch, logout } = useAuth();
   const [unreadReports, setUnreadReports] = useState(0);
+  const [alarms, setAlarms] = useState<{ warningCount: number; alarmCount: number; criticalList: any[] } | null>(null);
 
   useEffect(() => {
     if (user?.role === 'CLIENT') {
       apiService.getReportsClient().then(reports => {
         setUnreadReports(reports.filter(r => !r.is_read).length);
+      }).catch(console.error);
+    } else if (user?.role === 'GENERAL_EMPLOYEE' || user?.role === 'DATA_ENTRY') {
+      apiService.getPendingReportAlarms().then(data => {
+        setAlarms(data);
       }).catch(console.error);
     }
   }, [user]);
@@ -43,6 +48,16 @@ const UserDashboard: React.FC = () => {
             </div>
           </header>
 
+          {alarms && (alarms.alarmCount > 0 || alarms.warningCount > 0) && (
+            <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl mb-6 flex items-start gap-3 shadow-sm border-dashed text-slate-700 animate-pulse">
+              <i className="fa-solid fa-triangle-exclamation text-amber-600 text-xl shrink-0 mt-0.5 animate-bounce"></i>
+              <div className="text-xs">
+                <span className="font-bold text-slate-800 text-sm block mb-1">⚠️ Lab Reports Pending Warning!</span>
+                There are <strong className="text-amber-800">{alarms.warningCount} Day-2 Reminders</strong> and <strong className="text-red-750 font-black">{alarms.alarmCount} Day-3+ Critical Alarms</strong> pending upload. Please upload report PDFs inside <strong>Manage Reports</strong> as soon as possible.
+              </div>
+            </div>
+          )}
+
           <nav className="relative">
             <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl">
               <legend className="px-3 flex items-center gap-2">
@@ -52,15 +67,20 @@ const UserDashboard: React.FC = () => {
                 <span className="text-base md:text-lg font-bold text-gray-800 uppercase tracking-tight md:tracking-normal">Available Actions</span>
               </legend>
               <ul className="list-none p-0 m-0 grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-                <li><DashboardLink to="/receipt-form" icon={<ReceiptIcon />} text="Create New Receipt" /></li>
+                {user?.role !== 'DATA_ENTRY' && (
+                  <li><DashboardLink to="/receipt-form" icon={<ReceiptIcon />} text="Create New Receipt" /></li>
+                )}
 
                 {user?.role === 'CLIENT' ? (
                   <>
                     <li>
                       <DashboardLink to="/my-ratelist" icon={<RatelistIcon />} text="My Ratelist" />
                     </li>
+                    <li>
+                      <DashboardLink to="/my-analysis" icon={<i className="fa-solid fa-chart-line text-indigo-550 text-lg mr-2"></i>} text="Performance Analysis" />
+                    </li>
                   </>
-                ) : (
+                ) : user?.role === 'DATA_ENTRY' ? null : (
                   <li><DashboardLink to="/estimate-form" icon={<EstimateIcon />} text="Create New Estimate" /></li>
                 )}
 
@@ -78,6 +98,12 @@ const UserDashboard: React.FC = () => {
                 {user?.role === 'CLIENT' && (
                   <li>
                     <DashboardLink to="/transactions" icon={<WalletIcon />} text="Transaction History" />
+                  </li>
+                )}
+
+                {(user?.role === 'ADMIN' || user?.role === 'DATA_ENTRY') && (
+                  <li>
+                    <DashboardLink to="/data-entry-portal" icon={<i className="fa-solid fa-cloud-arrow-up text-indigo-550 mr-2 text-lg"></i>} text="Data Entry Workspace" />
                   </li>
                 )}
               </ul>
