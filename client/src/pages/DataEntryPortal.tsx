@@ -157,7 +157,14 @@ const DataEntryPortal: React.FC = () => {
 
   return (
     <div className="p-3 sm:p-6 max-w-7xl mx-auto space-y-6">
-      <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200">
+      <fieldset className="border-2 border-gray-300 p-4 sm:p-6 rounded-2xl bg-white shadow-sm space-y-6">
+        <legend className="px-3 flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-sm shrink-0">
+            <i className="fa-solid fa-keyboard text-xs"></i>
+          </div>
+          <span className="text-sm font-bold text-slate-800 uppercase tracking-wider">Data Entry Workspace</span>
+        </legend>
+
         <PageHeader title="Data Entry Workspace" showActingAs={false} />
 
         {/* Filters and Date Bar */}
@@ -302,7 +309,7 @@ const DataEntryPortal: React.FC = () => {
             </table>
           </div>
         )}
-      </div>
+      </fieldset>
 
       {/* Detail Modal Component */}
       {selectedReceipt && (

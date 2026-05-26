@@ -552,11 +552,16 @@ const ManageLabs: React.FC = () => {
                                                     {/* Assign / Spin Up Controls */}
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-200">
                                                         {/* Block 1: Assign existing database */}
-                                                        <div className="space-y-1.5 p-4 bg-white border border-gray-200 rounded-xl">
-                                                            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Link Existing Database</h5>
-                                                            <div className="flex gap-2 items-center mt-2">
+                                                        <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl bg-white shadow-sm space-y-4">
+                                                            <legend className="px-3 flex items-center gap-2">
+                                                                <div className="w-7 h-7 rounded bg-indigo-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                                                                    <i className="fa-solid fa-link text-xs"></i>
+                                                                </div>
+                                                                <span className="text-sm font-bold text-gray-800 uppercase tracking-tight">Link Existing Database</span>
+                                                            </legend>
+                                                            <div className="flex gap-2 items-center mt-1">
                                                                 <select 
-                                                                    className="flex-grow p-2 border border-gray-250 rounded-lg text-xs bg-white"
+                                                                    className="flex-grow p-2 border border-gray-205 rounded-lg text-xs bg-slate-50 focus:bg-white outline-none h-[34px]"
                                                                     value={quickAssignListId[lab.id] || ''}
                                                                     onChange={e => setQuickAssignListId(prev => ({ ...prev, [lab.id]: e.target.value }))}
                                                                 >
@@ -572,16 +577,21 @@ const ManageLabs: React.FC = () => {
                                                                     Assign
                                                                 </button>
                                                             </div>
-                                                        </div>
+                                                        </fieldset>
 
                                                         {/* Block 2: Spin up new database */}
-                                                        <div className="space-y-1.5 p-4 bg-white border border-gray-200 rounded-xl">
-                                                            <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Spin Up New Database</h5>
-                                                            <div className="flex gap-2 items-center mt-2">
+                                                        <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl bg-white shadow-sm space-y-4">
+                                                            <legend className="px-3 flex items-center gap-2">
+                                                                <div className="w-7 h-7 rounded bg-blue-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                                                                    <i className="fa-solid fa-plus-circle text-xs"></i>
+                                                                </div>
+                                                                <span className="text-sm font-bold text-gray-800 uppercase tracking-tight">Spin Up New Database</span>
+                                                            </legend>
+                                                            <div className="flex gap-2 items-center mt-1">
                                                                 <input 
                                                                     type="text" 
                                                                     placeholder="e.g. Apollo B2B 2026"
-                                                                    className="flex-grow p-2 border border-gray-250 rounded-lg text-xs bg-white"
+                                                                    className="flex-grow p-2 border border-gray-205 rounded-lg text-xs bg-slate-50 focus:bg-white outline-none h-[34px]"
                                                                     value={quickAddListName[lab.id] || ''}
                                                                     onChange={e => setQuickAddListName(prev => ({ ...prev, [lab.id]: e.target.value }))}
                                                                 />
@@ -589,7 +599,7 @@ const ManageLabs: React.FC = () => {
                                                                     Create & Link
                                                                 </button>
                                                             </div>
-                                                        </div>
+                                                        </fieldset>
                                                     </div>
                                                 </div>
                                             )}
@@ -791,23 +801,29 @@ const ManageLabs: React.FC = () => {
                                     <strong>💡 Sync Notice:</strong> This operation clears all existing items in the target database and clones all packages from the selected mother/source database, applying the requested scaling.
                                 </div>
 
-                                <div className="space-y-1">
-                                    <label className="text-[9px] font-bold text-slate-400 uppercase">Select Source / Mother Ratelist</label>
-                                    <select 
-                                        required
-                                        className="w-full p-2 border border-gray-200 rounded-lg bg-white"
-                                        value={cloneSourceListId}
-                                        onChange={e => setCloneSourceListId(e.target.value)}
-                                    >
-                                        <option value="">-- Select Source Database --</option>
-                                        {allLists
-                                            .filter(l => l.id !== cloneTargetList.id)
-                                            .map(l => (
-                                                <option key={l.id} value={l.id}>{l.name} ({l.package_count || 0} items)</option>
-                                            ))
-                                        }
-                                    </select>
-                                </div>
+                                <fieldset className="border border-slate-200 p-4 rounded-xl bg-slate-50/50 space-y-3">
+                                    <legend className="px-2 font-bold text-slate-700 flex items-center gap-1.5 text-[11px] uppercase tracking-wider">
+                                        <i className="fa-solid fa-database text-blue-500"></i>
+                                        Mother Database Source
+                                    </legend>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] font-bold text-slate-400 uppercase pl-0.5">Select Source / Mother Ratelist</label>
+                                        <select 
+                                            required
+                                            className="w-full p-2 border border-gray-200 rounded-lg bg-white font-semibold text-xs text-slate-700 focus:ring-2 focus:ring-blue-100 outline-none"
+                                            value={cloneSourceListId}
+                                            onChange={e => setCloneSourceListId(e.target.value)}
+                                        >
+                                            <option value="">-- Select Source Database --</option>
+                                            {allLists
+                                                .filter(l => l.id !== cloneTargetList.id)
+                                                .map(l => (
+                                                    <option key={l.id} value={l.id}>{l.name} ({l.package_count || 0} items)</option>
+                                                ))
+                                            }
+                                        </select>
+                                    </div>
+                                </fieldset>
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1">

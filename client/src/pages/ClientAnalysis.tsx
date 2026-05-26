@@ -147,13 +147,17 @@ const ClientAnalysis: React.FC = () => {
             {/* Visual Charts & Top Tests Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-4">
               {/* Left Column: Volume Trend Chart */}
-              <div className="lg:col-span-7 bg-white p-5 border border-slate-200 rounded-2xl flex flex-col justify-between shadow-sm">
-                <div>
-                  <h3 className="m-0 text-sm font-bold text-slate-800 leading-tight">Order Spends & Volume Trend</h3>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mt-0.5">
-                    Monthly spend and invoice count trend for B2B portal
-                  </span>
-                </div>
+              <fieldset className="lg:col-span-7 border-2 border-gray-300 p-4 md:p-6 rounded-xl bg-white shadow-sm flex flex-col justify-between min-w-0">
+                <legend className="px-3 flex items-center gap-2">
+                  <div className="w-7 h-7 rounded bg-indigo-600 flex items-center justify-center text-white shadow-sm">
+                    <i className="fa-solid fa-chart-column text-xs"></i>
+                  </div>
+                  <span className="text-base font-bold text-gray-800 uppercase tracking-tight">Spends & Volume Trend</span>
+                </legend>
+
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2 px-1">
+                  Monthly spend and invoice count trend for B2B portal
+                </p>
 
                 {trend.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-slate-400 italic text-xs font-bold uppercase tracking-wider">
@@ -244,16 +248,20 @@ const ClientAnalysis: React.FC = () => {
                     </svg>
                   </div>
                 )}
-              </div>
+              </fieldset>
 
               {/* Right Column: Top Ordered Tests Leaderboard */}
-              <div className="lg:col-span-5 bg-white p-5 border border-slate-200 rounded-2xl flex flex-col justify-between shadow-sm">
-                <div>
-                  <h3 className="m-0 text-sm font-bold text-slate-800 leading-tight">Test Referral Leaderboard</h3>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mt-0.5">
-                    Your top 5 most frequently ordered packages
-                  </span>
-                </div>
+              <fieldset className="lg:col-span-5 border-2 border-gray-300 p-4 md:p-6 rounded-xl bg-white shadow-sm flex flex-col justify-between min-w-0">
+                <legend className="px-3 flex items-center gap-2">
+                  <div className="w-7 h-7 rounded bg-blue-600 flex items-center justify-center text-white shadow-sm">
+                    <i className="fa-solid fa-ranking-star text-xs"></i>
+                  </div>
+                  <span className="text-base font-bold text-gray-800 uppercase tracking-tight">Referral Leaderboard</span>
+                </legend>
+
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2 px-1">
+                  Your top 5 most frequently ordered packages
+                </p>
 
                 {topTests.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-20 text-slate-400 italic text-xs font-bold uppercase tracking-wider flex-grow">
@@ -320,7 +328,7 @@ const ClientAnalysis: React.FC = () => {
                     })}
                   </div>
                 )}
-              </div>
+              </fieldset>
             </div>
           </div>
         )}

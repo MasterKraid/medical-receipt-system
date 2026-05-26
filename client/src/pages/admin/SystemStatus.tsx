@@ -92,27 +92,26 @@ const SystemStatus: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
                         
                         {/* Memory Panel */}
-                        <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-center mb-4">
-                                <div className="flex items-center gap-2.5">
-                                    <div className="w-9 h-9 rounded-xl bg-indigo-500 flex items-center justify-center text-white shadow-sm">
-                                        <i className="fa-solid fa-memory text-sm"></i>
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-gray-800 text-sm">RAM Utilization</h3>
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase">System Memory</p>
-                                    </div>
+                        <fieldset className="border-2 border-gray-300 p-5 rounded-xl bg-white shadow-sm flex flex-col justify-between min-w-0">
+                            <legend className="px-3 flex items-center gap-2">
+                                <div className="w-7 h-7 rounded bg-indigo-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                                    <i className="fa-solid fa-memory text-xs"></i>
                                 </div>
-                                <span className={`px-2.5 py-1 rounded-full text-xs font-black border ${
-                                    stats.memory.percentage > 90 ? 'bg-red-50 text-red-700 border-red-100' :
-                                    stats.memory.percentage > 75 ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                                    'bg-green-50 text-green-700 border-green-100'
-                                }`}>
-                                    {stats.memory.percentage}%
-                                </span>
-                            </div>
+                                <span className="text-base font-bold text-gray-800 uppercase tracking-tight">RAM Utilization</span>
+                            </legend>
 
-                            <div className="space-y-4">
+                            <div className="space-y-4 w-full">
+                                <div className="flex justify-between items-center text-xs font-bold uppercase mt-1">
+                                    <span className="text-slate-450">Active Usage:</span>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-black border ${
+                                        stats.memory.percentage > 90 ? 'bg-red-50 text-red-700 border-red-100' :
+                                        stats.memory.percentage > 75 ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                        'bg-green-50 text-green-700 border-green-100'
+                                    }`}>
+                                        {stats.memory.percentage}%
+                                    </span>
+                                </div>
+                                
                                 <div className="h-4 w-full bg-gray-200 rounded-full overflow-hidden shadow-inner flex">
                                     <div
                                         className={`h-full transition-all duration-1000 ${
@@ -125,40 +124,39 @@ const SystemStatus: React.FC = () => {
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-gray-500">
-                                    <div className="p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
+                                    <div className="p-3 bg-slate-50 rounded-lg border border-gray-150 shadow-inner">
                                         <div className="text-[9px] font-bold text-gray-400 uppercase">Active Used</div>
                                         <div className="text-sm font-black text-gray-800 mt-1">{formatBytes(stats.memory.used)}</div>
                                     </div>
-                                    <div className="p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
+                                    <div className="p-3 bg-slate-50 rounded-lg border border-gray-150 shadow-inner">
                                         <div className="text-[9px] font-bold text-gray-400 uppercase">Total Capacity</div>
                                         <div className="text-sm font-black text-gray-800 mt-1">{formatBytes(stats.memory.total)}</div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </fieldset>
 
                         {/* Disk Storage Panel */}
-                        <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-center mb-4">
-                                <div className="flex items-center gap-2.5">
-                                    <div className="w-9 h-9 rounded-xl bg-cyan-500 flex items-center justify-center text-white shadow-sm">
-                                        <i className="fa-solid fa-hard-drive text-sm"></i>
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-gray-800 text-sm">Storage Disk</h3>
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase">Partition "/home"</p>
-                                    </div>
+                        <fieldset className="border-2 border-gray-300 p-5 rounded-xl bg-white shadow-sm flex flex-col justify-between min-w-0">
+                            <legend className="px-3 flex items-center gap-2">
+                                <div className="w-7 h-7 rounded bg-cyan-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                                    <i className="fa-solid fa-hard-drive text-xs"></i>
                                 </div>
-                                <span className={`px-2.5 py-1 rounded-full text-xs font-black border ${
-                                    stats.disk.percentage > 90 ? 'bg-red-50 text-red-700 border-red-100' :
-                                    stats.disk.percentage > 75 ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                                    'bg-green-50 text-green-700 border-green-100'
-                                }`}>
-                                    {stats.disk.percentage}%
-                                </span>
-                            </div>
+                                <span className="text-base font-bold text-gray-800 uppercase tracking-tight">Storage Disk</span>
+                            </legend>
 
-                            <div className="space-y-4">
+                            <div className="space-y-4 w-full">
+                                <div className="flex justify-between items-center text-xs font-bold uppercase mt-1">
+                                    <span className="text-slate-450">Partition "/home":</span>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-black border ${
+                                        stats.disk.percentage > 90 ? 'bg-red-50 text-red-700 border-red-100' :
+                                        stats.disk.percentage > 75 ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                        'bg-green-50 text-green-700 border-green-100'
+                                    }`}>
+                                        {stats.disk.percentage}%
+                                    </span>
+                                </div>
+
                                 <div className="h-4 w-full bg-gray-200 rounded-full overflow-hidden shadow-inner flex">
                                     <div
                                         className={`h-full transition-all duration-1000 ${
@@ -171,70 +169,66 @@ const SystemStatus: React.FC = () => {
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-gray-500">
-                                    <div className="p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
+                                    <div className="p-3 bg-slate-50 rounded-lg border border-gray-150 shadow-inner">
                                         <div className="text-[9px] font-bold text-gray-400 uppercase">Consumed</div>
                                         <div className="text-sm font-black text-gray-800 mt-1">{formatBytes(stats.disk.used)}</div>
                                     </div>
-                                    <div className="p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
+                                    <div className="p-3 bg-slate-50 rounded-lg border border-gray-150 shadow-inner">
                                         <div className="text-[9px] font-bold text-gray-400 uppercase">Available</div>
                                         <div className="text-sm font-black text-gray-800 mt-1">{formatBytes(stats.disk.free)}</div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </fieldset>
 
                         {/* Database Size Panel */}
-                        <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-center mb-4">
-                                <div className="flex items-center gap-2.5">
-                                    <div className="w-9 h-9 rounded-xl bg-amber-500 flex items-center justify-center text-white shadow-sm">
-                                        <i className="fa-solid fa-database text-sm"></i>
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-gray-800 text-sm">SQLite Database</h3>
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase">data.db Size</p>
-                                    </div>
+                        <fieldset className="border-2 border-gray-300 p-5 rounded-xl bg-white shadow-sm flex flex-col justify-between min-w-0">
+                            <legend className="px-3 flex items-center gap-2">
+                                <div className="w-7 h-7 rounded bg-amber-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                                    <i className="fa-solid fa-database text-xs"></i>
                                 </div>
-                                <span className="px-2.5 py-1 rounded-full text-xs font-black bg-blue-50 text-blue-700 border border-blue-100">
-                                    ONLINE
-                                </span>
-                            </div>
+                                <span className="text-base font-bold text-gray-800 uppercase tracking-tight">SQLite Database</span>
+                            </legend>
 
-                            <div className="space-y-4">
-                                <div className="p-4 bg-white rounded-xl border border-gray-100 flex flex-col justify-center items-center h-28 shadow-sm">
+                            <div className="space-y-4 w-full">
+                                <div className="flex justify-between items-center text-xs font-bold uppercase mt-1">
+                                    <span className="text-slate-450">data.db Status:</span>
+                                    <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-50 text-blue-700 border border-blue-100">
+                                        ONLINE
+                                    </span>
+                                </div>
+
+                                <div className="p-4 bg-slate-50 rounded-xl border border-gray-150 flex flex-col justify-center items-center h-[120px] shadow-inner">
                                     <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Active File Footprint</div>
                                     <div className="text-2xl font-black text-gray-800 mt-2">{formatBytes(stats.db.size)}</div>
                                     <div className="text-[9px] font-bold text-gray-400 mt-1 font-mono">/server/data/data.db</div>
                                 </div>
                             </div>
-                        </div>
+                        </fieldset>
 
                         {/* Uptime & Loads Panel */}
-                        <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow md:col-span-2">
-                            <div className="flex items-center gap-2.5 mb-4">
-                                <div className="w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center text-white shadow-sm">
-                                    <i className="fa-solid fa-clock text-sm"></i>
+                        <fieldset className="border-2 border-gray-300 p-5 rounded-xl bg-white shadow-sm md:col-span-2 min-w-0">
+                            <legend className="px-3 flex items-center gap-2">
+                                <div className="w-7 h-7 rounded bg-emerald-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                                    <i className="fa-solid fa-clock text-xs"></i>
                                 </div>
-                                <div>
-                                    <h3 className="font-bold text-gray-800 text-sm">System Reliability</h3>
-                                    <p className="text-[10px] text-gray-400 font-bold uppercase">Uptime & Load Metrics</p>
-                                </div>
-                            </div>
+                                <span className="text-base font-bold text-gray-800 uppercase tracking-tight">System Reliability</span>
+                            </legend>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="p-4 bg-white rounded-xl border border-gray-100 flex flex-col justify-center shadow-sm">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full mt-1">
+                                <div className="p-4 bg-slate-50 rounded-xl border border-gray-150 flex flex-col justify-center shadow-inner">
                                     <div className="text-[10px] font-bold text-gray-400 uppercase">OS Continuous Uptime</div>
                                     <div className="text-xl font-black text-gray-800 mt-1">{formatUptime(stats.uptime)}</div>
                                     <div className="text-[9px] text-gray-400 mt-1">Uptime clock parsed in GMT+5:30 context</div>
                                 </div>
 
-                                <div className="p-4 bg-white rounded-xl border border-gray-100 flex flex-col justify-center shadow-sm">
+                                <div className="p-4 bg-slate-50 rounded-xl border border-gray-150 flex flex-col justify-center shadow-inner">
                                     <div className="text-[10px] font-bold text-gray-400 uppercase mb-2">CPU Load Averages</div>
                                     <div className="flex gap-2">
                                         {stats.load.map((l, index) => {
                                             const times = ['1m', '5m', '15m'];
                                             return (
-                                                <div key={index} className="flex-grow text-center p-1.5 bg-gray-50 border border-gray-100 rounded-lg shadow-sm">
+                                                <div key={index} className="flex-grow text-center p-1.5 bg-white border border-gray-200 rounded-lg shadow-sm">
                                                     <div className="text-[8px] font-bold text-gray-400 uppercase">{times[index]}</div>
                                                     <div className="text-xs font-black text-gray-800 mt-0.5">{l.toFixed(2)}</div>
                                                 </div>
@@ -243,35 +237,32 @@ const SystemStatus: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </fieldset>
 
                         {/* Process details / Server Engine Panel */}
-                        <div className="bg-gray-50 border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
-                            <div className="flex items-center gap-2.5 mb-4">
-                                <div className="w-9 h-9 rounded-xl bg-purple-500 flex items-center justify-center text-white shadow-sm">
-                                    <i className="fa-solid fa-gears text-sm"></i>
+                        <fieldset className="border-2 border-gray-300 p-5 rounded-xl bg-white shadow-sm flex flex-col justify-between min-w-0">
+                            <legend className="px-3 flex items-center gap-2">
+                                <div className="w-7 h-7 rounded bg-purple-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                                    <i className="fa-solid fa-gears text-xs"></i>
                                 </div>
-                                <div>
-                                    <h3 className="font-bold text-gray-800 text-sm">Server Engine</h3>
-                                    <p className="text-[10px] text-gray-400 font-bold uppercase">Node & Process Runtime</p>
-                                </div>
-                            </div>
+                                <span className="text-base font-bold text-gray-800 uppercase tracking-tight">Server Engine</span>
+                            </legend>
 
-                            <div className="text-xs text-gray-650 space-y-2 font-medium">
-                                <div className="flex justify-between border-b border-gray-100 pb-1.5">
+                            <div className="text-xs text-gray-650 space-y-2 font-medium w-full mt-1">
+                                <div className="flex justify-between border-b border-gray-150 pb-1.5">
                                     <span className="text-gray-400 font-bold">Node.js Version:</span>
                                     <span className="font-mono font-bold text-gray-800">v18.x / v20.x</span>
                                 </div>
-                                <div className="flex justify-between border-b border-gray-100 pb-1.5">
+                                <div className="flex justify-between border-b border-gray-150 pb-1.5">
                                     <span className="text-gray-400 font-bold">OS Platform:</span>
                                     <span className="font-bold text-gray-800">Linux (x86_64)</span>
                                 </div>
                                 <div className="flex justify-between pb-0.5">
                                     <span className="text-gray-400 font-bold">Active Engine:</span>
-                                    <span className="font-bold text-indigo-600">Project LISP Express</span>
+                                    <span className="font-bold text-indigo-650">Project LISP Express</span>
                                 </div>
                             </div>
-                        </div>
+                        </fieldset>
 
                     </div>
                 ) : null}

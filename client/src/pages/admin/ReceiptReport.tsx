@@ -712,7 +712,7 @@ const ReceiptReport: React.FC = () => {
             {activeTab === 'BI' ? (
                 <>
                     {/* Filter Control Box */}
-                    <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-md space-y-4">
+                    <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-md space-y-4 relative z-30">
                         <div className="flex items-center gap-2 mb-2">
                             <div className="w-1.5 h-4 bg-indigo-600 rounded-full"></div>
                             <h3 className="text-xs font-bold text-slate-800 uppercase tracking-widest">Filter & Refine Matrix</h3>
@@ -1004,7 +1004,7 @@ const ReceiptReport: React.FC = () => {
             ) : (
                 <div className="space-y-6">
                     {/* Filter Controls Panel - Hidden on Print */}
-                    <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-md space-y-4 print:hidden">
+                    <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-md space-y-4 print:hidden relative z-30">
                         <div className="flex items-center gap-2 mb-2">
                             <div className="w-1.5 h-4 bg-indigo-600 rounded-full"></div>
                             <h3 className="text-xs font-bold text-slate-800 uppercase tracking-widest">Ledger Statement Filters</h3>

@@ -703,6 +703,11 @@ const ReceiptForm: React.FC = () => {
         const showLabSelector = labs.length > 1;
         const showListSelector = packageLists.length > 1;
 
+        const isClient = user?.role === 'CLIENT';
+        const showAssignSection = !isClient || showLabSelector || showListSelector;
+
+        if (!showAssignSection) return null;
+
         return (
             <fieldset className="border-2 border-slate-200 p-4 rounded-xl space-y-4">
                 <legend className="px-2 font-bold text-lg text-slate-700">Lab & Rates Assignment</legend>
@@ -713,7 +718,7 @@ const ReceiptForm: React.FC = () => {
                             <CleanSelect options={labs.map(lab => ({ value: lab.id.toString(), label: lab.name }))} value={selectedLabId} onChange={val => setSelectedLabId(val)} placeholder="Select Lab" />
                         </div>
                     ) : (
-                        labs.length === 1 && (
+                        labs.length === 1 && !isClient && (
                             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs text-slate-650 font-bold">
                                 <span className="text-slate-400 uppercase tracking-widest text-[9px] block mb-0.5">Assigned Laboratory</span>
                                 <i className="fa-solid fa-building mr-2 text-slate-800"></i> {labs[0].name}
@@ -726,14 +731,14 @@ const ReceiptForm: React.FC = () => {
                             <CleanSelect options={packageLists.map(list => ({ value: list.id.toString(), label: list.name }))} value={selectedListId} onChange={val => setSelectedListId(val)} disabled={!selectedLabId} placeholder="Select Rate System" />
                         </div>
                     ) : (
-                        packageLists.length === 1 && (
+                        packageLists.length === 1 && !isClient && (
                             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs text-slate-650 font-bold">
                                 <span className="text-slate-400 uppercase tracking-widest text-[9px] block mb-0.5">Assigned Rate Category</span>
                                 <i className="fa-solid fa-file-invoice mr-2 text-slate-800"></i> {packageLists[0].name}
                             </div>
                         )
                     )}
-                    {!showLabSelector && !showListSelector && (
+                    {!showLabSelector && !showListSelector && !isClient && (
                         <p className="text-xs text-slate-450 italic pl-1">
                             Default laboratory and custom rate system have been automatically assigned.
                         </p>

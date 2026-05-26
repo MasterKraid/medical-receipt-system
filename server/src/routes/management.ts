@@ -328,8 +328,8 @@ router.put('/labs/:id/logo', isAdmin, (req, res) => {
 // Package List & Package Management
 router.post('/package-lists', isAdmin, (req, res) => {
     try {
-        db.prepare('INSERT INTO package_lists (name) VALUES (?)').run(req.body.name);
-        res.status(201).json({ message: 'List created' });
+        const result = db.prepare('INSERT INTO package_lists (name) VALUES (?)').run(req.body.name);
+        res.status(201).json({ id: result.lastInsertRowid, message: 'List created' });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });
 

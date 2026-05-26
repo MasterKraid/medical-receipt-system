@@ -486,13 +486,15 @@ const ViewCustomers: React.FC = () => {
                                                             {rcpt.display_amount}
                                                         </span>
                                                         <div className="flex gap-1.5">
-                                                            <Link 
-                                                                to={`/receipt/${rcpt.id}`} 
-                                                                className="w-7 h-7 flex items-center justify-center bg-white hover:bg-indigo-600 hover:text-white text-slate-400 hover:border-indigo-600 rounded-lg border border-slate-200 shadow-sm transition-all"
-                                                                title="View PDF Page"
-                                                            >
-                                                                <i className="fa-solid fa-file-pdf text-[11px]"></i>
-                                                            </Link>
+                                                            {user?.role !== 'CLIENT' && (
+                                                                <Link 
+                                                                    to={`/receipt/${rcpt.id}`} 
+                                                                    className="w-7 h-7 flex items-center justify-center bg-white hover:bg-indigo-600 hover:text-white text-slate-400 hover:border-indigo-600 rounded-lg border border-slate-200 shadow-sm transition-all"
+                                                                    title="View PDF Page"
+                                                                >
+                                                                    <i className="fa-solid fa-file-pdf text-[11px]"></i>
+                                                                </Link>
+                                                            )}
                                                             {user?.role === 'ADMIN' && (
                                                                 <Link 
                                                                     to={`/admin/receipts/edit/${rcpt.id}`} 
