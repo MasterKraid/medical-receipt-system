@@ -31,6 +31,15 @@ const ProtectedRoute: React.FC<{ children: React.ReactElement; roles?: string[] 
   if (!user) {
     return <Navigate to="/" />;
   }
+  
+  // Data entry users are strictly restricted to only the data entry portal
+  if (user.role === 'DATA_ENTRY') {
+    if (roles && roles.includes('DATA_ENTRY')) {
+      return children;
+    }
+    return <Navigate to="/data-entry-portal" />;
+  }
+
   if (roles && !roles.includes(user.role)) {
     return <Navigate to="/dashboard" />; // Or an unauthorized page
   }
@@ -46,7 +55,7 @@ const AppRoutes: React.FC = () => {
 
   return (
     <Routes>
-      <Route path="/" element={!user ? <LoginPage /> : <Navigate to={user.role === 'ADMIN' ? '/admin-dashboard' : '/dashboard'} />} />
+      <Route path="/" element={!user ? <LoginPage /> : <Navigate to={user.role === 'ADMIN' ? '/admin-dashboard' : (user.role === 'DATA_ENTRY' ? '/data-entry-portal' : '/dashboard')} />} />
 
       <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
       <Route path="/admin-dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />

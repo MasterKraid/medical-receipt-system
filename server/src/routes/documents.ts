@@ -85,13 +85,24 @@ router.post('/receipts', isAuthenticated, (req, res) => {
             let targetClientId = -1;
             if (user.role === 'CLIENT') {
                 targetClientId = user.id;
-            } else if (acting_as_client_id && (user.role === 'ADMIN' || user.master_data_entry)) {
+            } else if (acting_as_client_id && (user.role === 'ADMIN' || user.role === 'DATA_ENTRY' || user.master_data_entry)) {
                 targetClientId = acting_as_client_id;
             }
 
             let updatedUser: User | null = null;
             if (targetClientId !== -1) {
-                const totalB2BCost = payload.items.reduce((sum: number, item: any) => sum + (Number(item.b2b_price) || 0), 0);
+                // Fetch the client's custom package list IDs
+                const clientAccess = db.prepare('SELECT package_list_id FROM user_package_list_access WHERE user_id = ?').all(targetClientId) as { package_list_id: number }[];
+                const listIds = clientAccess.map(row => row.package_list_id);
+
+                const totalB2BCost = payload.items.reduce((sum: number, item: any) => {
+                    let actualB2B = Number(item.b2b_price) || 0;
+                    if (listIds.length > 0) {
+                        const pkg = db.prepare(`SELECT b2b_price FROM packages WHERE package_list_id IN (${listIds.join(',')}) AND name = ?`).get(item.name) as Package | undefined;
+                        if (pkg) actualB2B = pkg.b2b_price;
+                    }
+                    return sum + actualB2B;
+                }, 0);
 
                 const client = db.prepare('SELECT wallet_balance, allow_negative_balance, negative_balance_allowed_until FROM users WHERE id = ?').get(targetClientId) as User;
                 if (!client) throw new Error("Target B2B Client not found");
@@ -172,10 +183,20 @@ router.put('/receipts/:id', isAuthenticated, isAdmin, (req, res) => {
             // 2. Update customer data
             const customerId = handleCustomerData(payload.customer_data, newTargetClientId !== -1 ? newTargetClientId : user.id);
 
-            // 4. Calculate new B2B cost from the submitted items
+            // 4. Calculate new B2B cost from the submitted items with database verification
             let newB2BCost = 0;
             if (newTargetClientId !== -1) {
-                newB2BCost = (payload.items || []).reduce((sum: number, item: any) => sum + (Number(item.b2b_price) || 0), 0);
+                const clientAccess = db.prepare('SELECT package_list_id FROM user_package_list_access WHERE user_id = ?').all(newTargetClientId) as { package_list_id: number }[];
+                const listIds = clientAccess.map(row => row.package_list_id);
+
+                newB2BCost = (payload.items || []).reduce((sum: number, item: any) => {
+                    let actualB2B = Number(item.b2b_price) || 0;
+                    if (listIds.length > 0) {
+                        const pkg = db.prepare(`SELECT b2b_price FROM packages WHERE package_list_id IN (${listIds.join(',')}) AND name = ?`).get(item.name) as Package | undefined;
+                        if (pkg) actualB2B = pkg.b2b_price;
+                    }
+                    return sum + actualB2B;
+                }, 0);
             }
 
             // 5. Handle wallet adjustments
@@ -289,9 +310,35 @@ router.get('/receipts/:id', isAuthenticated, (req, res) => {
         }
 
         const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(receipt.customer_id) as Customer;
-        const items = db.prepare('SELECT id, package_name, mrp, discount_percentage FROM receipt_items WHERE receipt_id = ?').all(req.params.id);
+        const items = db.prepare('SELECT id, package_name, mrp, discount_percentage FROM receipt_items WHERE receipt_id = ?').all(req.params.id) as any[];
+        
+        let targetClientId = -1;
+        if (receipt.acting_as_client_id) {
+            targetClientId = receipt.acting_as_client_id;
+        } else {
+            const creator = db.prepare('SELECT role FROM users WHERE id = ?').get(receipt.created_by_user_id) as { role: string } | undefined;
+            if (creator && creator.role === 'CLIENT') {
+                targetClientId = receipt.created_by_user_id;
+            }
+        }
+
+        let enrichedItems = items;
+        if (targetClientId !== -1) {
+            const clientAccess = db.prepare('SELECT package_list_id FROM user_package_list_access WHERE user_id = ?').all(targetClientId) as { package_list_id: number }[];
+            const listIds = clientAccess.map(row => row.package_list_id);
+            if (listIds.length > 0) {
+                enrichedItems = items.map(item => {
+                    const pkg = db.prepare(`SELECT b2b_price FROM packages WHERE package_list_id IN (${listIds.join(',')}) AND name = ?`).get(item.package_name) as Package | undefined;
+                    return {
+                        ...item,
+                        b2b_price: pkg ? pkg.b2b_price : 0
+                    };
+                });
+            }
+        }
+
         const branch = db.prepare('SELECT * FROM branches WHERE id = ?').get(receipt.branch_id) as Branch;
-        res.json({ receipt, customer, items, branch });
+        res.json({ receipt, customer, items: enrichedItems, branch });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });
 
@@ -357,11 +404,14 @@ router.get('/transactions', isAuthenticated, (req, res) => {
             if (tx.type === 'RECEIPT_DEDUCTION' && tx.receipt_id) {
                 const receipt = db.prepare(`SELECT r.customer_id, c.name as customer_name FROM receipts r JOIN customers c ON c.id = r.customer_id WHERE r.id = ?`).get(tx.receipt_id) as any;
                 const items = db.prepare(`SELECT package_name, mrp FROM receipt_items WHERE receipt_id = ?`).all(tx.receipt_id) as any[];
-                const b2bListId = user.assigned_list_ids?.[0];
+                const listIds = user.assigned_list_ids || [];
                 let total_profit = 0;
                 const itemsWithB2B = items.map(item => {
-                    const pkg = db.prepare(`SELECT b2b_price FROM packages WHERE package_list_id = ? AND name = ?`).get(b2bListId, item.package_name) as Package;
-                    const b2b_price = pkg?.b2b_price || item.mrp;
+                    let pkg = null;
+                    if (listIds.length > 0) {
+                        pkg = db.prepare(`SELECT b2b_price FROM packages WHERE package_list_id IN (${listIds.join(',')}) AND name = ?`).get(item.package_name) as Package | undefined;
+                    }
+                    const b2b_price = pkg?.b2b_price !== undefined ? pkg.b2b_price : item.mrp;
                     total_profit += item.mrp - b2b_price;
                     return { name: item.package_name, mrp: item.mrp, b2b_price };
                 });

@@ -30,7 +30,9 @@ const LoginPage: React.FC = () => {
 
   React.useEffect(() => {
     if (user) {
-      const targetDashboard = user.role === 'ADMIN' ? '/admin-dashboard' : '/dashboard';
+      const targetDashboard = user.role === 'ADMIN' 
+        ? '/admin-dashboard' 
+        : (user.role === 'DATA_ENTRY' ? '/data-entry-portal' : '/dashboard');
       navigate(targetDashboard);
     }
   }, [user, navigate]);
