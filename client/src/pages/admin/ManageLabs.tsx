@@ -98,6 +98,10 @@ const ManageLabs: React.FC = () => {
     };
 
     const handleListToggle = (listId: number) => {
+        const list = allLists.find(l => l.id === listId);
+        if (list && list.name.endsWith(' Mother Ratelist') && syncingLab && list.name === `${syncingLab.name} Mother Ratelist`) {
+            return;
+        }
         setAssignedLists(prev => {
             const newSet = new Set(prev);
             if (newSet.has(listId)) newSet.delete(listId);
@@ -345,9 +349,17 @@ const ManageLabs: React.FC = () => {
     // ----------------------------------------------------
     // Clone / Sync Wizard Modal
     // ----------------------------------------------------
-    const openCloneModal = (list: PackageList) => {
+    const openCloneModal = (list: PackageList, parentLab: Lab) => {
         setCloneTargetList(list);
-        setCloneSourceListId('');
+        
+        // Auto select that lab's mother ratelist
+        const motherList = allLists.find(l => l.name === `${parentLab.name} Mother Ratelist`);
+        if (motherList) {
+            setCloneSourceListId(motherList.id.toString());
+        } else {
+            setCloneSourceListId('');
+        }
+        
         setCloneDiscount('0');
         setCloneMarkup('0');
         setIsCloneOpen(true);
@@ -513,41 +525,78 @@ const ManageLabs: React.FC = () => {
                                                             </div>
                                                         ) : (
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                {labLists.map(list => (
-                                                                    <div key={list.id} className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm space-y-3 flex flex-col justify-between">
-                                                                        <div>
-                                                                            <div className="flex justify-between items-start">
-                                                                                <span className="font-black text-sm text-gray-800 truncate pr-2">{list.name}</span>
-                                                                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase">
-                                                                                    {list.package_count || 0} items
-                                                                                </span>
+                                                                {labLists.map(list => {
+                                                                    const isMotherRatelist = list.name.endsWith(' Mother Ratelist') && list.name === `${lab.name} Mother Ratelist`;
+                                                                    return (
+                                                                        <div key={list.id} className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm space-y-3 flex flex-col justify-between">
+                                                                            <div>
+                                                                                <div className="flex justify-between items-start">
+                                                                                    <span className="font-black text-sm text-gray-800 truncate pr-2 flex items-center gap-1.5">
+                                                                                        {list.name}
+                                                                                        {isMotherRatelist && (
+                                                                                            <span className="px-1.5 py-0.5 rounded-full text-[7.5px] font-black bg-blue-100 text-blue-800 border border-blue-200 uppercase shrink-0">
+                                                                                                Mother
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </span>
+                                                                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase">
+                                                                                        {list.package_count || 0} items
+                                                                                    </span>
+                                                                                </div>
+                                                                                <div className="text-[10px] text-gray-400 font-mono mt-0.5">DB REF ID: #{list.id}</div>
                                                                             </div>
-                                                                            <div className="text-[10px] text-gray-400 font-mono mt-0.5">DB REF ID: #{list.id}</div>
-                                                                        </div>
 
-                                                                        <div className="flex flex-wrap gap-1.5 pt-2 border-t border-gray-100">
-                                                                            <button onClick={() => openInventoryModal(list)} className="px-2 py-1 bg-gray-50 hover:bg-yellow-500 hover:text-white rounded border border-gray-200 hover:border-yellow-600 transition-all font-bold text-[10px] text-gray-600 flex items-center gap-1 shadow-sm">
-                                                                                <i className="fa-solid fa-cubes text-[9px]"></i> Items
-                                                                            </button>
-                                                                            <label 
-                                                                                className="px-2 py-1 bg-gray-50 hover:bg-green-600 hover:text-white rounded border border-gray-200 hover:border-green-700 transition-all font-bold text-[10px] text-gray-600 flex items-center gap-1 shadow-sm cursor-pointer"
-                                                                                title="Excel Import. Required columns (in order): code_name, name, mrp, b2b_price."
-                                                                            >
-                                                                                <i className="fa-solid fa-file-import text-[9px]"></i> XLSX
-                                                                                <input type="file" accept=".xlsx, .xls" onChange={(e) => handleFileUpload(list.id, e)} className="hidden" />
-                                                                            </label>
-                                                                            <button onClick={() => openCloneModal(list)} className="px-2 py-1 bg-gray-50 hover:bg-blue-600 hover:text-white rounded border border-gray-200 hover:border-blue-700 transition-all font-bold text-[10px] text-gray-600 flex items-center gap-1 shadow-sm">
-                                                                                <i className="fa-solid fa-sync text-[9px]"></i> Clone Sync
-                                                                            </button>
-                                                                            <button onClick={() => handleUnassignList(lab.id, list.id)} className="px-2 py-1 bg-gray-50 hover:bg-amber-600 hover:text-white rounded border border-gray-200 hover:border-amber-700 transition-all font-bold text-[10px] text-gray-600 flex items-center gap-1 shadow-sm" title="Unassign database">
-                                                                                <i className="fa-solid fa-link-slash text-[9px]"></i> Unlink
-                                                                            </button>
-                                                                            <button onClick={() => handleDeleteList(list.id)} className="px-2 py-1 bg-gray-50 hover:bg-red-600 hover:text-white rounded border border-gray-200 hover:border-red-700 transition-all font-bold text-[10px] text-gray-600 flex items-center gap-1 shadow-sm ml-auto" title="Delete Database permanent">
-                                                                                <i className="fa-solid fa-trash text-[9px]"></i>
-                                                                            </button>
+                                                                            <div className="flex flex-wrap gap-1.5 pt-2 border-t border-gray-100">
+                                                                                <button onClick={() => openInventoryModal(list)} className="px-2 py-1 bg-gray-50 hover:bg-yellow-500 hover:text-white rounded border border-gray-200 hover:border-yellow-600 transition-all font-bold text-[10px] text-gray-600 flex items-center gap-1 shadow-sm">
+                                                                                    <i className="fa-solid fa-cubes text-[9px]"></i> Items
+                                                                                </button>
+                                                                                <label 
+                                                                                    className="px-2 py-1 bg-gray-50 hover:bg-green-600 hover:text-white rounded border border-gray-200 hover:border-green-700 transition-all font-bold text-[10px] text-gray-600 flex items-center gap-1 shadow-sm cursor-pointer"
+                                                                                    title="Excel Import. Required columns (in order): code_name, name, mrp, b2b_price."
+                                                                                >
+                                                                                    <i className="fa-solid fa-file-import text-[9px]"></i> XLSX
+                                                                                    <input type="file" accept=".xlsx, .xls" onChange={(e) => handleFileUpload(list.id, e)} className="hidden" />
+                                                                                </label>
+                                                                                <button 
+                                                                                    disabled={isMotherRatelist} 
+                                                                                    onClick={() => openCloneModal(list, lab)} 
+                                                                                    className={`px-2 py-1 rounded border transition-all font-bold text-[10px] flex items-center gap-1 shadow-sm ${
+                                                                                        isMotherRatelist 
+                                                                                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60' 
+                                                                                            : 'bg-gray-50 hover:bg-blue-600 hover:text-white border-gray-200 hover:border-blue-700 text-gray-600'
+                                                                                    }`}
+                                                                                    title={isMotherRatelist ? "Mother ratelist cannot clone onto itself" : "Clone & scale sync"}
+                                                                                >
+                                                                                    <i className="fa-solid fa-sync text-[9px]"></i> Clone Sync
+                                                                                </button>
+                                                                                <button 
+                                                                                    disabled={isMotherRatelist}
+                                                                                    onClick={() => handleUnassignList(lab.id, list.id)} 
+                                                                                    className={`px-2 py-1 rounded border transition-all font-bold text-[10px] flex items-center gap-1 shadow-sm ${
+                                                                                        isMotherRatelist 
+                                                                                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60' 
+                                                                                            : 'bg-gray-50 hover:bg-amber-600 hover:text-white border-gray-200 hover:border-amber-700 text-gray-600'
+                                                                                    }`} 
+                                                                                    title={isMotherRatelist ? "Mother ratelist cannot be unassigned unless lab is deleted" : "Unassign database"}
+                                                                                >
+                                                                                    <i className="fa-solid fa-link-slash text-[9px]"></i> Unlink
+                                                                                </button>
+                                                                                <button 
+                                                                                    disabled={isMotherRatelist}
+                                                                                    onClick={() => handleDeleteList(list.id)} 
+                                                                                    className={`px-2 py-1 rounded border transition-all font-bold text-[10px] flex items-center gap-1 shadow-sm ml-auto ${
+                                                                                        isMotherRatelist 
+                                                                                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60' 
+                                                                                            : 'bg-gray-50 hover:bg-red-600 hover:text-white border-gray-200 hover:border-red-700 text-gray-600'
+                                                                                    }`} 
+                                                                                    title={isMotherRatelist ? "Mother ratelist cannot be deleted unless lab is deleted" : "Delete Database permanent"}
+                                                                                >
+                                                                                    <i className="fa-solid fa-trash text-[9px]"></i>
+                                                                                </button>
+                                                                            </div>
                                                                         </div>
-                                                                    </div>
-                                                                ))}
+                                                                    );
+                                                                })}
                                                             </div>
                                                         )}
                                                     </div>
@@ -631,15 +680,42 @@ const ManageLabs: React.FC = () => {
                             </div>
 
                             <div className="space-y-1 flex-grow overflow-y-auto max-h-[300px] custom-scrollbar-minimal pr-2 border border-gray-150 p-2 rounded-lg my-2">
-                                {allLists.map(list => (
-                                    <label key={list.id} className={`flex items-center space-x-3 px-3 py-2 rounded-lg border transition-all cursor-pointer ${assignedLists.has(list.id) ? 'bg-blue-600 border-blue-700 text-white shadow-sm' : 'bg-gray-50 border-gray-100 hover:border-gray-250 text-gray-600'}`}>
-                                        <div className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${assignedLists.has(list.id) ? 'bg-white border-white text-blue-600' : 'bg-white border-gray-300'}`}>
-                                            {assignedLists.has(list.id) && <i className="fa-solid fa-check text-[8px]"></i>}
-                                        </div>
-                                        <input type="checkbox" className="hidden" checked={assignedLists.has(list.id)} onChange={() => handleListToggle(list.id)} />
-                                        <span className="font-semibold text-xs truncate">{list.name}</span>
-                                    </label>
-                                ))}
+                                {allLists.map(list => {
+                                    const isMotherForLab = list.name.endsWith(' Mother Ratelist') && list.name === `${syncingLab.name} Mother Ratelist`;
+                                    return (
+                                        <label 
+                                            key={list.id} 
+                                            className={`flex items-center space-x-3 px-3 py-2 rounded-lg border transition-all ${
+                                                isMotherForLab 
+                                                    ? 'bg-blue-50 border-blue-200 text-blue-800 cursor-not-allowed opacity-80' 
+                                                    : assignedLists.has(list.id) 
+                                                        ? 'bg-blue-600 border-blue-700 text-white shadow-sm cursor-pointer' 
+                                                        : 'bg-gray-50 border-gray-100 hover:border-gray-250 text-gray-600 cursor-pointer'
+                                            }`}
+                                        >
+                                            <div className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
+                                                isMotherForLab
+                                                    ? 'bg-blue-600 border-blue-700 text-white'
+                                                    : assignedLists.has(list.id) 
+                                                        ? 'bg-white border-white text-blue-600' 
+                                                        : 'bg-white border-gray-300'
+                                            }`}>
+                                                {isMotherForLab ? <i className="fa-solid fa-lock text-[8px]"></i> : assignedLists.has(list.id) && <i className="fa-solid fa-check text-[8px]"></i>}
+                                            </div>
+                                            <input 
+                                                type="checkbox" 
+                                                className="hidden" 
+                                                disabled={isMotherForLab} 
+                                                checked={assignedLists.has(list.id) || isMotherForLab} 
+                                                onChange={() => handleListToggle(list.id)} 
+                                            />
+                                            <span className="font-semibold text-xs truncate flex items-center gap-1.5">
+                                                {list.name}
+                                                {isMotherForLab && <span className="text-[8px] font-black uppercase bg-blue-100 text-blue-700 border border-blue-200 px-1 rounded-full shrink-0">Mother</span>}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
                             </div>
 
                             <div className="flex justify-end gap-2 pt-4 border-t border-gray-300">

@@ -27,7 +27,7 @@ interface DataEntryReceipt {
   display_doc_id: string;
   display_date: string;
   display_customer_id: string;
-  items: { package_name: string }[];
+  items: { package_name: string; code_name?: string | null }[];
   lab_id?: number;
   lab_name?: string;
 }
@@ -71,25 +71,52 @@ const CopyableField: React.FC<{ label: string; value: string; prefix?: string }>
   );
 };
 
-const CopyableBadge: React.FC<{ text: string }> = ({ text }) => {
-  const [copied, setCopied] = useState(false);
+const CopyableBadge: React.FC<{ name: string; codeName?: string | null }> = ({ name, codeName }) => {
+  const [copiedText, setCopiedText] = useState<string | null>(null);
+  const [showTooltip, setShowTooltip] = useState(false);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1000);
+  // Fallback to name if codeName is not provided or empty
+  const codeToCopy = codeName && codeName.trim() !== '' ? codeName : name;
+
+  const handleClick = () => {
+    // Single click: Copies the test code (fallback to name if empty)
+    navigator.clipboard.writeText(codeToCopy);
+    setCopiedText(codeToCopy === name ? 'Copied Name!' : 'Copied Code!');
+    setTimeout(() => setCopiedText(null), 1000);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering single click copies again
+    navigator.clipboard.writeText(name);
+    setCopiedText('Copied Name!');
+    setTimeout(() => setCopiedText(null), 1000);
   };
 
   return (
     <div
-      onClick={handleCopy}
-      className="group relative inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-slate-700 hover:text-indigo-900 rounded-lg text-xs font-bold cursor-pointer transition-all active:scale-95 select-none"
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+      className="group relative inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-indigo-550 hover:text-white border border-slate-200 hover:border-indigo-650 rounded-lg text-xs font-bold cursor-pointer transition-all active:scale-95 select-none"
+      title="Click to copy Code, Double-click to copy Name"
     >
-      <span>{text}</span>
-      <i className="fa-solid fa-copy text-[10px] text-slate-400 group-hover:text-indigo-550"></i>
-      {copied && (
-        <div className="absolute left-1/2 -translate-x-1/2 -top-6 bg-emerald-600 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow z-50">
-          Copied!
+      <span>{name}</span>
+      <i className="fa-solid fa-copy text-[10px] text-slate-400 group-hover:text-indigo-200"></i>
+      
+      {copiedText && (
+        <div className="absolute left-1/2 -translate-x-1/2 -top-7 bg-emerald-600 text-white text-[9px] font-black px-2 py-0.5 rounded shadow-lg z-[999] whitespace-nowrap animate-bounce">
+          {copiedText}
+        </div>
+      )}
+
+      {showTooltip && (
+        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 bg-slate-800 text-white text-[9px] font-medium p-2 rounded-lg shadow-xl z-[9999] border border-slate-750 w-40 text-center space-y-0.5 animate-in fade-in zoom-in duration-70">
+          <div className="text-[7px] uppercase tracking-wider text-slate-400">Test Code</div>
+          <div className="font-mono text-emerald-400 font-extrabold text-[10px] truncate pl-1 pr-1">
+            {codeName && codeName.trim() !== '' ? codeName : name}
+          </div>
+          <div className="text-[6.5px] text-slate-400 italic">Double-click: Copy Name</div>
         </div>
       )}
     </div>
@@ -421,7 +448,7 @@ const DataEntryPortal: React.FC = () => {
                 <div className="flex flex-wrap gap-2 p-3 bg-slate-50 border border-slate-200 rounded-2xl">
                   {selectedReceipt.items && selectedReceipt.items.length > 0 ? (
                     selectedReceipt.items.map((item, idx) => (
-                      <CopyableBadge key={idx} text={item.package_name} />
+                      <CopyableBadge key={idx} name={item.package_name} codeName={item.code_name} />
                     ))
                   ) : (
                     <span className="text-slate-400 italic text-xs pl-1">No tests ordered</span>

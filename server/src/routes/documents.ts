@@ -450,7 +450,12 @@ router.get('/data-entry/receipts', isAuthenticated, (req, res) => {
         
         // Enrich with items (only names, no pricing) and resolve lab details
         const enriched = receipts.map(r => {
-            const items = db.prepare('SELECT package_name FROM receipt_items WHERE receipt_id = ?').all(r.id) as any[];
+            const items = db.prepare(`
+                SELECT DISTINCT ri.package_name, p.code_name
+                FROM receipt_items ri
+                LEFT JOIN packages p ON ri.package_name = p.name
+                WHERE ri.receipt_id = ?
+            `).all(r.id) as any[];
             const display_doc_id = `RCPT-${String(r.id).padStart(6, '0')}`;
             const display_date = r.created_at;
             const display_customer_id = `CUST-${String(r.customer_id).padStart(6, '0')}`;
