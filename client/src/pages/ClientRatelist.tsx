@@ -140,14 +140,7 @@ const ClientRatelist: React.FC = () => {
                                 placeholder="Select Rate System" 
                             />
                         </div>
-                    ) : (
-                        packageLists.length === 1 && (
-                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-205 text-xs font-bold text-slate-700">
-                                <span className="text-slate-400 uppercase tracking-widest text-[9px] block mb-0.5">Assigned Rate Category</span>
-                                <i className="fa-solid fa-file-invoice mr-2 text-slate-800"></i> {packageLists[0].name}
-                            </div>
-                        )
-                    )}
+                    ) : null}
                     {!showLabSelector && !showListSelector && labs.length === 1 && packageLists.length === 1 && (
                         <p className="text-xs text-slate-450 italic pl-1">
                             Your laboratory and rate system have been automatically assigned.

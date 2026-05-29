@@ -180,14 +180,18 @@ const EditUser: React.FC = () => {
                             <div className="flex items-end">
                                 <button
                                     type="button"
+                                    disabled={user.role === 'DATA_ENTRY'}
                                     onClick={() => setIsAccessModalOpen(true)}
-                                    className={`w-full p-3 rounded-xl border-2 border-dashed transition-all flex items-center justify-center gap-2 font-bold ${assignedLists.size > 0
-                                        ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
-                                        : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'
+                                    className={`w-full p-3 rounded-xl border-2 border-dashed transition-all flex items-center justify-center gap-2 font-bold ${user.role === 'DATA_ENTRY'
+                                        ? 'border-gray-150 bg-gray-100/55 text-gray-400 cursor-not-allowed opacity-50'
+                                        : assignedLists.size > 0
+                                            ? 'border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                                            : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'
                                         }`}
+                                    title={user.role === 'DATA_ENTRY' ? "Data Entry accounts do not use Rate Lists" : "Modify access"}
                                 >
                                     <i className="fa-solid fa-key-skeleton"></i>
-                                    Modify Rate List Access {assignedLists.size > 0 && <span className="bg-indigo-600 text-white px-2 py-0.5 rounded-full text-[10px] ml-1">{assignedLists.size}</span>}
+                                    Modify Rate List Access {user.role !== 'DATA_ENTRY' && assignedLists.size > 0 && <span className="bg-indigo-600 text-white px-2 py-0.5 rounded-full text-[10px] ml-1">{assignedLists.size}</span>}
                                 </button>
                             </div>
                         </div>
@@ -211,6 +215,8 @@ const EditUser: React.FC = () => {
                 packageLists={packageLists}
                 selectedListIds={assignedLists}
                 onToggle={handleListToggle}
+                isUserCreation={false}
+                userRole={user.role}
             />
         </div>
     );

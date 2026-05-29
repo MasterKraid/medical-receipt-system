@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Lab, PackageList } from '../types';
+import { apiService } from '../services/api';
 
 interface RateListAccessModalProps {
     isOpen: boolean;
@@ -8,9 +9,30 @@ interface RateListAccessModalProps {
     packageLists: PackageList[];
     selectedListIds: Set<number>;
     onToggle: (listId: number) => void;
+    isUserCreation?: boolean;
+    userRole?: string;
+    clientUsername?: string;
 }
 
-const RateListAccessModal: React.FC<RateListAccessModalProps> = ({ isOpen, onClose, labs, packageLists, selectedListIds, onToggle }) => {
+const RateListAccessModal: React.FC<RateListAccessModalProps> = ({ 
+    isOpen, 
+    onClose, 
+    labs, 
+    packageLists, 
+    selectedListIds, 
+    onToggle,
+    isUserCreation = false,
+    userRole = '',
+    clientUsername = ''
+}) => {
+    // Sync Wizard State for CLIENT creation
+    const [isSyncWizardOpen, setIsSyncWizardOpen] = useState(false);
+    const [newListName, setNewListName] = useState('');
+    const [discountPercent, setDiscountPercent] = useState('0');
+    const [markupPercent, setMarkupPercent] = useState('0');
+    const [createdListId, setCreatedListId] = useState<number | null>(null);
+    const [isSavingSync, setIsSavingSync] = useState(false);
+
     const columns = useMemo(() => {
         const assignedToListIds = new Set<number>();
         const labGroups: { labName: string; lists: PackageList[] }[] = [];
@@ -33,16 +55,112 @@ const RateListAccessModal: React.FC<RateListAccessModalProps> = ({ isOpen, onClo
         return labGroups;
     }, [labs, packageLists]);
 
+    const isClientCreation = isUserCreation && userRole === 'CLIENT';
+    const selectedListId = Array.from(selectedListIds)[0];
+    const selectedListObj = packageLists.find(pl => pl.id === selectedListId);
+    const isSelectedMother = selectedListObj?.name.endsWith(' Mother Ratelist');
+    const showNextButton = isClientCreation && isSelectedMother;
+
+    const handleItemClick = (list: PackageList) => {
+        const isMother = list.name.endsWith(' Mother Ratelist');
+
+        if (isClientCreation) {
+            // Physically restrict selection to a single list
+            const currentListIds = Array.from(selectedListIds);
+            if (currentListIds.length > 0 && !selectedListIds.has(list.id)) {
+                alert("select multi ratelist via editing after ratelist creation");
+                return;
+            }
+            onToggle(list.id);
+        } else {
+            // Editing mode / Non-CLIENT role
+            if (!isUserCreation && userRole === 'CLIENT') {
+                if (!selectedListIds.has(list.id) && isMother) {
+                    const confirmChoice = window.confirm("Are you sure?");
+                    if (!confirmChoice) return;
+                }
+            }
+            onToggle(list.id);
+        }
+    };
+
+    const handleNextClick = async () => {
+        if (!selectedListId) return;
+
+        // Find the lab of the selected mother list
+        const labOfSelectedList = labs.find(lab => lab.assigned_list_ids?.includes(selectedListId));
+        if (!labOfSelectedList) {
+            alert("Selected Mother Ratelist is not assigned to any laboratory!");
+            return;
+        }
+
+        try {
+            setIsSavingSync(true);
+            const usernameParam = clientUsername.trim() || 'New Client';
+            const res = await apiService.autoCreateClientList(usernameParam, labOfSelectedList.id);
+
+            setCreatedListId(res.id);
+            setNewListName(res.name);
+            setIsSyncWizardOpen(true);
+        } catch (err: any) {
+            alert(`Failed to auto-create package list: ${err.message || err}`);
+        } finally {
+            setIsSavingSync(false);
+        }
+    };
+
+    const handleSyncSave = async () => {
+        if (!createdListId || !selectedListId) return;
+
+        const disc = parseFloat(discountPercent) || 0;
+        const mark = parseFloat(markupPercent) || 0;
+
+        if (disc > 0 || mark === 0) {
+            const confirmSave = window.confirm("Are you sure you want to discount/ not markup the parent ratelist?");
+            if (!confirmSave) return;
+        }
+
+        try {
+            setIsSavingSync(true);
+
+            // 1. Rename custom list if name changed
+            if (newListName.trim() !== '' && newListName !== clientUsername) {
+                await apiService.updatePackageListName(createdListId, newListName.trim());
+            }
+
+            // 2. Sync clone packages from mother to new list
+            await apiService.clonePackageList(createdListId, selectedListId, disc, mark);
+
+            // 3. Update parent list states
+            onToggle(selectedListId); // Deselect Mother list
+            onToggle(createdListId);  // Select the newly created custom client list
+
+            // Close modals
+            setIsSyncWizardOpen(false);
+            onClose();
+            alert("Custom B2B client ratelist created and synced successfully!");
+        } catch (err: any) {
+            alert(`Failed to save and sync packages: ${err.message || err}`);
+        } finally {
+            setIsSavingSync(false);
+        }
+    };
+
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col overflow-hidden border border-gray-200">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col overflow-hidden border border-gray-200 animate-in zoom-in-95 duration-150">
                 {/* Header */}
                 <div className="p-4 border-b border-gray-300 flex justify-between items-center bg-gray-50/50">
                     <div>
                         <h2 className="text-lg font-bold text-gray-800">Rate Database Access</h2>
-                        <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mt-0.5">Configure Rate list visibility per account</p>
+                        <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mt-0.5">
+                            {isClientCreation 
+                                ? "Choose a Mother Ratelist to sync-clone, or assign an existing Client Ratelist" 
+                                : "Configure Rate list visibility per account"
+                            }
+                        </p>
                     </div>
                     <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-400 hover:text-gray-600">
                         <i className="fa-solid fa-xmark text-lg"></i>
@@ -66,10 +184,11 @@ const RateListAccessModal: React.FC<RateListAccessModalProps> = ({ isOpen, onClo
                                 <div className="flex-1 overflow-y-auto p-1.5 space-y-1 custom-scrollbar-minimal">
                                     {col.lists.map(list => {
                                         const isSelected = selectedListIds.has(list.id);
+                                        const isMother = list.name.endsWith(' Mother Ratelist');
                                         return (
                                             <div
                                                 key={list.id}
-                                                onClick={() => onToggle(list.id)}
+                                                onClick={() => handleItemClick(list)}
                                                 className={`group flex items-center justify-between px-2.5 py-1.5 rounded cursor-pointer transition-all border text-xs ${isSelected
                                                     ? 'bg-blue-600 border-blue-700 text-white shadow-sm'
                                                     : 'bg-white border-gray-100 hover:border-gray-300 text-gray-600'
@@ -82,6 +201,11 @@ const RateListAccessModal: React.FC<RateListAccessModalProps> = ({ isOpen, onClo
                                                     </div>
                                                     <span className="font-semibold truncate">{list.name}</span>
                                                 </div>
+                                                {isMother && (
+                                                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold border leading-none ${isSelected ? 'bg-blue-500 text-white border-blue-400' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                                                        Mother
+                                                    </span>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -97,14 +221,110 @@ const RateListAccessModal: React.FC<RateListAccessModalProps> = ({ isOpen, onClo
                         <i className="fa-solid fa-circle-info text-blue-400"></i>
                         {selectedListIds.size} Lists Assigned
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-sm transition-all text-xs"
-                    >
-                        Apply Changes
-                    </button>
+                    {showNextButton ? (
+                        <button
+                            onClick={handleNextClick}
+                            disabled={isSavingSync}
+                            className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-sm transition-all text-xs flex items-center gap-1.5"
+                        >
+                            {isSavingSync && <i className="fa-solid fa-spinner fa-spin text-[10px]"></i>}
+                            Next
+                        </button>
+                    ) : (
+                        <button
+                            onClick={onClose}
+                            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-sm transition-all text-xs"
+                        >
+                            Apply Changes
+                        </button>
+                    )}
                 </div>
             </div>
+
+            {/* Inline Clone & Sync Modal */}
+            {isSyncWizardOpen && selectedListObj && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex justify-center items-center z-[60] p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 border border-gray-150 space-y-4 animate-in zoom-in-95 duration-150">
+                        <div className="flex items-center gap-3 border-b border-gray-200 pb-3">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-md">
+                                <i className="fa-solid fa-sync text-xs animate-spin-slow"></i>
+                            </div>
+                            <div>
+                                <h2 className="text-base font-bold text-gray-800">Sync & Scale Wizard for Client</h2>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Source Mother: {selectedListObj.name}</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 text-xs">
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase block pl-0.5">Custom Ratelist Name</label>
+                                <input
+                                    type="text"
+                                    value={newListName}
+                                    onChange={e => setNewListName(e.target.value)}
+                                    placeholder="e.g. Client Name"
+                                    required
+                                    className="w-full p-2.5 border border-gray-200 rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-50 outline-none transition-all font-semibold text-gray-700"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase block pl-0.5">Discount Percent (%)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        value={discountPercent}
+                                        onChange={e => setDiscountPercent(e.target.value)}
+                                        className="w-full p-2 border border-gray-200 rounded-lg bg-slate-50 focus:bg-white outline-none font-mono"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase block pl-0.5">Markup Percent (%)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={markupPercent}
+                                        onChange={e => setMarkupPercent(e.target.value)}
+                                        className="w-full p-2 border border-gray-200 rounded-lg bg-slate-50 focus:bg-white outline-none font-mono"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
+                            <button
+                                type="button"
+                                onClick={() => setIsSyncWizardOpen(false)}
+                                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-650 rounded-lg font-bold text-xs transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleSyncSave}
+                                disabled={isSavingSync}
+                                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs transition-all shadow-md shadow-indigo-100 flex items-center gap-1.5"
+                            >
+                                {isSavingSync ? (
+                                    <>
+                                        <i className="fa-solid fa-spinner fa-spin text-[10px]"></i>
+                                        Syncing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <i className="fa-solid fa-check"></i>
+                                        Save & Sync
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

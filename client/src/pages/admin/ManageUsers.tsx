@@ -193,14 +193,18 @@ const ManageUsers: React.FC = () => {
                                 <label className="text-[10px] font-bold text-gray-400 uppercase ml-1">RateList Access Control</label>
                                 <button
                                     type="button"
+                                    disabled={role === 'DATA_ENTRY'}
                                     onClick={() => setIsAccessModalOpen(true)}
-                                    className={`w-full h-[38px] px-4 rounded-lg border border-dashed transition-all flex items-center justify-center gap-2 font-bold text-xs ${assignedLists.size > 0
-                                        ? 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 shadow-sm'
-                                        : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'
+                                    className={`w-full h-[38px] px-4 rounded-lg border border-dashed transition-all flex items-center justify-center gap-2 font-bold text-xs ${role === 'DATA_ENTRY'
+                                        ? 'border-gray-150 bg-gray-100/55 text-gray-400 cursor-not-allowed opacity-50'
+                                        : assignedLists.size > 0
+                                            ? 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 shadow-sm'
+                                            : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'
                                         }`}
+                                    title={role === 'DATA_ENTRY' ? "Data Entry accounts do not use Rate Lists" : "Configure list access"}
                                 >
                                     <i className="fa-solid fa-key text-[10px]"></i>
-                                    Configure Lists Access {assignedLists.size > 0 && <span className="bg-blue-600 text-white px-2 py-0.5 rounded-full text-[9px] ml-1">{assignedLists.size}</span>}
+                                    Configure Lists Access {role !== 'DATA_ENTRY' && assignedLists.size > 0 && <span className="bg-blue-600 text-white px-2 py-0.5 rounded-full text-[9px] ml-1">{assignedLists.size}</span>}
                                 </button>
                             </div>
                         </div>
@@ -301,6 +305,9 @@ const ManageUsers: React.FC = () => {
                 packageLists={packageLists}
                 selectedListIds={assignedLists}
                 onToggle={handleListToggle}
+                isUserCreation={true}
+                userRole={role}
+                clientUsername={username}
             />
         </div>
     );

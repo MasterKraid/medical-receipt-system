@@ -400,7 +400,7 @@ router.post('/package-lists/:id/clone', isAdmin, (req, res) => {
             const insertStmt = db.prepare('INSERT INTO packages (name, mrp, b2b_price, code_name, package_list_id) VALUES (?, ?, ?, ?, ?)');
             
             pkgs.forEach(p => {
-                const finalB2B = Math.max(0, p.b2b_price * multiplier);
+                const finalB2B = Math.ceil(Math.max(0, p.b2b_price * multiplier));
                 insertStmt.run(p.name, p.mrp, finalB2B, p.code_name || null, targetListId);
             });
             
@@ -424,6 +424,35 @@ router.put('/packages/:id', isAdmin, (req, res) => {
     const { name, mrp, b2b_price, code_name } = req.body;
     try {
         db.prepare('UPDATE packages SET name = ?, mrp = ?, b2b_price = ?, code_name = ? WHERE id = ?').run(name, mrp, b2b_price, code_name || null, req.params.id);
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.delete('/packages/:id', isAdmin, (req, res) => {
+    try {
+        db.prepare('DELETE FROM packages WHERE id = ?').run(req.params.id);
+        res.status(204).send();
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.post('/package-lists/auto-create-client-list', isAdmin, (req, res) => {
+    const { username, labId } = req.body;
+    try {
+        const transaction = db.transaction(() => {
+            const listRun = db.prepare('INSERT INTO package_lists (name) VALUES (?)').run(username);
+            const listId = listRun.lastInsertRowid;
+            db.prepare('INSERT INTO lab_package_lists (lab_id, package_list_id) VALUES (?, ?)').run(labId, listId);
+            return listId;
+        });
+        const newListId = transaction();
+        res.status(201).json({ id: newListId, name: username });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.put('/package-lists/:id', isAdmin, (req, res) => {
+    const { name } = req.body;
+    try {
+        db.prepare('UPDATE package_lists SET name = ? WHERE id = ?').run(name, req.params.id);
         res.status(204).send();
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });

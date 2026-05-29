@@ -32,6 +32,35 @@ interface DataEntryReceipt {
   lab_name?: string;
 }
 
+const CopyableTitleField: React.FC<{ label: string; value: string }> = ({ label, value }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(value || '');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1000);
+  };
+
+  return (
+    <div
+      onClick={handleCopy}
+      className="red-glowing-box group relative p-3 rounded-xl cursor-pointer transition-all duration-150 flex flex-col justify-center items-center select-none w-24 shrink-0"
+    >
+      <div className="text-[10px] font-bold text-red-400 group-hover:text-red-500 uppercase tracking-wider leading-none mb-1 text-center">
+        {label}
+      </div>
+      <div className="red-glowing-text text-xl font-black uppercase text-center truncate w-full">
+        {value || 'N/A'}
+      </div>
+      {copied && (
+        <div className="absolute inset-x-0 -top-2 mx-auto w-max bg-red-600 text-white text-[9px] font-bold px-2.5 py-0.5 rounded shadow-lg animate-bounce z-50">
+          Copied!
+        </div>
+      )}
+    </div>
+  );
+};
+
 const CopyableField: React.FC<{ label: string; value: string; prefix?: string }> = ({ label, value, prefix }) => {
   const [copied, setCopied] = useState(false);
 
@@ -59,7 +88,7 @@ const CopyableField: React.FC<{ label: string; value: string; prefix?: string }>
           <span>{value || 'N/A'}</span>
         </div>
       </div>
-      <div className="text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0">
+      <div className="text-slate-400 group-hover:text-indigo-650 transition-colors shrink-0">
         <i className="fa-solid fa-copy text-xs"></i>
       </div>
       {copied && (
@@ -85,21 +114,13 @@ const CopyableBadge: React.FC<{ name: string; codeName?: string | null }> = ({ n
     setTimeout(() => setCopiedText(null), 1000);
   };
 
-  const handleDoubleClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering single click copies again
-    navigator.clipboard.writeText(name);
-    setCopiedText('Copied Name!');
-    setTimeout(() => setCopiedText(null), 1000);
-  };
-
   return (
     <div
       onClick={handleClick}
-      onDoubleClick={handleDoubleClick}
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
       className="group relative inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-indigo-550 hover:text-white border border-slate-200 hover:border-indigo-650 rounded-lg text-xs font-bold cursor-pointer transition-all active:scale-95 select-none"
-      title="Click to copy Code, Double-click to copy Name"
+      title="Click to copy"
     >
       <span>{name}</span>
       <i className="fa-solid fa-copy text-[10px] text-slate-400 group-hover:text-indigo-200"></i>
@@ -114,9 +135,9 @@ const CopyableBadge: React.FC<{ name: string; codeName?: string | null }> = ({ n
         <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 bg-slate-800 text-white text-[9px] font-medium p-2 rounded-lg shadow-xl z-[9999] border border-slate-750 w-40 text-center space-y-0.5 animate-in fade-in zoom-in duration-70">
           <div className="text-[7px] uppercase tracking-wider text-slate-400">Test Code</div>
           <div className="font-mono text-emerald-400 font-extrabold text-[10px] truncate pl-1 pr-1">
-            {codeName && codeName.trim() !== '' ? codeName : name}
+            {codeToCopy}
           </div>
-          <div className="text-[6.5px] text-slate-400 italic">Double-click: Copy Name</div>
+          <div className="text-[6.5px] text-slate-400 italic">Click to copy</div>
         </div>
       )}
     </div>
@@ -422,11 +443,27 @@ const DataEntryPortal: React.FC = () => {
                   Patient Credentials (Click fields to Copy)
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <CopyableField
-                    label="Patient Name"
-                    value={selectedReceipt.customer_name}
-                    prefix={selectedReceipt.prefix || undefined}
-                  />
+                  {selectedReceipt.prefix ? (
+                    <div className="flex gap-3 sm:col-span-2">
+                      <CopyableTitleField
+                        label="Title"
+                        value={selectedReceipt.prefix}
+                      />
+                      <div className="flex-grow min-w-0">
+                        <CopyableField
+                          label="Patient Name"
+                          value={selectedReceipt.customer_name}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="sm:col-span-2">
+                      <CopyableField
+                        label="Patient Name"
+                        value={selectedReceipt.customer_name}
+                      />
+                    </div>
+                  )}
                   <CopyableField label="Mobile Number" value={selectedReceipt.mobile || ''} />
                   <CopyableField label="Email Address" value={selectedReceipt.email || ''} />
                   <CopyableField label="Gender" value={selectedReceipt.gender || ''} />

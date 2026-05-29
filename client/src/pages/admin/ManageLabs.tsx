@@ -280,6 +280,19 @@ const ManageLabs: React.FC = () => {
         }
     };
 
+    const handleDeletePackage = async (packageId: number) => {
+        if (window.confirm("Are you sure you want to permanently delete this package? This cannot be undone.")) {
+            try {
+                await apiService.deletePackageFromList(packageId);
+                setPackages(prev => prev.filter(p => p.id !== packageId));
+                setOriginalPackages(prev => prev.filter(o => o.id !== packageId));
+                fetchData();
+            } catch (error) {
+                alert(`Error deleting package: ${error}`);
+            }
+        }
+    };
+
     const handleAddNewPackage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingList) return;
@@ -796,7 +809,7 @@ const ManageLabs: React.FC = () => {
                                         <th className="p-2 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-200">Package Name</th>
                                         <th className="p-2 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest w-24 border-b border-gray-200">MRP</th>
                                         <th className="p-2 text-left text-[10px] font-bold text-gray-500 uppercase tracking-widest w-24 border-b border-gray-200">B2B Price</th>
-                                        <th className="p-2 text-right text-[10px] font-bold text-gray-500 uppercase tracking-widest pr-4 border-b border-gray-200">Save</th>
+                                        <th className="p-2 text-center text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-200">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
@@ -825,10 +838,15 @@ const ManageLabs: React.FC = () => {
                                                     <input type="number" value={pkg.b2b_price} onChange={e => handlePackageChange(pkg.id, 'b2b_price', Number(e.target.value))} className="w-full p-1.5 pl-4 bg-transparent border-b border-transparent focus:border-yellow-400 outline-none text-blue-700 font-bold text-sm" />
                                                 </div>
                                             </td>
-                                            <td className="p-1 text-right pr-4">
-                                                <button onClick={() => handleSavePackage(pkg)} className="w-7 h-7 flex items-center justify-center bg-gray-50 text-gray-400 hover:bg-blue-600 hover:text-white rounded border border-gray-100 transition-all mx-auto" title="Save Product">
-                                                    <i className="fa-solid fa-floppy-disk text-[10px]"></i>
-                                                </button>
+                                            <td className="p-1 text-center">
+                                                <div className="flex items-center gap-1.5 justify-center">
+                                                    <button onClick={() => handleSavePackage(pkg)} className="w-7 h-7 flex items-center justify-center bg-gray-50 text-gray-400 hover:bg-blue-600 hover:text-white rounded border border-gray-100 transition-all shrink-0" title="Save Product">
+                                                        <i className="fa-solid fa-floppy-disk text-[10px]"></i>
+                                                    </button>
+                                                    <button onClick={() => handleDeletePackage(pkg.id)} className="w-7 h-7 flex items-center justify-center bg-gray-50 text-gray-400 hover:bg-red-600 hover:text-white rounded border border-gray-100 transition-all shrink-0 animate-none" title="Delete Product">
+                                                        <i className="fa-solid fa-trash-can text-[10px]"></i>
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}

@@ -178,6 +178,9 @@ export const apiService = {
   clonePackageList: (id: number, sourceListId: number, discountPercent: number, markupPercent: number): Promise<{ message: string }> => apiFetch(`/package-lists/${id}/clone`, { method: 'POST', body: JSON.stringify({ sourceListId, discountPercent, markupPercent }) }),
   addPackageToList: (pkgData: Omit<Package, 'id'>): Promise<Package> => apiFetch('/packages', { method: 'POST', body: JSON.stringify(pkgData) }),
   updatePackageInList: (pkgData: Package): Promise<void> => apiFetch(`/packages/${pkgData.id}`, { method: 'PUT', body: JSON.stringify(pkgData) }),
+  deletePackageFromList: (packageId: number): Promise<void> => apiFetch(`/packages/${packageId}`, { method: 'DELETE' }),
+  autoCreateClientList: (username: string, labId: number): Promise<{ id: number; name: string }> => apiFetch('/package-lists/auto-create-client-list', { method: 'POST', body: JSON.stringify({ username, labId }) }),
+  updatePackageListName: (id: number, name: string): Promise<void> => apiFetch(`/package-lists/${id}`, { method: 'PUT', body: JSON.stringify({ name }) }),
 
   // --- Admin: Wallet Management ---
   updateWallet: (clientId: number, action: 'add' | 'deduct' | 'settle', amount?: number, notes?: string): Promise<void> => apiFetch('/wallets/update', { method: 'PUT', body: JSON.stringify({ clientId, action, amount, notes }) }),
