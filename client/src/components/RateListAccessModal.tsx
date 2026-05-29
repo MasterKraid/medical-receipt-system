@@ -33,6 +33,34 @@ const RateListAccessModal: React.FC<RateListAccessModalProps> = ({
     const [createdListId, setCreatedListId] = useState<number | null>(null);
     const [isSavingSync, setIsSavingSync] = useState(false);
 
+    const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        if (!isOpen) return;
+
+        let toggle = true;
+        const interval = setInterval(() => {
+            if (scrollContainerRef.current) {
+                scrollContainerRef.current.scrollBy({ left: toggle ? 1 : -1 });
+                toggle = !toggle;
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [isOpen]);
+
+    const scrollLeft = () => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollBy({ left: -260, behavior: 'smooth' });
+        }
+    };
+
+    const scrollRight = () => {
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollBy({ left: 260, behavior: 'smooth' });
+        }
+    };
+
     const columns = useMemo(() => {
         const assignedToListIds = new Set<number>();
         const labGroups: { labName: string; lists: PackageList[] }[] = [];
@@ -187,56 +215,86 @@ const RateListAccessModal: React.FC<RateListAccessModalProps> = ({
                     </button>
                 </div>
 
-                {/* Content - Horizontal Scrollable Columns */}
-                <div className="flex-1 overflow-x-scroll overflow-y-hidden p-4 bg-white scrollbar-thin max-h-[60vh]">
-                    <div className="flex gap-4 min-h-[380px] h-[50vh] min-w-max pb-4">
-                        {columns.map((col, idx) => (
-                            <div key={idx} className="w-64 flex flex-col border border-gray-200 rounded-lg bg-gray-50 shadow-sm overflow-hidden shrink-0">
-                                <div 
-                                    onClick={() => handleHeaderClick(col.lists)}
-                                    className="p-2 border-b border-gray-200 bg-white sticky top-0 z-10 flex justify-between items-center cursor-pointer hover:bg-slate-50 transition-colors select-none"
-                                    title="Click to automatically select Mother Ratelist"
-                                >
-                                    <h3 className="font-bold text-gray-700 text-xs truncate flex items-center gap-1.5">
-                                        <i className={`fa-solid ${col.labName === 'Unassigned Lists' ? 'fa-folder-open text-orange-400' : 'fa-flask-vial text-blue-500'} text-[10px]`}></i>
-                                        {col.labName}
-                                    </h3>
-                                    <span className="text-[9px] font-black text-gray-300 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
-                                        {col.lists.length}
-                                    </span>
-                                </div>
-                                <div className="flex-1 overflow-y-scroll p-1.5 space-y-1 custom-scrollbar-minimal">
-                                    {col.lists.map(list => {
-                                        const isSelected = selectedListIds.has(list.id);
-                                        const isMother = list.name.endsWith(' Mother Ratelist');
-                                        return (
-                                            <div
-                                                key={list.id}
-                                                onClick={() => handleItemClick(list)}
-                                                className={`group flex items-center justify-between px-2.5 py-1.5 rounded cursor-pointer transition-all border text-xs ${isSelected
-                                                    ? 'bg-blue-600 border-blue-700 text-white shadow-sm'
-                                                    : 'bg-white border-gray-100 hover:border-gray-300 text-gray-600'
-                                                    }`}
-                                            >
-                                                <div className="flex items-center gap-2 truncate">
-                                                    <div className={`w-4 h-4 rounded-sm border flex items-center justify-center transition-all ${isSelected ? 'bg-white border-white text-blue-600' : 'bg-white border-gray-300'
-                                                        }`}>
-                                                        {isSelected && <i className="fa-solid fa-check text-[8px]"></i>}
+                {/* Content - Horizontal Scrollable Columns Wrapper */}
+                <div className="flex-1 relative flex flex-col overflow-hidden bg-white min-h-[400px] h-[52vh]">
+                    {/* Left Scroll Navigation Button */}
+                    <button 
+                        type="button"
+                        onClick={scrollLeft}
+                        className="absolute left-3 top-[40%] -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 text-white shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95 border border-slate-700 backdrop-blur-sm opacity-80 hover:opacity-100"
+                        title="Scroll Left"
+                    >
+                        <i className="fa-solid fa-chevron-left text-sm"></i>
+                    </button>
+
+                    <div 
+                        ref={scrollContainerRef}
+                        onWheel={(e) => {
+                            if (e.deltaY !== 0) {
+                                e.currentTarget.scrollLeft += e.deltaY;
+                            }
+                        }}
+                        className="w-full h-full overflow-x-scroll overflow-y-hidden p-4 scrollbar-thin"
+                    >
+                        <div className="flex gap-4 h-full min-w-max pb-4">
+                            {columns.map((col, idx) => (
+                                <div key={idx} className="w-64 flex flex-col border border-gray-200 rounded-lg bg-gray-50 shadow-sm overflow-hidden shrink-0">
+                                    <div 
+                                        onClick={() => handleHeaderClick(col.lists)}
+                                        className="p-2 border-b border-gray-200 bg-white sticky top-0 z-10 flex justify-between items-center cursor-pointer hover:bg-slate-50 transition-colors select-none"
+                                        title="Click to automatically select Mother Ratelist"
+                                    >
+                                        <h3 className="font-bold text-gray-700 text-xs truncate flex items-center gap-1.5">
+                                            <i className={`fa-solid ${col.labName === 'Unassigned Lists' ? 'fa-folder-open text-orange-400' : 'fa-flask-vial text-blue-500'} text-[10px]`}></i>
+                                            {col.labName}
+                                        </h3>
+                                        <span className="text-[9px] font-black text-gray-300 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
+                                            {col.lists.length}
+                                        </span>
+                                    </div>
+                                    <div className="flex-1 overflow-y-scroll p-1.5 space-y-1 custom-scrollbar-minimal">
+                                        {col.lists.map(list => {
+                                            const isSelected = selectedListIds.has(list.id);
+                                            const isMother = list.name.endsWith(' Mother Ratelist') || list.name.toLowerCase().includes('mother');
+                                            return (
+                                                <div
+                                                    key={list.id}
+                                                    onClick={() => handleItemClick(list)}
+                                                    className={`group flex items-center justify-between px-2.5 py-1.5 rounded cursor-pointer transition-all border text-xs ${isSelected
+                                                        ? 'bg-blue-600 border-blue-700 text-white shadow-sm'
+                                                        : 'bg-white border-gray-100 hover:border-gray-300 text-gray-600'
+                                                        }`}
+                                                >
+                                                    <div className="flex items-center gap-2 truncate">
+                                                        <div className={`w-4 h-4 rounded-sm border flex items-center justify-center transition-all ${isSelected ? 'bg-white border-white text-blue-600' : 'bg-white border-gray-300'
+                                                            }`}>
+                                                            {isSelected && <i className="fa-solid fa-check text-[8px]"></i>}
+                                                        </div>
+                                                        <span className="font-semibold truncate">{list.name}</span>
                                                     </div>
-                                                    <span className="font-semibold truncate">{list.name}</span>
+                                                    {isMother && (
+                                                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold border leading-none ${isSelected ? 'bg-blue-500 text-white border-blue-400' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                                                            Mother
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                {isMother && (
-                                                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold border leading-none ${isSelected ? 'bg-blue-500 text-white border-blue-400' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
-                                                        Mother
-                                                    </span>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
+
+                    {/* Right Scroll Navigation Button */}
+                    <button 
+                        type="button"
+                        onClick={scrollRight}
+                        className="absolute right-3 top-[40%] -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 text-white shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95 border border-slate-700 backdrop-blur-sm opacity-80 hover:opacity-100"
+                        title="Scroll Right"
+                    >
+                        <i className="fa-solid fa-chevron-right text-sm"></i>
+                    </button>
                 </div>
 
                 {/* Footer */}
