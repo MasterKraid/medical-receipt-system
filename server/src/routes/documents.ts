@@ -578,12 +578,13 @@ router.get('/reports/pending-alarm', isAuthenticated, (req, res) => {
         return res.status(403).json({ message: "Forbidden" });
     }
     try {
-        // Find all receipts where customer doesn't have an uploaded lab report
+        // Find all receipts where customer doesn't have an uploaded lab report and alarm is not dismissed
         const pendingReceipts = db.prepare(`
             SELECT r.id, r.created_at, c.name as customer_name, c.id as customer_id
             FROM receipts r
             JOIN customers c ON c.id = r.customer_id
-            WHERE r.customer_id NOT IN (SELECT customer_id FROM lab_reports WHERE customer_id IS NOT NULL)
+            WHERE r.alarm_done = 0
+              AND r.customer_id NOT IN (SELECT customer_id FROM lab_reports WHERE customer_id IS NOT NULL)
         `).all() as any[];
 
         let warningCount = 0; // Day 2 (24h - 48h)
@@ -625,6 +626,20 @@ router.get('/reports/pending-alarm', isAuthenticated, (req, res) => {
             criticalList: criticalList.slice(0, 5) // Return top 5 longest pending
         });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
+});
+
+router.post('/reports/dismiss-alarm/:id', isAuthenticated, (req, res) => {
+    const user = (req.session as any).user as User;
+    if (user.role !== 'ADMIN' && user.role !== 'GENERAL_EMPLOYEE' && user.role !== 'DATA_ENTRY') {
+        return res.status(403).json({ message: "Forbidden" });
+    }
+    const receiptId = parseInt(req.params.id);
+    try {
+        db.prepare('UPDATE receipts SET alarm_done = 1 WHERE id = ?').run(receiptId);
+        res.json({ success: true, message: "Alarm marked as done." });
+    } catch (e: any) {
+        res.status(500).json({ message: e.message });
+    }
 });
 
 export default router;

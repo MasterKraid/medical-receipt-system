@@ -15,18 +15,27 @@ const UserDashboard: React.FC = () => {
         const unreadCount = reports.filter(r => !r.is_read).length;
         setUnreadReports(unreadCount);
         if (unreadCount > 0) {
-          sendLocalNotification('New Lab Reports Available!', {
-            body: `You have ${unreadCount} new processed lab reports ready to review and download.`,
-            tag: 'new-lab-reports-alert'
-          });
+          const lastReportCountKey = 'notified_unread_reports_count';
+          const lastReportCount = sessionStorage.getItem(lastReportCountKey);
+          if (lastReportCount !== unreadCount.toString()) {
+            sendLocalNotification('New Lab Reports Available!', {
+              body: `You have ${unreadCount} new processed lab reports ready to review and download.`,
+              tag: 'new-lab-reports-alert'
+            });
+            sessionStorage.setItem(lastReportCountKey, unreadCount.toString());
+          }
         }
       }).catch(console.error);
 
       if (typeof user.wallet_balance !== 'undefined' && user.wallet_balance < 1000) {
-        sendLocalNotification('Low Wallet Balance Alert', {
-          body: `Your current wallet balance is ₹${user.wallet_balance.toFixed(2)}. Please settle/recharge to avoid download blocks.`,
-          tag: 'low-wallet-balance-alert'
-        });
+        const lastWalletNotifyKey = 'notified_low_wallet_balance';
+        if (!sessionStorage.getItem(lastWalletNotifyKey)) {
+          sendLocalNotification('Low Wallet Balance Alert', {
+            body: `Your current wallet balance is ₹${user.wallet_balance.toFixed(2)}. Please settle/recharge to avoid download blocks.`,
+            tag: 'low-wallet-balance-alert'
+          });
+          sessionStorage.setItem(lastWalletNotifyKey, 'true');
+        }
       }
     }
   }, [user]);

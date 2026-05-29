@@ -13,16 +13,29 @@ const AdminDashboard: React.FC = () => {
         apiService.getPendingReportAlarms()
             .then(data => {
                 setAlarms(data);
+                
+                const notifiedKey = 'has_notified_pending_reports_alarm';
+                const lastCountKey = 'notified_pending_reports_alarm_count';
+                const lastCount = sessionStorage.getItem(lastCountKey);
+
                 if (data.alarmCount > 0) {
-                    sendLocalNotification('Critical Pending Reports!', {
-                        body: `You have ${data.alarmCount} reports pending for more than 3 days. Please inspect and upload!`,
-                        tag: 'pending-reports-alarm'
-                    });
+                    if (!sessionStorage.getItem(notifiedKey) || lastCount !== data.alarmCount.toString()) {
+                        sendLocalNotification('Critical Pending Reports!', {
+                            body: `You have ${data.alarmCount} reports pending for more than 3 days. Please inspect and upload!`,
+                            tag: 'pending-reports-alarm'
+                        });
+                        sessionStorage.setItem(notifiedKey, 'true');
+                        sessionStorage.setItem(lastCountKey, data.alarmCount.toString());
+                    }
                 } else if (data.warningCount > 0) {
-                    sendLocalNotification('Pending Reports Warning', {
-                        body: `You have ${data.warningCount} reports pending for 2 days.`,
-                        tag: 'pending-reports-warning'
-                    });
+                    if (!sessionStorage.getItem(notifiedKey) || lastCount !== `w${data.warningCount}`) {
+                        sendLocalNotification('Pending Reports Warning', {
+                            body: `You have ${data.warningCount} reports pending for 2 days.`,
+                            tag: 'pending-reports-warning'
+                        });
+                        sessionStorage.setItem(notifiedKey, 'true');
+                        sessionStorage.setItem(lastCountKey, `w${data.warningCount}`);
+                    }
                 }
             })
             .catch(console.error);

@@ -32,7 +32,7 @@ interface DataEntryReceipt {
   lab_name?: string;
 }
 
-const CopyableField: React.FC<{ label: string; value: string }> = ({ label, value }) => {
+const CopyableField: React.FC<{ label: string; value: string; prefix?: string }> = ({ label, value, prefix }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -50,8 +50,13 @@ const CopyableField: React.FC<{ label: string; value: string }> = ({ label, valu
         <div className="text-[10px] font-bold text-slate-400 group-hover:text-indigo-550 uppercase tracking-wider leading-none mb-1">
           {label}
         </div>
-        <div className="text-sm font-semibold text-slate-700 group-hover:text-indigo-900 truncate leading-tight select-none">
-          {value || 'N/A'}
+        <div className="text-sm font-semibold text-slate-700 group-hover:text-indigo-900 truncate leading-tight select-none flex items-center">
+          {prefix && (
+            <span className="text-red-750 font-black mr-1.5 shrink-0 uppercase tracking-wide" style={{ color: '#991b1b', fontWeight: 900 }}>
+              {prefix}
+            </span>
+          )}
+          <span>{value || 'N/A'}</span>
         </div>
       </div>
       <div className="text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0">
@@ -192,21 +197,27 @@ const DataEntryPortal: React.FC = () => {
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block pl-1">
               Select Processing Laboratory
             </label>
-            <div className="flex flex-wrap gap-2.5 p-2.5 bg-slate-50 border border-slate-200 rounded-2xl">
-              {labs.map((lab) => (
-                <button
-                  key={lab.id}
-                  onClick={() => setSelectedLabId(lab.id.toString())}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${
-                    selectedLabId === lab.id.toString()
-                      ? 'bg-indigo-650 text-white border-indigo-750 shadow-md shadow-indigo-100 scale-[1.01]'
-                      : 'bg-white text-slate-650 border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  <i className="fa-solid fa-flask mr-1.5 text-[10px]"></i>
-                  {lab.name}
-                </button>
-              ))}
+            <div className="flex flex-nowrap overflow-x-auto gap-2.5 p-2.5 bg-slate-50 border border-slate-200 rounded-2xl scrollbar-thin">
+              {labs.map((lab) => {
+                const hasPending = receipts.some(r => r.lab_id === lab.id && r.data_entry_done === 0);
+                return (
+                  <button
+                    key={lab.id}
+                    onClick={() => setSelectedLabId(lab.id.toString())}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border shrink-0 flex items-center gap-1.5 ${
+                      selectedLabId === lab.id.toString()
+                        ? 'bg-indigo-600 text-white border-indigo-700 shadow-md shadow-indigo-100 scale-[1.01]'
+                        : 'bg-white text-slate-650 border-slate-200 hover:bg-slate-50 hover:text-slate-800'
+                    }`}
+                  >
+                    <i className="fa-solid fa-flask text-[10px]"></i>
+                    <span>{lab.name}</span>
+                    {hasPending && (
+                      <i className="fa-solid fa-circle-exclamation text-red-500 animate-pulse text-xs" title="Pending data entry exists"></i>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -386,9 +397,8 @@ const DataEntryPortal: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <CopyableField
                     label="Patient Name"
-                    value={`${selectedReceipt.prefix ? selectedReceipt.prefix + ' ' : ''}${
-                      selectedReceipt.customer_name
-                    }`}
+                    value={selectedReceipt.customer_name}
+                    prefix={selectedReceipt.prefix || undefined}
                   />
                   <CopyableField label="Mobile Number" value={selectedReceipt.mobile || ''} />
                   <CopyableField label="Email Address" value={selectedReceipt.email || ''} />

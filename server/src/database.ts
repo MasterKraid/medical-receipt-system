@@ -314,6 +314,50 @@ const schema = `
 export function initDb() {
     db.exec(schema);
 
+    // Alter table to add alarm_done column if not present
+    try {
+        db.exec("ALTER TABLE receipts ADD COLUMN alarm_done BOOLEAN NOT NULL DEFAULT 0;");
+        console.log("Added alarm_done column to receipts table successfully.");
+    } catch (e) {
+        // Ignored if column already exists
+    }
+
+    // One-time run to mark previous day 3+ critical alarms as done to prevent spam
+    try {
+        const now = new Date();
+        const pending = db.prepare(`
+            SELECT r.id, r.created_at 
+            FROM receipts r
+            WHERE r.alarm_done = 0 
+              AND r.customer_id NOT IN (SELECT customer_id FROM lab_reports WHERE customer_id IS NOT NULL)
+        `).all() as any[];
+
+        const updateStmt = db.prepare('UPDATE receipts SET alarm_done = 1 WHERE id = ?');
+        let count = 0;
+        pending.forEach(r => {
+            try {
+                const datePart = r.created_at.split(' | ')[0]; // "DD/MM/YYYY"
+                const [d, m, y] = datePart.split('/').map(Number);
+                const createdDate = new Date(y, m - 1, d);
+                
+                const msDiff = now.getTime() - createdDate.getTime();
+                const daysDiff = Math.floor(msDiff / (1000 * 3600 * 24));
+                
+                if (daysDiff >= 2) { // 3rd day onwards (Day 3+ critical alarm)
+                    updateStmt.run(r.id);
+                    count++;
+                }
+            } catch (err) {
+                // Ignore parse errors
+            }
+        });
+        if (count > 0) {
+            console.log(`Marked ${count} existing Day 3+ critical alarms as done in the database.`);
+        }
+    } catch (err) {
+        console.error("Failed to mark existing alarms as done:", err);
+    }
+
     // Seeding data (only if tables are empty)
     const transaction = db.transaction(() => {
         // Check if admin user exists

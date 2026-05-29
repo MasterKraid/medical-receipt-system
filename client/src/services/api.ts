@@ -133,6 +133,7 @@ export const apiService = {
   updateDataEntryStatus: (id: number, isDone: boolean): Promise<void> => apiFetch(`/receipts/${id}/data-entry`, { method: 'PUT', body: JSON.stringify({ isDone }) }),
   getClientAnalysis: (): Promise<any> => apiFetch('/client/analysis'),
   getPendingReportAlarms: (): Promise<{ warningCount: number; alarmCount: number; criticalList: any[] }> => apiFetch('/reports/pending-alarm'),
+  dismissPendingAlarm: (id: number): Promise<{ success: boolean; message: string }> => apiFetch(`/reports/dismiss-alarm/${id}`, { method: 'POST' }),
   getSystemStatus: (): Promise<any> => apiFetch('/admin/system-status'),
 
 

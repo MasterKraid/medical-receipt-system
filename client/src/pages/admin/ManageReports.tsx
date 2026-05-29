@@ -272,21 +272,58 @@ const ManageReports: React.FC = () => {
 
                 {/* Dismissible Pending Reports Alarm Warning Banner */}
                 {!dismissedAlarms && alarms && (alarms.alarmCount > 0 || alarms.warningCount > 0) && (
-                    <div className="bg-red-50 border border-red-200 p-4 mb-6 rounded-xl flex items-start justify-between gap-3 text-slate-800 shadow-sm">
-                        <div className="flex items-start gap-3 text-xs">
-                            <i className="fa-solid fa-circle-exclamation text-red-600 text-xl shrink-0 mt-0.5 animate-pulse"></i>
-                            <div>
-                                <span className="font-bold text-red-800 text-sm block mb-1">Pending Lab Reports Warning!</span>
-                                There are <strong className="text-red-700">{alarms.warningCount} Day-2 Reminders</strong> and <strong className="text-red-800 font-black">{alarms.alarmCount} Day-3+ Critical Alarms</strong> pending upload. Please upload report PDFs immediately.
+                    <div className="bg-red-50 border border-red-200 p-4 mb-6 rounded-xl space-y-3 text-slate-800 shadow-sm animate-in fade-in">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3 text-xs">
+                                <i className="fa-solid fa-circle-exclamation text-red-600 text-xl shrink-0 mt-0.5 animate-pulse"></i>
+                                <div>
+                                    <span className="font-bold text-red-800 text-sm block mb-1">Pending Lab Reports Warning!</span>
+                                    There are <strong className="text-red-700">{alarms.warningCount} Day-2 Reminders</strong> and <strong className="text-red-800 font-black">{alarms.alarmCount} Day-3+ Critical Alarms</strong> pending upload.
+                                </div>
                             </div>
+                            <button
+                                onClick={dismissAlarmBanner}
+                                className="text-slate-400 hover:text-slate-800 font-bold shrink-0 transition-colors px-1 animate-pulse"
+                                title="Dismiss banner for session"
+                            >
+                                <i className="fa-solid fa-times text-xs"></i>
+                            </button>
                         </div>
-                        <button
-                            onClick={dismissAlarmBanner}
-                            className="text-slate-400 hover:text-slate-800 font-bold shrink-0 transition-colors px-1"
-                            title="Dismiss for session"
-                        >
-                            <i className="fa-solid fa-times text-xs"></i>
-                        </button>
+                        {alarms.criticalList && alarms.criticalList.length > 0 && (
+                            <div className="bg-white/80 border border-red-100 rounded-xl p-3 space-y-2 text-xs">
+                                <span className="font-bold text-[10px] text-red-700 uppercase tracking-wider block">Top Critical Pending (3+ Days):</span>
+                                <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
+                                    {alarms.criticalList.map((item: any) => (
+                                        <div key={item.id} className="flex justify-between items-center bg-red-50/40 p-2 rounded-lg border border-red-50 gap-4">
+                                            <div className="min-w-0 flex-1">
+                                                <span className="font-bold text-slate-700">{item.customer_name}</span>{" "}
+                                                <span className="text-[10px] text-slate-500 font-mono">({item.display_doc_id})</span>
+                                                <span className="text-[10px] bg-red-100 text-red-800 font-bold px-1.5 py-0.5 rounded-full ml-2">
+                                                    {item.days_pending} Days Pending
+                                                </span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    try {
+                                                        await apiService.dismissPendingAlarm(item.id);
+                                                        // Refresh alarms list
+                                                        const freshData = await apiService.getPendingReportAlarms();
+                                                        setAlarms(freshData);
+                                                    } catch (err) {
+                                                        alert("Failed to dismiss alarm");
+                                                    }
+                                                }}
+                                                className="px-2 py-0.5 bg-red-650 hover:bg-red-700 text-white rounded font-bold text-[9px] uppercase tracking-wider transition-colors shrink-0 flex items-center gap-1 shadow-sm"
+                                                title="Mark this alarm as done"
+                                            >
+                                                <i className="fa-solid fa-check text-[8px]"></i> Done
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
