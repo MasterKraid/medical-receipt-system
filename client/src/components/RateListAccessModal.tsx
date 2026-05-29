@@ -40,6 +40,13 @@ const RateListAccessModal: React.FC<RateListAccessModalProps> = ({
         // Group by labs
         labs.forEach(lab => {
             const lists = packageLists.filter(pl => lab.assigned_list_ids?.includes(pl.id));
+            lists.sort((a, b) => {
+                const aIsMother = a.name.endsWith(' Mother Ratelist') || a.name.toLowerCase().includes('mother');
+                const bIsMother = b.name.endsWith(' Mother Ratelist') || b.name.toLowerCase().includes('mother');
+                if (aIsMother && !bIsMother) return -1;
+                if (!aIsMother && bIsMother) return 1;
+                return a.name.localeCompare(b.name);
+            });
             lists.forEach(l => assignedToListIds.add(l.id));
             if (lists.length > 0) {
                 labGroups.push({ labName: lab.name, lists });
@@ -58,18 +65,18 @@ const RateListAccessModal: React.FC<RateListAccessModalProps> = ({
     const isClientCreation = isUserCreation && userRole === 'CLIENT';
     const selectedListId = Array.from(selectedListIds)[0];
     const selectedListObj = packageLists.find(pl => pl.id === selectedListId);
-    const isSelectedMother = selectedListObj?.name.endsWith(' Mother Ratelist');
+    const isSelectedMother = selectedListObj?.name.endsWith(' Mother Ratelist') || selectedListObj?.name.toLowerCase().includes('mother');
     const showNextButton = isClientCreation && isSelectedMother;
 
     const handleItemClick = (list: PackageList) => {
-        const isMother = list.name.endsWith(' Mother Ratelist');
+        const isMother = list.name.endsWith(' Mother Ratelist') || list.name.toLowerCase().includes('mother');
 
         if (isClientCreation) {
             // Physically restrict selection to a single list
             const currentListIds = Array.from(selectedListIds);
             if (currentListIds.length > 0 && !selectedListIds.has(list.id)) {
-                alert("select multi ratelist via editing after ratelist creation");
-                return;
+                // Smoothly switch single selection by clearing the previous choice
+                currentListIds.forEach(id => onToggle(id));
             }
             onToggle(list.id);
         } else {
@@ -81,6 +88,19 @@ const RateListAccessModal: React.FC<RateListAccessModalProps> = ({
                 }
             }
             onToggle(list.id);
+        }
+    };
+
+    const handleHeaderClick = (colLists: PackageList[]) => {
+        const motherList = colLists.find(l => l.name.endsWith(' Mother Ratelist') || l.name.toLowerCase().includes('mother'));
+        if (motherList) {
+            if (!selectedListIds.has(motherList.id)) {
+                if (isClientCreation) {
+                    const currentListIds = Array.from(selectedListIds);
+                    currentListIds.forEach(id => onToggle(id));
+                }
+                handleItemClick(motherList);
+            }
         }
     };
 
@@ -168,11 +188,15 @@ const RateListAccessModal: React.FC<RateListAccessModalProps> = ({
                 </div>
 
                 {/* Content - Horizontal Scrollable Columns */}
-                <div className="flex-1 overflow-x-auto overflow-y-hidden p-4 bg-white">
-                    <div className="flex gap-4 h-full min-w-max">
+                <div className="flex-1 overflow-x-scroll overflow-y-hidden p-4 bg-white scrollbar-thin max-h-[60vh]">
+                    <div className="flex gap-4 min-h-[380px] h-[50vh] min-w-max pb-4">
                         {columns.map((col, idx) => (
-                            <div key={idx} className="w-64 flex flex-col border border-gray-200 rounded-lg bg-gray-50 shadow-sm overflow-hidden">
-                                <div className="p-2 border-b border-gray-200 bg-white sticky top-0 z-10 flex justify-between items-center">
+                            <div key={idx} className="w-64 flex flex-col border border-gray-200 rounded-lg bg-gray-50 shadow-sm overflow-hidden shrink-0">
+                                <div 
+                                    onClick={() => handleHeaderClick(col.lists)}
+                                    className="p-2 border-b border-gray-200 bg-white sticky top-0 z-10 flex justify-between items-center cursor-pointer hover:bg-slate-50 transition-colors select-none"
+                                    title="Click to automatically select Mother Ratelist"
+                                >
                                     <h3 className="font-bold text-gray-700 text-xs truncate flex items-center gap-1.5">
                                         <i className={`fa-solid ${col.labName === 'Unassigned Lists' ? 'fa-folder-open text-orange-400' : 'fa-flask-vial text-blue-500'} text-[10px]`}></i>
                                         {col.labName}
@@ -181,7 +205,7 @@ const RateListAccessModal: React.FC<RateListAccessModalProps> = ({
                                         {col.lists.length}
                                     </span>
                                 </div>
-                                <div className="flex-1 overflow-y-auto p-1.5 space-y-1 custom-scrollbar-minimal">
+                                <div className="flex-1 overflow-y-scroll p-1.5 space-y-1 custom-scrollbar-minimal">
                                     {col.lists.map(list => {
                                         const isSelected = selectedListIds.has(list.id);
                                         const isMother = list.name.endsWith(' Mother Ratelist');

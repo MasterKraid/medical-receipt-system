@@ -39,6 +39,18 @@ const ManageLabs: React.FC = () => {
     const [quickAddListName, setQuickAddListName] = useState<Record<number, string>>({});
     const [quickAssignListId, setQuickAssignListId] = useState<Record<number, string>>({});
 
+    const handleExpandLab = (labId: number | null) => {
+        setExpandedLabId(labId);
+        if (labId !== null) {
+            setTimeout(() => {
+                const element = document.getElementById(`lab-accordion-${labId}`);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
+        }
+    };
+
     useEffect(() => {
         fetchData();
     }, []);
@@ -459,9 +471,13 @@ const ManageLabs: React.FC = () => {
                                     const labLists = allLists.filter(l => lab.assigned_list_ids?.includes(l.id));
 
                                     return (
-                                        <div key={lab.id} className="border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:border-gray-350 transition-all bg-white">
+                                        <div 
+                                            key={lab.id} 
+                                            id={`lab-accordion-${lab.id}`}
+                                            className="border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:border-gray-350 transition-all bg-white"
+                                        >
                                             {/* Lab Card Header */}
-                                            <div className="p-4 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-gray-100 cursor-pointer" onClick={() => setExpandedLabId(isExpanded ? null : lab.id)}>
+                                            <div className="p-4 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-gray-100 cursor-pointer" onClick={() => handleExpandLab(isExpanded ? null : lab.id)}>
                                                 <div className="flex items-center gap-4 w-full sm:w-auto">
                                                     {/* Logo Uploader */}
                                                     <div className="relative group/logo w-24 h-12 bg-white rounded border border-gray-200 overflow-hidden flex items-center justify-center p-1 shadow-sm shrink-0">
@@ -514,7 +530,7 @@ const ManageLabs: React.FC = () => {
                                                     <button onClick={() => openSyncModal(lab)} className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded border border-blue-100 text-xs font-bold hover:bg-blue-600 hover:text-white transition-all shadow-sm">
                                                         <i className="fa-solid fa-link mr-1"></i> Sync/Assign
                                                     </button>
-                                                    <button onClick={() => setExpandedLabId(isExpanded ? null : lab.id)} className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-gray-150 rounded border border-gray-100 transition-all shadow-sm">
+                                                    <button onClick={() => handleExpandLab(isExpanded ? null : lab.id)} className="w-8 h-8 flex items-center justify-center bg-gray-50 text-gray-500 hover:bg-gray-150 rounded border border-gray-100 transition-all shadow-sm">
                                                         <i className={`fa-solid ${isExpanded ? 'fa-angle-up' : 'fa-angle-down'} text-sm`}></i>
                                                     </button>
                                                     <button onClick={() => handleDeleteLab(lab.id)} className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded border border-red-100 transition-all shadow-sm" title="Decommission Laboratory">
@@ -525,12 +541,14 @@ const ManageLabs: React.FC = () => {
 
                                             {/* Expanded Accordion Panel */}
                                             {isExpanded && (
-                                                <div className="p-5 border-t border-gray-100 bg-slate-50/50 space-y-6">
-                                                    <div>
-                                                        <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                                                            <i className="fa-solid fa-layer-group text-slate-400"></i>
-                                                            Assigned Rate Databases
-                                                        </h4>
+                                                <div className="p-5 border-t border-gray-200 bg-gray-100/70 space-y-6">
+                                                    <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl bg-white shadow-sm space-y-4">
+                                                        <legend className="px-3 flex items-center gap-2">
+                                                            <div className="w-7 h-7 rounded bg-slate-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                                                                <i className="fa-solid fa-layer-group text-xs"></i>
+                                                            </div>
+                                                            <span className="text-sm font-bold text-gray-800 uppercase tracking-tight">Assigned Rate Databases</span>
+                                                        </legend>
 
                                                         {labLists.length === 0 ? (
                                                             <div className="p-6 bg-white border border-gray-150 rounded-xl text-center text-gray-400 italic text-xs">
@@ -612,7 +630,7 @@ const ManageLabs: React.FC = () => {
                                                                 })}
                                                             </div>
                                                         )}
-                                                    </div>
+                                                    </fieldset>
 
                                                     {/* Assign / Spin Up Controls */}
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-200">
