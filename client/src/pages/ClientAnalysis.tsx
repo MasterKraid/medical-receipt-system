@@ -6,6 +6,7 @@ interface ClientStats {
   total_orders: number;
   total_spend: number;
   total_savings: number;
+  total_profit: number;
   wallet_balance: number;
 }
 
@@ -78,7 +79,7 @@ const ClientAnalysis: React.FC = () => {
         ) : (
           <div className="space-y-6">
             {/* KPI Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {/* Card 1: Wallet Balance */}
               <div className="bg-indigo-50 border border-indigo-150 p-5 rounded-2xl flex flex-col justify-between relative overflow-hidden group shadow-sm hover:scale-[1.01] transition-transform duration-200">
                 <div className="absolute right-3 top-3 opacity-15 text-indigo-600 group-hover:scale-110 transition-transform duration-200">
@@ -107,7 +108,7 @@ const ClientAnalysis: React.FC = () => {
                   ₹{(stats?.total_spend || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </span>
                 <div className="text-[9px] font-semibold text-blue-500 leading-none mt-3">
-                  Lifetime business volume spent
+                  Actual wallet deductions (B2B cost)
                 </div>
               </div>
 
@@ -139,7 +140,23 @@ const ClientAnalysis: React.FC = () => {
                   ₹{(stats?.total_savings || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </span>
                 <div className="text-[9px] font-semibold text-amber-500 leading-none mt-3">
-                  Saved vs Retail MRP
+                  Saved vs Walk-in Retail MRP
+                </div>
+              </div>
+
+              {/* Card 5: Franchisee Earning */}
+              <div className="bg-purple-50 border border-purple-150 p-5 rounded-2xl flex flex-col justify-between relative overflow-hidden group shadow-sm hover:scale-[1.01] transition-transform duration-200">
+                <div className="absolute right-3 top-3 opacity-15 text-purple-600 group-hover:scale-110 transition-transform duration-200">
+                  <i className="fa-solid fa-sack-dollar text-3xl"></i>
+                </div>
+                <span className="text-[10px] font-bold text-purple-600 uppercase tracking-widest leading-none mb-2 block">
+                  Franchisee Profit
+                </span>
+                <span className="text-2xl font-black text-purple-900 leading-tight">
+                  ₹{(stats?.total_profit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </span>
+                <div className="text-[9px] font-semibold text-purple-500 leading-none mt-3">
+                  Net margin on patient billings
                 </div>
               </div>
             </div>

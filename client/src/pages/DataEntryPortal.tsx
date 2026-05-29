@@ -28,6 +28,8 @@ interface DataEntryReceipt {
   display_date: string;
   display_customer_id: string;
   items: { package_name: string }[];
+  lab_id?: number;
+  lab_name?: string;
 }
 
 const CopyableField: React.FC<{ label: string; value: string }> = ({ label, value }) => {
@@ -105,6 +107,18 @@ const DataEntryPortal: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedReceipt, setSelectedReceipt] = useState<DataEntryReceipt | null>(null);
 
+  const [labs, setLabs] = useState<any[]>([]);
+  const [selectedLabId, setSelectedLabId] = useState<string>('');
+
+  useEffect(() => {
+    apiService.getLabs().then(data => {
+      setLabs(data);
+      if (data.length > 0) {
+        setSelectedLabId(data[0].id.toString());
+      }
+    }).catch(console.error);
+  }, []);
+
   const fetchReceipts = async () => {
     try {
       setLoading(true);
@@ -150,8 +164,13 @@ const DataEntryPortal: React.FC = () => {
     }
   };
 
-  const pendingList = receipts.filter((r) => r.data_entry_done === 0);
-  const completedList = receipts.filter((r) => r.data_entry_done === 1);
+  const filteredReceipts = receipts.filter(r => {
+    if (!selectedLabId) return true;
+    return r.lab_id === parseInt(selectedLabId);
+  });
+
+  const pendingList = filteredReceipts.filter((r) => r.data_entry_done === 0);
+  const completedList = filteredReceipts.filter((r) => r.data_entry_done === 1);
 
   const activeList = activeTab === 'pending' ? pendingList : completedList;
 
@@ -166,6 +185,31 @@ const DataEntryPortal: React.FC = () => {
         </legend>
 
         <PageHeader title="Data Entry Workspace" showActingAs={false} />
+
+        {/* Labs Horizontal Pill Selector */}
+        {labs.length > 0 && (
+          <div className="space-y-2 mb-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block pl-1">
+              Select Processing Laboratory
+            </label>
+            <div className="flex flex-wrap gap-2.5 p-2.5 bg-slate-50 border border-slate-200 rounded-2xl">
+              {labs.map((lab) => (
+                <button
+                  key={lab.id}
+                  onClick={() => setSelectedLabId(lab.id.toString())}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${
+                    selectedLabId === lab.id.toString()
+                      ? 'bg-indigo-650 text-white border-indigo-750 shadow-md shadow-indigo-100 scale-[1.01]'
+                      : 'bg-white text-slate-650 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <i className="fa-solid fa-flask mr-1.5 text-[10px]"></i>
+                  {lab.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Filters and Date Bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-slate-50 border border-slate-200 rounded-2xl mb-6">

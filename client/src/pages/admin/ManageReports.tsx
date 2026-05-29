@@ -3,6 +3,7 @@ import { apiService } from '../../services/api';
 import { User, LabReport, Document } from '../../types';
 import PageHeader from '../../components/PageHeader';
 import SearchableDropdown from '../../components/SearchableDropdown';
+import { sendLocalNotification } from '../../utils/notifications';
 
 const ManageReports: React.FC = () => {
     const [reports, setReports] = useState<LabReport[]>([]);
@@ -130,6 +131,7 @@ const ManageReports: React.FC = () => {
 
         try {
             setUploading(true);
+            const customerName = selectedReceipt.customer_name;
             
             // Upload all files in parallel
             await Promise.all(activePairs.map(async ([cat, f]) => {
@@ -152,6 +154,10 @@ const ManageReports: React.FC = () => {
 
             // Refresh lists
             fetchData();
+            sendLocalNotification('Reports Uploaded Successfully!', {
+                body: `PDF report(s) for customer ${customerName} have been processed and uploaded successfully!`,
+                tag: 'report-upload-success'
+            });
             alert("Reports uploaded successfully!");
         } catch (err: any) {
             console.error("Upload error", err);

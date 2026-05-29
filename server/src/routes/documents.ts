@@ -448,18 +448,33 @@ router.get('/data-entry/receipts', isAuthenticated, (req, res) => {
         
         const receipts = db.prepare(query).all(params) as any[];
         
-        // Enrich with items (only names, no pricing)
+        // Enrich with items (only names, no pricing) and resolve lab details
         const enriched = receipts.map(r => {
             const items = db.prepare('SELECT package_name FROM receipt_items WHERE receipt_id = ?').all(r.id) as any[];
             const display_doc_id = `RCPT-${String(r.id).padStart(6, '0')}`;
             const display_date = r.created_at;
             const display_customer_id = `CUST-${String(r.customer_id).padStart(6, '0')}`;
+
+            // Resolve Associated Lab Info dynamically from package matching
+            const labInfo = db.prepare(`
+                SELECT DISTINCT l.id as lab_id, l.name as lab_name 
+                FROM labs l 
+                JOIN lab_package_lists lpl ON l.id = lpl.lab_id 
+                JOIN package_lists pl ON lpl.package_list_id = pl.id 
+                JOIN packages p ON pl.id = p.package_list_id 
+                JOIN receipt_items ri ON p.name = ri.package_name 
+                WHERE ri.receipt_id = ?
+                LIMIT 1
+            `).get(r.id) as { lab_id: number; lab_name: string } | undefined;
+
             return {
                 ...r,
                 display_doc_id,
                 display_date,
                 display_customer_id,
-                items
+                items,
+                lab_id: labInfo?.lab_id || null,
+                lab_name: labInfo?.lab_name || 'N/A'
             };
         });
         res.json(enriched);
@@ -502,26 +517,27 @@ router.get('/client/analysis', isAuthenticated, (req, res) => {
     try {
         const clientId = user.id;
 
-        // 1. Spends, Count and Savings
+        // 1. Spends, Count, Savings and Franchisee Profit
         const stats = db.prepare(`
             SELECT 
-                COUNT(*) as total_orders,
-                SUM(amount_final) as total_spend,
-                SUM(total_mrp - amount_final) as total_savings
-            FROM receipts
-            WHERE acting_as_client_id = ? OR (acting_as_client_id IS NULL AND created_by_user_id = ?)
-        `).get(clientId, clientId) as { total_orders: number; total_spend: number; total_savings: number };
+                COUNT(r.id) as total_orders,
+                SUM(COALESCE(t.amount_deducted, 0)) as total_spend,
+                SUM(r.total_mrp - COALESCE(t.amount_deducted, 0)) as total_savings,
+                SUM(r.amount_final - COALESCE(t.amount_deducted, 0)) as total_profit
+            FROM receipts r
+            LEFT JOIN transactions t ON t.receipt_id = r.id AND t.type = 'RECEIPT_DEDUCTION'
+            WHERE r.acting_as_client_id = ? OR (r.acting_as_client_id IS NULL AND r.created_by_user_id = ?)
+        `).get(clientId, clientId) as { total_orders: number; total_spend: number; total_savings: number; total_profit: number };
 
         // 2. Volume Trend (Last 6 Months)
-        // Group by YYYY-MM by parsing DD/MM/YYYY
-        // SQLite: substr(created_at, 7, 4) || '-' || substr(created_at, 4, 2)
         const trend = db.prepare(`
             SELECT 
-                (substr(created_at, 7, 4) || '-' || substr(created_at, 4, 2)) as month,
-                COUNT(*) as count,
-                SUM(amount_final) as spend
-            FROM receipts
-            WHERE acting_as_client_id = ? OR (acting_as_client_id IS NULL AND created_by_user_id = ?)
+                (substr(r.created_at, 7, 4) || '-' || substr(r.created_at, 4, 2)) as month,
+                COUNT(r.id) as count,
+                SUM(COALESCE(t.amount_deducted, 0)) as spend
+            FROM receipts r
+            LEFT JOIN transactions t ON t.receipt_id = r.id AND t.type = 'RECEIPT_DEDUCTION'
+            WHERE r.acting_as_client_id = ? OR (r.acting_as_client_id IS NULL AND r.created_by_user_id = ?)
             GROUP BY month
             ORDER BY month DESC
             LIMIT 6
@@ -547,6 +563,7 @@ router.get('/client/analysis', isAuthenticated, (req, res) => {
                 total_orders: stats.total_orders || 0,
                 total_spend: stats.total_spend || 0,
                 total_savings: stats.total_savings || 0,
+                total_profit: stats.total_profit || 0,
                 wallet_balance: user.wallet_balance || 0
             },
             trend: trend.reverse(), // Chronological order

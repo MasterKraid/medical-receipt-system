@@ -231,7 +231,7 @@ const ManageLabs: React.FC = () => {
 
                 const requiredHeaders = ['name', 'mrp', 'b2b_price'];
                 if (headers.length < 1 || !requiredHeaders.every(h => headers.includes(h))) {
-                    throw new Error(`Invalid Excel format. Header row must contain: ${requiredHeaders.join(', ')}`);
+                    throw new Error(`Invalid Excel format. Header row must contain required columns: name, mrp, b2b_price. Optional: code_name.`);
                 }
 
                 const { inserted, updated } = await apiService.uploadPackages(listId, json);
@@ -529,7 +529,10 @@ const ManageLabs: React.FC = () => {
                                                                             <button onClick={() => openInventoryModal(list)} className="px-2 py-1 bg-gray-50 hover:bg-yellow-500 hover:text-white rounded border border-gray-200 hover:border-yellow-600 transition-all font-bold text-[10px] text-gray-600 flex items-center gap-1 shadow-sm">
                                                                                 <i className="fa-solid fa-cubes text-[9px]"></i> Items
                                                                             </button>
-                                                                            <label className="px-2 py-1 bg-gray-50 hover:bg-green-600 hover:text-white rounded border border-gray-200 hover:border-green-700 transition-all font-bold text-[10px] text-gray-600 flex items-center gap-1 shadow-sm cursor-pointer">
+                                                                            <label 
+                                                                                className="px-2 py-1 bg-gray-50 hover:bg-green-600 hover:text-white rounded border border-gray-200 hover:border-green-700 transition-all font-bold text-[10px] text-gray-600 flex items-center gap-1 shadow-sm cursor-pointer"
+                                                                                title="Import Excel spreadsheet. Required columns: name, mrp, b2b_price. Optional column: code_name."
+                                                                            >
                                                                                 <i className="fa-solid fa-file-import text-[9px]"></i> XLSX
                                                                                 <input type="file" accept=".xlsx, .xls" onChange={(e) => handleFileUpload(list.id, e)} className="hidden" />
                                                                             </label>

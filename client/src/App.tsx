@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
@@ -25,6 +25,7 @@ import ClientRatelist from './pages/ClientRatelist';
 import ReloadPrompt from './components/ReloadPrompt';
 import DataEntryPortal from './pages/DataEntryPortal';
 import ClientAnalysis from './pages/ClientAnalysis';
+import { requestNotificationPermission } from './utils/notifications';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement; roles?: string[] }> = ({ children, roles }) => {
   const { user } = useAuth();
@@ -97,6 +98,10 @@ const AppRoutes: React.FC = () => {
 };
 
 const App: React.FC = () => {
+  useEffect(() => {
+    requestNotificationPermission().catch(console.error);
+  }, []);
+
   return (
     <AuthProvider>
       <HashRouter>

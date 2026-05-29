@@ -98,51 +98,79 @@ const ClientRatelist: React.FC = () => {
         };
     }, [selectedTests, packages]);
 
-    const renderStep1 = () => (
-        <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl space-y-4 w-full min-w-0">
-            <legend className="px-3 flex items-center gap-2">
-                <div className="w-7 h-7 rounded bg-blue-600 flex items-center justify-center text-white shadow-sm">
-                    <i className="fa-solid fa-flask-vial text-xs"></i>
+    const renderStep1 = () => {
+        const showLabSelector = labs.length > 1;
+        const showListSelector = packageLists.length > 1;
+
+        return (
+            <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl space-y-4 w-full min-w-0">
+                <legend className="px-3 flex items-center gap-2">
+                    <div className="w-7 h-7 rounded bg-blue-600 flex items-center justify-center text-white shadow-sm">
+                        <i className="fa-solid fa-flask-vial text-xs"></i>
+                    </div>
+                    <span className="text-base md:text-lg font-bold text-gray-800 uppercase tracking-tight md:tracking-normal">Select Ratelist Source</span>
+                </legend>
+                <div className="space-y-4">
+                    {showLabSelector ? (
+                        <div>
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1 px-1">Laboratory</label>
+                            <CleanSelect 
+                                options={labs.map(lab => ({ value: lab.id.toString(), label: lab.name }))} 
+                                value={selectedLabId} 
+                                onChange={val => setSelectedLabId(val)} 
+                                placeholder="Select Lab" 
+                            />
+                        </div>
+                    ) : (
+                        labs.length === 1 && (
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-205 text-xs font-bold text-slate-700">
+                                <span className="text-slate-400 uppercase tracking-widest text-[9px] block mb-0.5">Assigned Laboratory</span>
+                                <i className="fa-solid fa-building mr-2 text-slate-800"></i> {labs[0].name}
+                            </div>
+                        )
+                    )}
+                    {showListSelector ? (
+                        <div>
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1 px-1">Rate Category</label>
+                            <CleanSelect 
+                                options={packageLists.map(list => ({ value: list.id.toString(), label: list.name }))} 
+                                value={selectedListId} 
+                                onChange={val => setSelectedListId(val)} 
+                                disabled={!selectedLabId} 
+                                placeholder="Select Rate System" 
+                            />
+                        </div>
+                    ) : (
+                        packageLists.length === 1 && (
+                            <div className="bg-slate-50 p-3 rounded-xl border border-slate-205 text-xs font-bold text-slate-700">
+                                <span className="text-slate-400 uppercase tracking-widest text-[9px] block mb-0.5">Assigned Rate Category</span>
+                                <i className="fa-solid fa-file-invoice mr-2 text-slate-800"></i> {packageLists[0].name}
+                            </div>
+                        )
+                    )}
+                    {!showLabSelector && !showListSelector && labs.length === 1 && packageLists.length === 1 && (
+                        <p className="text-xs text-slate-450 italic pl-1">
+                            Your laboratory and rate system have been automatically assigned.
+                        </p>
+                    )}
                 </div>
-                <span className="text-base md:text-lg font-bold text-gray-800 uppercase tracking-tight md:tracking-normal">Select Ratelist Source</span>
-            </legend>
-            <div className="space-y-4">
-                <div>
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1 px-1">Laboratory</label>
-                    <CleanSelect 
-                        options={labs.map(lab => ({ value: lab.id.toString(), label: lab.name }))} 
-                        value={selectedLabId} 
-                        onChange={val => setSelectedLabId(val)} 
-                        placeholder="Select Lab" 
-                    />
+                <div className="pt-4 flex justify-end">
+                    <button 
+                        onClick={() => {
+                            if (!selectedLabId || !selectedListId) {
+                                alert("Please select both a Lab and a Ratelist category.");
+                                return;
+                            }
+                            goNext();
+                        }} 
+                        className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md shadow-blue-200 transition-colors"
+                    >
+                        Next
+                    </button>
                 </div>
-                <div>
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1 px-1">Rate Category</label>
-                    <CleanSelect 
-                        options={packageLists.map(list => ({ value: list.id.toString(), label: list.name }))} 
-                        value={selectedListId} 
-                        onChange={val => setSelectedListId(val)} 
-                        disabled={!selectedLabId} 
-                        placeholder="Select Rate System" 
-                    />
-                </div>
-            </div>
-            <div className="pt-4 flex justify-end">
-                <button 
-                    onClick={() => {
-                        if (!selectedLabId || !selectedListId) {
-                            alert("Please select both a Lab and a Ratelist category.");
-                            return;
-                        }
-                        goNext();
-                    }} 
-                    className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md shadow-blue-200 transition-colors"
-                >
-                    Next
-                </button>
-            </div>
-        </fieldset>
-    );
+            </fieldset>
+        );
+    };
 
     const renderStep2 = () => (
         <fieldset className="border-2 border-gray-300 p-4 md:p-6 rounded-xl space-y-4 w-full min-w-0">

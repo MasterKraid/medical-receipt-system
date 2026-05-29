@@ -283,7 +283,7 @@ const ReceiptReport: React.FC = () => {
             const amt = r.amount_final || parseFloat(r.display_amount.replace('₹', '').replace(/,/g, '')) || 0;
             const mrp = r.total_mrp || amt;
             const b2b = r.b2b_cost || 0;
-            const profit = mrp - b2b;
+            const profit = r.acting_as_client_id ? b2b : amt;
 
             if (!groups[dateStr]) {
                 groups[dateStr] = { amount: 0, mrp: 0, b2b: 0, profit: 0, count: 0 };
@@ -345,8 +345,9 @@ const ReceiptReport: React.FC = () => {
     const metrics = useMemo(() => {
         let amount = 0;
         let mrp = 0;
-        let b2b = 0;
-        let profit = 0;
+        let b2bSubmissions = 0; // sum of b2b_cost for B2B client receipts
+        let b2bPatientBillings = 0; // sum of amount_final for B2B client receipts
+        let directRetail = 0; // sum of amount_final for walk-in receipts
 
         filteredReceipts.forEach(r => {
             const amt = r.amount_final || parseFloat(r.display_amount.replace('₹', '').replace(/,/g, '')) || 0;
@@ -355,17 +356,33 @@ const ReceiptReport: React.FC = () => {
 
             amount += amt;
             mrp += mVal;
-            b2b += bVal;
-            profit += (mVal - bVal);
+
+            if (r.acting_as_client_id) {
+                b2bSubmissions += bVal;
+                b2bPatientBillings += amt;
+            } else {
+                directRetail += amt;
+            }
         });
 
-        return { amount, mrp, b2b, profit, average: totalCount > 0 ? amount / totalCount : 0 };
+        // Net Operational Profit = Direct Retail collections + B2B wallet submissions
+        const netProfit = directRetail + b2bSubmissions;
+
+        return { 
+            amount, 
+            mrp, 
+            b2bSubmissions, 
+            b2bPatientBillings, 
+            directRetail, 
+            netProfit, 
+            average: totalCount > 0 ? amount / totalCount : 0 
+        };
     }, [filteredReceipts, totalCount]);
 
     const totalAmount = metrics.amount;
-    const totalMRP = metrics.mrp;
-    const totalB2BCost = metrics.b2b;
-    const totalProfit = metrics.profit;
+    const totalB2BSubmissions = metrics.b2bSubmissions;
+    const totalDirectRetail = metrics.directRetail;
+    const totalProfit = metrics.netProfit;
     const averageAmount = metrics.average;
 
     // Custom SVG Line Chart for revenue trend
@@ -830,7 +847,7 @@ const ReceiptReport: React.FC = () => {
                             {/* Highlight Metrics Cards */}
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
 
-                                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm flex justify-between items-center">
+                                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm flex justify-between items-center animate-fade-in">
                                     <div className="space-y-1.5 min-w-0">
                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">Receipts Count</span>
                                         <div className="flex items-baseline gap-1">
@@ -843,31 +860,44 @@ const ReceiptReport: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm flex justify-between items-center">
+                                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm flex justify-between items-center animate-fade-in">
                                     <div className="space-y-1.5 min-w-0">
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">Total MRP Billing</span>
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">Gross Patient Billings</span>
                                         <div className="flex items-baseline">
-                                            <span className="text-2xl font-bold text-slate-850">₹{totalMRP.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                                            <span className="text-2xl font-bold text-slate-850">₹{totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                                         </div>
+                                        <div className="text-[9px] font-medium text-slate-400 uppercase tracking-wider block truncate">Avg: ₹{averageAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
                                     </div>
                                     <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-base shrink-0">
                                         <i className="fa-solid fa-file-invoice"></i>
                                     </div>
                                 </div>
 
-                                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm flex justify-between items-center">
+                                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm flex justify-between items-center animate-fade-in">
                                     <div className="space-y-1.5 min-w-0">
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">Franchise Base Cost</span>
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">Direct Retail Revenue</span>
                                         <div className="flex items-baseline">
-                                            <span className="text-2xl font-bold text-slate-800">₹{totalB2BCost.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                                            <span className="text-2xl font-bold text-slate-800">₹{totalDirectRetail.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                                         </div>
                                     </div>
                                     <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-base shrink-0">
+                                        <i className="fa-solid fa-cash-register"></i>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm flex justify-between items-center animate-fade-in">
+                                    <div className="space-y-1.5 min-w-0">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">Company B2B Revenue</span>
+                                        <div className="flex items-baseline">
+                                            <span className="text-2xl font-bold text-slate-800">₹{totalB2BSubmissions.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                                        </div>
+                                    </div>
+                                    <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-base shrink-0">
                                         <i className="fa-solid fa-wallet"></i>
                                     </div>
                                 </div>
 
-                                <div className="bg-emerald-50/40 p-5 rounded-3xl border border-emerald-100 shadow-sm flex justify-between items-center">
+                                <div className="bg-emerald-50/40 p-5 rounded-3xl border border-emerald-100 shadow-sm flex justify-between items-center animate-fade-in">
                                     <div className="space-y-1.5 min-w-0">
                                         <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block truncate">Net Operational Profit</span>
                                         <div className="flex items-baseline">
@@ -876,19 +906,6 @@ const ReceiptReport: React.FC = () => {
                                     </div>
                                     <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-base shrink-0">
                                         <i className="fa-solid fa-calculator"></i>
-                                    </div>
-                                </div>
-
-                                <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm flex justify-between items-center">
-                                    <div className="space-y-1.5 min-w-0">
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">Final Billings (Cash)</span>
-                                        <div className="flex items-baseline">
-                                            <span className="text-2xl font-bold text-slate-850">₹{totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-                                        </div>
-                                        <div className="text-[9px] font-medium text-slate-400 uppercase tracking-wider block truncate">Avg Transactions: ₹{averageAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-                                    </div>
-                                    <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-base shrink-0">
-                                        <i className="fa-solid fa-cash-register"></i>
                                     </div>
                                 </div>
 

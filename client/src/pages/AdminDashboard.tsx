@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
 import DashboardLink from '../components/DashboardLink';
 import { ReceiptIcon, EstimateIcon, ViewIcon, CustomersIcon, LabsIcon, BranchesIcon, UsersIcon, WalletIcon, LogoutIcon } from '../components/icons';
+import { sendLocalNotification } from '../utils/notifications';
 
 const AdminDashboard: React.FC = () => {
     const { user, branch, logout } = useAuth();
@@ -10,7 +11,20 @@ const AdminDashboard: React.FC = () => {
 
     useEffect(() => {
         apiService.getPendingReportAlarms()
-            .then(data => setAlarms(data))
+            .then(data => {
+                setAlarms(data);
+                if (data.alarmCount > 0) {
+                    sendLocalNotification('Critical Pending Reports!', {
+                        body: `You have ${data.alarmCount} reports pending for more than 3 days. Please inspect and upload!`,
+                        tag: 'pending-reports-alarm'
+                    });
+                } else if (data.warningCount > 0) {
+                    sendLocalNotification('Pending Reports Warning', {
+                        body: `You have ${data.warningCount} reports pending for 2 days.`,
+                        tag: 'pending-reports-warning'
+                    });
+                }
+            })
             .catch(console.error);
     }, []);
 

@@ -3,15 +3,31 @@ import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
 import DashboardLink from '../components/DashboardLink';
 import { ReceiptIcon, EstimateIcon, CustomersIcon, LogoutIcon, WalletIcon, RatelistIcon } from '../components/icons';
+import { sendLocalNotification } from '../utils/notifications';
 
 const UserDashboard: React.FC = () => {
   const { user, branch, logout } = useAuth();
   const [unreadReports, setUnreadReports] = useState(0);
+  
   useEffect(() => {
     if (user?.role === 'CLIENT') {
       apiService.getReportsClient().then(reports => {
-        setUnreadReports(reports.filter(r => !r.is_read).length);
+        const unreadCount = reports.filter(r => !r.is_read).length;
+        setUnreadReports(unreadCount);
+        if (unreadCount > 0) {
+          sendLocalNotification('New Lab Reports Available!', {
+            body: `You have ${unreadCount} new processed lab reports ready to review and download.`,
+            tag: 'new-lab-reports-alert'
+          });
+        }
       }).catch(console.error);
+
+      if (typeof user.wallet_balance !== 'undefined' && user.wallet_balance < 1000) {
+        sendLocalNotification('Low Wallet Balance Alert', {
+          body: `Your current wallet balance is ₹${user.wallet_balance.toFixed(2)}. Please settle/recharge to avoid download blocks.`,
+          tag: 'low-wallet-balance-alert'
+        });
+      }
     }
   }, [user]);
 
