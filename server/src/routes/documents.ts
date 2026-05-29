@@ -79,8 +79,8 @@ router.post('/receipts', isAuthenticated, (req, res) => {
 
             const receiptId = receiptResult.lastInsertRowid;
 
-            const insertItem = db.prepare('INSERT INTO receipt_items (receipt_id, package_name, mrp, discount_percentage) VALUES (?, ?, ?, ?)');
-            payload.items.forEach((item: any) => insertItem.run(receiptId, item.name, item.mrp, item.discount));
+            const insertItem = db.prepare('INSERT INTO receipt_items (receipt_id, package_name, mrp, discount_percentage, package_list_id) VALUES (?, ?, ?, ?, ?)');
+            payload.items.forEach((item: any) => insertItem.run(receiptId, item.name, item.mrp, item.discount, item.package_list_id || null));
 
             let targetClientId = -1;
             if (user.role === 'CLIENT') {
@@ -249,8 +249,8 @@ router.put('/receipts/:id', isAuthenticated, isAdmin, (req, res) => {
 
             // 6. Replace receipt items
             db.prepare('DELETE FROM receipt_items WHERE receipt_id = ?').run(receiptId);
-            const insertItem = db.prepare('INSERT INTO receipt_items (receipt_id, package_name, mrp, discount_percentage) VALUES (?, ?, ?, ?)');
-            (payload.items || []).forEach((item: any) => insertItem.run(receiptId, item.name, item.mrp, isNaN(item.discount) ? 0 : item.discount));
+            const insertItem = db.prepare('INSERT INTO receipt_items (receipt_id, package_name, mrp, discount_percentage, package_list_id) VALUES (?, ?, ?, ?, ?)');
+            (payload.items || []).forEach((item: any) => insertItem.run(receiptId, item.name, item.mrp, isNaN(item.discount) ? 0 : item.discount, item.package_list_id || null));
 
             // 7. Resolve lab logo
             const lab = (payload.items && payload.items.length > 0 && payload.items[0].package_list_id)
@@ -451,26 +451,60 @@ router.get('/data-entry/receipts', isAuthenticated, (req, res) => {
         // Enrich with items (only names, no pricing) and resolve lab details
         const enriched = receipts.map(r => {
             const items = db.prepare(`
-                SELECT DISTINCT ri.package_name, p.code_name
+                SELECT ri.package_name, MAX(p.code_name) as code_name
                 FROM receipt_items ri
-                LEFT JOIN packages p ON ri.package_name = p.name
+                LEFT JOIN packages p ON ri.package_name = p.name AND (
+                    ri.package_list_id = p.package_list_id OR 
+                    (ri.package_list_id IS NULL AND p.package_list_id IN (
+                        SELECT lpl.package_list_id 
+                        FROM lab_package_lists lpl
+                        JOIN user_package_list_access upla ON lpl.package_list_id = upla.package_list_id
+                        WHERE upla.user_id = COALESCE(?, ?)
+                    ))
+                )
                 WHERE ri.receipt_id = ?
-            `).all(r.id) as any[];
+                GROUP BY ri.package_name
+            `).all(r.acting_as_client_id, r.created_by_user_id, r.id) as any[];
             const display_doc_id = `RCPT-${String(r.id).padStart(6, '0')}`;
             const display_date = r.created_at;
             const display_customer_id = `CUST-${String(r.customer_id).padStart(6, '0')}`;
 
-            // Resolve Associated Lab Info dynamically from package matching
-            const labInfo = db.prepare(`
-                SELECT DISTINCT l.id as lab_id, l.name as lab_name 
-                FROM labs l 
-                JOIN lab_package_lists lpl ON l.id = lpl.lab_id 
-                JOIN package_lists pl ON lpl.package_list_id = pl.id 
-                JOIN packages p ON pl.id = p.package_list_id 
-                JOIN receipt_items ri ON p.name = ri.package_name 
-                WHERE ri.receipt_id = ?
+            // Resolve Associated Lab Info dynamically using 3-step prioritized query
+            let labInfo = db.prepare(`
+                SELECT DISTINCT l.id as lab_id, l.name as lab_name
+                FROM labs l
+                JOIN lab_package_lists lpl ON l.id = lpl.lab_id
+                JOIN receipt_items ri ON lpl.package_list_id = ri.package_list_id
+                WHERE ri.receipt_id = ? AND ri.package_list_id IS NOT NULL
                 LIMIT 1
             `).get(r.id) as { lab_id: number; lab_name: string } | undefined;
+
+            if (!labInfo) {
+                labInfo = db.prepare(`
+                    SELECT DISTINCT l.id as lab_id, l.name as lab_name
+                    FROM labs l
+                    JOIN lab_package_lists lpl ON l.id = lpl.lab_id
+                    JOIN package_lists pl ON lpl.package_list_id = pl.id
+                    JOIN user_package_list_access upla ON pl.id = upla.package_list_id
+                    JOIN packages p ON pl.id = p.package_list_id
+                    JOIN receipt_items ri ON p.name = ri.package_name
+                    WHERE ri.receipt_id = ? AND upla.user_id = COALESCE(?, ?)
+                    LIMIT 1
+                `).get(r.id, r.acting_as_client_id, r.created_by_user_id) as { lab_id: number; lab_name: string } | undefined;
+            }
+
+            if (!labInfo) {
+                labInfo = db.prepare(`
+                    SELECT DISTINCT l.id as lab_id, l.name as lab_name
+                    FROM labs l
+                    JOIN lab_package_lists lpl ON l.id = lpl.lab_id
+                    JOIN package_lists pl ON lpl.package_list_id = pl.id
+                    JOIN packages p ON pl.id = p.package_list_id
+                    JOIN receipt_items ri ON p.name = ri.package_name
+                    WHERE ri.receipt_id = ?
+                    LIMIT 1
+                `).get(r.id) as { lab_id: number; lab_name: string } | undefined;
+            }
 
             return {
                 ...r,

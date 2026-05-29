@@ -322,6 +322,14 @@ export function initDb() {
         // Ignored if column already exists
     }
 
+    // Alter table to add package_list_id column to receipt_items if not present
+    try {
+        db.exec("ALTER TABLE receipt_items ADD COLUMN package_list_id INTEGER;");
+        console.log("Added package_list_id column to receipt_items successfully.");
+    } catch (e) {
+        // Ignored if column already exists
+    }
+
     // One-time run to mark previous day 3+ critical alarms as done to prevent spam
     try {
         const now = new Date();
