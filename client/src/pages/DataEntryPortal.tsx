@@ -11,6 +11,7 @@ interface DataEntryReceipt {
   referred_by?: string;
   notes?: string;
   num_tests: number;
+  total_mrp?: number;
   created_by_user_id: number;
   acting_as_client_id?: number;
   data_entry_done: number;
@@ -475,6 +476,8 @@ const DataEntryPortal: React.FC = () => {
                   />
                   <CopyableField label="Date of Birth" value={selectedReceipt.dob || ''} />
                   <CopyableField label="Referred By" value={selectedReceipt.referred_by || 'Self Referral'} />
+                  <CopyableField label="Total Tests Count" value={String(selectedReceipt.items?.length || selectedReceipt.num_tests || 0)} />
+                  <CopyableField label="Total MRP" value={`₹${(selectedReceipt.total_mrp || 0).toFixed(0)}`} />
                 </div>
               </div>
 

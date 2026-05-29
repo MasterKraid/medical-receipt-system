@@ -432,7 +432,7 @@ router.get('/data-entry/receipts', isAuthenticated, (req, res) => {
         const dateFilter = req.query.date as string; // Expects "DD/MM/YYYY" or "YYYY-MM-DD"
         
         let query = `
-            SELECT r.id, r.customer_id, r.branch_id, r.created_at, r.referred_by, r.notes, r.num_tests, r.created_by_user_id, r.acting_as_client_id, r.data_entry_done,
+            SELECT r.id, r.customer_id, r.branch_id, r.created_at, r.referred_by, r.notes, r.num_tests, r.total_mrp, r.created_by_user_id, r.acting_as_client_id, r.data_entry_done,
                    c.prefix, c.name as customer_name, c.mobile, c.email, c.dob, c.age_years, c.age_months, c.age_days, c.gender,
                    u.alias as created_by_user
             FROM receipts r
