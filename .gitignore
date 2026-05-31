@@ -54,3 +54,5 @@ Installation.md
 server/public
 server/data_backup_20260514_181516
 scratch/
+server/audit.log
+server/src/audit_wallets_dry_run.ts

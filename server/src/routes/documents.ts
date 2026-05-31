@@ -345,6 +345,10 @@ router.get('/receipts/:id', isAuthenticated, (req, res) => {
                     if (itemPkgListId && listIds.includes(itemPkgListId)) {
                         const pkg = db.prepare(`SELECT b2b_price FROM packages WHERE package_list_id = ? AND name = ?`).get(itemPkgListId, item.package_name) as Package | undefined;
                         if (pkg) b2b_price = pkg.b2b_price;
+                    } else if (!itemPkgListId && listIds.length > 0) {
+                        // Fallback for legacy/historic receipts where package_list_id is null
+                        const pkg = db.prepare(`SELECT b2b_price FROM packages WHERE package_list_id IN (${listIds.join(',')}) AND name = ?`).get(item.package_name) as Package | undefined;
+                        if (pkg) b2b_price = pkg.b2b_price;
                     }
                     return {
                         ...item,
@@ -429,6 +433,10 @@ router.get('/transactions', isAuthenticated, (req, res) => {
                     const itemPkgListId = item.package_list_id;
                     if (itemPkgListId && listIds.includes(itemPkgListId)) {
                         const pkg = db.prepare(`SELECT b2b_price FROM packages WHERE package_list_id = ? AND name = ?`).get(itemPkgListId, item.package_name) as Package | undefined;
+                        if (pkg) b2b_price = pkg.b2b_price;
+                    } else if (!itemPkgListId && listIds.length > 0) {
+                        // Fallback for legacy/historic receipts where package_list_id is null
+                        const pkg = db.prepare(`SELECT b2b_price FROM packages WHERE package_list_id IN (${listIds.join(',')}) AND name = ?`).get(item.package_name) as Package | undefined;
                         if (pkg) b2b_price = pkg.b2b_price;
                     }
                     total_profit += item.mrp - b2b_price;
