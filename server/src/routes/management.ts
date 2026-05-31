@@ -253,12 +253,43 @@ router.put('/users/:id', isAdmin, (req, res) => {
 });
 
 router.delete('/users/:id', isAdmin, (req, res) => {
+    const targetUserId = req.params.id;
     try {
         // Prevent self-deletion
-        if ((req.session as any).user.id == req.params.id) {
+        if ((req.session as any).user.id == targetUserId) {
             return res.status(400).json({ message: "You cannot delete your own account." });
         }
-        db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);
+
+        const transaction = db.transaction(() => {
+            // 1. Ensure dummy "deleted_user" exists to attribute receipts/ledger history to
+            let dummyUserId;
+            const dummyUser = db.prepare("SELECT id FROM users WHERE username = 'deleted_user'").get() as { id: number } | undefined;
+            if (!dummyUser) {
+                const firstBranch = db.prepare('SELECT id FROM branches LIMIT 1').get() as { id: number } | undefined;
+                const branchId = firstBranch ? firstBranch.id : 1;
+                const run = db.prepare("INSERT INTO users (username, password_hash, branchId, role, wallet_balance) VALUES (?, ?, ?, ?, ?)").run('deleted_user', 'DISABLED', branchId, 'GENERAL_EMPLOYEE', 0);
+                dummyUserId = run.lastInsertRowid;
+            } else {
+                dummyUserId = dummyUser.id;
+            }
+
+            // Prevent deleting the dummy deleted_user
+            if (Number(targetUserId) === Number(dummyUserId)) {
+                throw new Error("Cannot delete the system archive account.");
+            }
+
+            // 2. Re-attribute associated data to dummy user or NULL to satisfy foreign key constraints
+            db.prepare('UPDATE receipts SET created_by_user_id = ? WHERE created_by_user_id = ?').run(dummyUserId, targetUserId);
+            db.prepare('UPDATE receipts SET acting_as_client_id = NULL WHERE acting_as_client_id = ?').run(targetUserId);
+            db.prepare('UPDATE customers SET created_by_user_id = ? WHERE created_by_user_id = ?').run(dummyUserId, targetUserId);
+            db.prepare('UPDATE estimates SET created_by_user_id = ? WHERE created_by_user_id = ?').run(dummyUserId, targetUserId);
+            db.prepare('UPDATE transactions SET user_id = ? WHERE user_id = ?').run(dummyUserId, targetUserId);
+
+            // 3. Delete the actual user
+            db.prepare('DELETE FROM users WHERE id = ?').run(targetUserId);
+        });
+
+        transaction();
         res.status(204).send();
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });
