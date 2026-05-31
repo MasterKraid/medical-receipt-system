@@ -177,6 +177,31 @@ const ReceiptForm: React.FC = () => {
         }
     }, [selectedListId]);
 
+    // Validate and update item prices when package list changes (e.g. lab/category switch)
+    useEffect(() => {
+        if (packages.length > 0 && items.length > 0) {
+            setItems(prevItems => {
+                let changed = false;
+                const updated = prevItems.map(item => {
+                    if (item.name && item.isFromDb) {
+                        const matchedPkg = packages.find(p => p.name === item.name);
+                        if (!matchedPkg) {
+                            changed = true;
+                            // Reset pricing for items not present in the new category
+                            return { ...item, mrp: 0, b2b_price: 0, isFromDb: false };
+                        } else if (item.mrp !== matchedPkg.mrp || item.b2b_price !== matchedPkg.b2b_price) {
+                            changed = true;
+                            // Update prices to match the new category
+                            return { ...item, mrp: matchedPkg.mrp, b2b_price: matchedPkg.b2b_price };
+                        }
+                    }
+                    return item;
+                });
+                return changed ? updated : prevItems;
+            });
+        }
+    }, [packages]);
+
     // Customer search logic
     useEffect(() => {
         if (customerSearch.length > 0) {

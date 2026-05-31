@@ -96,10 +96,16 @@ router.post('/receipts', isAuthenticated, (req, res) => {
                 const listIds = clientAccess.map(row => row.package_list_id);
 
                 const totalB2BCost = payload.items.reduce((sum: number, item: any) => {
-                    let actualB2B = Number(item.b2b_price) || 0;
-                    if (listIds.length > 0) {
-                        const pkg = db.prepare(`SELECT b2b_price FROM packages WHERE package_list_id IN (${listIds.join(',')}) AND name = ?`).get(item.name) as Package | undefined;
-                        if (pkg) actualB2B = pkg.b2b_price;
+                    const itemPkgListId = Number(item.package_list_id || payload.package_list_id);
+                    if (!itemPkgListId || !listIds.includes(itemPkgListId)) {
+                        throw new Error(`Unauthorized or missing rate category for item: ${item.name}`);
+                    }
+                    let actualB2B = 0;
+                    const pkg = db.prepare(`SELECT b2b_price FROM packages WHERE package_list_id = ? AND name = ?`).get(itemPkgListId, item.name) as Package | undefined;
+                    if (pkg) {
+                        actualB2B = pkg.b2b_price;
+                    } else {
+                        throw new Error(`Test '${item.name}' is not available in the selected laboratory/rate database.`);
                     }
                     return sum + actualB2B;
                 }, 0);
@@ -190,10 +196,16 @@ router.put('/receipts/:id', isAuthenticated, isAdmin, (req, res) => {
                 const listIds = clientAccess.map(row => row.package_list_id);
 
                 newB2BCost = (payload.items || []).reduce((sum: number, item: any) => {
-                    let actualB2B = Number(item.b2b_price) || 0;
-                    if (listIds.length > 0) {
-                        const pkg = db.prepare(`SELECT b2b_price FROM packages WHERE package_list_id IN (${listIds.join(',')}) AND name = ?`).get(item.name) as Package | undefined;
-                        if (pkg) actualB2B = pkg.b2b_price;
+                    const itemPkgListId = Number(item.package_list_id || payload.package_list_id);
+                    if (!itemPkgListId || !listIds.includes(itemPkgListId)) {
+                        throw new Error(`Unauthorized or missing rate category for item: ${item.name}`);
+                    }
+                    let actualB2B = 0;
+                    const pkg = db.prepare(`SELECT b2b_price FROM packages WHERE package_list_id = ? AND name = ?`).get(itemPkgListId, item.name) as Package | undefined;
+                    if (pkg) {
+                        actualB2B = pkg.b2b_price;
+                    } else {
+                        throw new Error(`Test '${item.name}' is not available in the selected laboratory/rate database.`);
                     }
                     return sum + actualB2B;
                 }, 0);
@@ -310,7 +322,7 @@ router.get('/receipts/:id', isAuthenticated, (req, res) => {
         }
 
         const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(receipt.customer_id) as Customer;
-        const items = db.prepare('SELECT id, package_name, mrp, discount_percentage FROM receipt_items WHERE receipt_id = ?').all(req.params.id) as any[];
+        const items = db.prepare('SELECT id, package_name, mrp, discount_percentage, package_list_id FROM receipt_items WHERE receipt_id = ?').all(req.params.id) as any[];
         
         let targetClientId = -1;
         if (receipt.acting_as_client_id) {
@@ -328,10 +340,15 @@ router.get('/receipts/:id', isAuthenticated, (req, res) => {
             const listIds = clientAccess.map(row => row.package_list_id);
             if (listIds.length > 0) {
                 enrichedItems = items.map(item => {
-                    const pkg = db.prepare(`SELECT b2b_price FROM packages WHERE package_list_id IN (${listIds.join(',')}) AND name = ?`).get(item.package_name) as Package | undefined;
+                    const itemPkgListId = item.package_list_id;
+                    let b2b_price = 0;
+                    if (itemPkgListId && listIds.includes(itemPkgListId)) {
+                        const pkg = db.prepare(`SELECT b2b_price FROM packages WHERE package_list_id = ? AND name = ?`).get(itemPkgListId, item.package_name) as Package | undefined;
+                        if (pkg) b2b_price = pkg.b2b_price;
+                    }
                     return {
                         ...item,
-                        b2b_price: pkg ? pkg.b2b_price : 0
+                        b2b_price
                     };
                 });
             }
@@ -403,15 +420,17 @@ router.get('/transactions', isAuthenticated, (req, res) => {
         const enrichedTxs = txs.map(tx => {
             if (tx.type === 'RECEIPT_DEDUCTION' && tx.receipt_id) {
                 const receipt = db.prepare(`SELECT r.customer_id, c.name as customer_name FROM receipts r JOIN customers c ON c.id = r.customer_id WHERE r.id = ?`).get(tx.receipt_id) as any;
-                const items = db.prepare(`SELECT package_name, mrp FROM receipt_items WHERE receipt_id = ?`).all(tx.receipt_id) as any[];
-                const listIds = user.assigned_list_ids || [];
+                const clientAccess = db.prepare('SELECT package_list_id FROM user_package_list_access WHERE user_id = ?').all(user.id) as { package_list_id: number }[];
+                const listIds = clientAccess.map(row => row.package_list_id);
+                const items = db.prepare(`SELECT package_name, mrp, package_list_id FROM receipt_items WHERE receipt_id = ?`).all(tx.receipt_id) as any[];
                 let total_profit = 0;
                 const itemsWithB2B = items.map(item => {
-                    let pkg = null;
-                    if (listIds.length > 0) {
-                        pkg = db.prepare(`SELECT b2b_price FROM packages WHERE package_list_id IN (${listIds.join(',')}) AND name = ?`).get(item.package_name) as Package | undefined;
+                    let b2b_price = item.mrp;
+                    const itemPkgListId = item.package_list_id;
+                    if (itemPkgListId && listIds.includes(itemPkgListId)) {
+                        const pkg = db.prepare(`SELECT b2b_price FROM packages WHERE package_list_id = ? AND name = ?`).get(itemPkgListId, item.package_name) as Package | undefined;
+                        if (pkg) b2b_price = pkg.b2b_price;
                     }
-                    const b2b_price = pkg?.b2b_price !== undefined ? pkg.b2b_price : item.mrp;
                     total_profit += item.mrp - b2b_price;
                     return { name: item.package_name, mrp: item.mrp, b2b_price };
                 });
