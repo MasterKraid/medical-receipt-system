@@ -478,7 +478,12 @@ const ViewCustomers: React.FC = () => {
                                             {customerReceipts.map(rcpt => (
                                                 <div key={rcpt.id} className="bg-slate-50/50 hover:bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center justify-between gap-4 transition-all">
                                                     <div className="space-y-0.5">
-                                                        <div className="text-xs font-black text-slate-800">{rcpt.display_doc_id}</div>
+                                                        <div className="text-xs font-black text-slate-800">
+                                                            {rcpt.display_doc_id}
+                                                            <span className="ml-2 text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                                                                {rcpt.lab_name || 'N/A'}
+                                                            </span>
+                                                        </div>
                                                         <div className="text-[10px] text-slate-400 font-mono font-medium">{rcpt.display_date}</div>
                                                     </div>
                                                     <div className="flex items-center gap-3">

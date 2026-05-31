@@ -122,6 +122,44 @@ router.get('/receipts', isAuthenticated, (req, res) => {
                 const clientName = r.client_alias || r.client_username;
                 creator = `${clientName} [M.ENTRY BY - ${creator}]`;
             }
+
+            // Resolve Associated Lab Info dynamically using 3-step prioritized query
+            let labInfo = db.prepare(`
+                SELECT DISTINCT l.id as lab_id, l.name as lab_name
+                FROM labs l
+                JOIN lab_package_lists lpl ON l.id = lpl.lab_id
+                JOIN receipt_items ri ON lpl.package_list_id = ri.package_list_id
+                WHERE ri.receipt_id = ? AND ri.package_list_id IS NOT NULL
+                LIMIT 1
+            `).get(r.id) as { lab_id: number; lab_name: string } | undefined;
+
+            if (!labInfo) {
+                labInfo = db.prepare(`
+                    SELECT DISTINCT l.id as lab_id, l.name as lab_name
+                    FROM labs l
+                    JOIN lab_package_lists lpl ON l.id = lpl.lab_id
+                    JOIN package_lists pl ON lpl.package_list_id = pl.id
+                    JOIN user_package_list_access upla ON pl.id = upla.package_list_id
+                    JOIN packages p ON pl.id = p.package_list_id
+                    JOIN receipt_items ri ON p.name = ri.package_name
+                    WHERE ri.receipt_id = ? AND upla.user_id = COALESCE(?, ?)
+                    LIMIT 1
+                `).get(r.id, r.acting_as_client_id, r.created_by_user_id) as { lab_id: number; lab_name: string } | undefined;
+            }
+
+            if (!labInfo) {
+                labInfo = db.prepare(`
+                    SELECT DISTINCT l.id as lab_id, l.name as lab_name
+                    FROM labs l
+                    JOIN lab_package_lists lpl ON l.id = lpl.lab_id
+                    JOIN package_lists pl ON lpl.package_list_id = pl.id
+                    JOIN packages p ON pl.id = p.package_list_id
+                    JOIN receipt_items ri ON p.name = ri.package_name
+                    WHERE ri.receipt_id = ?
+                    LIMIT 1
+                `).get(r.id) as { lab_id: number; lab_name: string } | undefined;
+            }
+
             return {
                 id: r.id,
                 display_doc_id: `RCPT-${String(r.id).padStart(6, '0')}`,
@@ -138,7 +176,8 @@ router.get('/receipts', isAuthenticated, (req, res) => {
                 acting_as_client_id: r.acting_as_client_id || undefined,
                 created_by_user_id: r.created_by_user_id,
                 referred_by: r.referred_by || 'Self',
-                num_tests: r.num_tests || 0
+                num_tests: r.num_tests || 0,
+                lab_name: labInfo?.lab_name || 'N/A'
             };
         });
         res.json(formatted);

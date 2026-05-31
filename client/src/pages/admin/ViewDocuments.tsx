@@ -109,7 +109,14 @@ const ViewDocuments: React.FC<ViewDocumentsProps> = ({ docType }) => {
                                         filteredDocuments.map(doc => (
                                             <tr key={doc.id} className="hover:bg-gray-50/50 transition-colors group">
                                                 <td className="py-3 px-4">
-                                                    <div className="text-sm font-bold text-gray-800">{doc.display_doc_id}</div>
+                                                    <div className="text-sm font-bold text-gray-800">
+                                                        {doc.display_doc_id}
+                                                        {docType === 'receipt' && (
+                                                            <span className="ml-2 text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                                                                {doc.lab_name || 'N/A'}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <div className="text-[10px] text-gray-400 font-mono italic">{doc.display_date}</div>
                                                 </td>
                                                 <td className="py-3 px-4">

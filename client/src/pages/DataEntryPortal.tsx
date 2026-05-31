@@ -371,7 +371,12 @@ const DataEntryPortal: React.FC = () => {
                         {rcpt.age_days || 0}D
                       </div>
                     </td>
-                    <td className="p-4 font-mono font-bold text-slate-650">{rcpt.display_doc_id}</td>
+                    <td className="p-4 font-mono font-bold text-slate-650">
+                      {rcpt.display_doc_id}
+                      <div className="text-[10px] text-slate-400 font-bold font-sans uppercase tracking-wider mt-0.5">
+                        {rcpt.lab_name || 'N/A'}
+                      </div>
+                    </td>
                     <td className="p-4 font-medium">{rcpt.referred_by || 'Self Referral'}</td>
                     <td className="p-4">
                       <span className="px-2.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700 border border-slate-200 text-[10px]">
@@ -478,6 +483,7 @@ const DataEntryPortal: React.FC = () => {
                   <CopyableField label="Referred By" value={selectedReceipt.referred_by || 'Self Referral'} />
                   <CopyableField label="Total Tests Count" value={String(selectedReceipt.items?.length || selectedReceipt.num_tests || 0)} />
                   <CopyableField label="Total MRP" value={`₹${(selectedReceipt.total_mrp || 0).toFixed(0)}`} />
+                  <CopyableField label="Processing Laboratory" value={selectedReceipt.lab_name || 'N/A'} />
                 </div>
               </div>
 

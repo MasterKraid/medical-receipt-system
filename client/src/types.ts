@@ -140,6 +140,7 @@ export interface Document {
     referred_by?: string;
     num_tests?: number;
     data_entry_done?: number;
+    lab_name?: string;
 }
 
 export interface LabReport {
