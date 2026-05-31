@@ -401,6 +401,19 @@ const ReceiptForm: React.FC = () => {
             return;
         }
 
+        const y = parseInt(newCustomer.age_years) || 0;
+        const m = parseInt(newCustomer.age_months) || 0;
+        const d = parseInt(newCustomer.age_days) || 0;
+
+        if (!newCustomer.dob.trim() && !newCustomer.age_years.trim() && !newCustomer.age_months.trim() && !newCustomer.age_days.trim()) {
+            alert("Please provide Age or Date of Birth.");
+            return;
+        }
+        if (y === 0 && m === 0 && d === 0) {
+            alert("Age cannot be 0Y 0M 0D. Please enter a valid age.");
+            return;
+        }
+
         if (newCustomer.age_years && !validateAge(newCustomer.age_years)) {
             alert("Age must be between 0 and 120.");
             return;
@@ -439,6 +452,7 @@ const ReceiptForm: React.FC = () => {
             package_list_id: parseInt(selectedListId),
             items: validItems.map(({ id, isFromDb, ...rest }) => ({
                 ...rest,
+                package_list_id: parseInt(selectedListId),
                 discount: isNaN(rest.discount) ? 0 : rest.discount
             })),
             ...details,
@@ -514,8 +528,15 @@ const ReceiptForm: React.FC = () => {
                 alert("Please enter the customer's name.");
                 return;
             }
-            if (!newCustomer.age_years.trim() && !newCustomer.dob.trim()) {
-                alert("Please provide either Age (Years) or Date of Birth.");
+            const y = parseInt(newCustomer.age_years) || 0;
+            const m = parseInt(newCustomer.age_months) || 0;
+            const d = parseInt(newCustomer.age_days) || 0;
+            if (!newCustomer.dob.trim() && !newCustomer.age_years.trim() && !newCustomer.age_months.trim() && !newCustomer.age_days.trim()) {
+                alert("Please provide Age or Date of Birth.");
+                return;
+            }
+            if (y === 0 && m === 0 && d === 0) {
+                alert("Age cannot be 0Y 0M 0D. Please enter a valid age.");
                 return;
             }
         } else if (step === 2) {
