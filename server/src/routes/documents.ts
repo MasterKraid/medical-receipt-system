@@ -270,8 +270,8 @@ router.put('/receipts/:id', isAuthenticated, isAdmin, (req, res) => {
                 : undefined;
 
             // 8. Update receipt metadata
-            db.prepare(`UPDATE receipts SET customer_id = ?, total_mrp = ?, amount_final = ?, amount_received = ?, amount_due = ?, payment_method = ?, referred_by = ?, notes = ?, num_tests = ?, logo_path = ? WHERE id = ?`)
-                .run(customerId, payload.total_mrp, payload.amount_final, payload.amount_received, payload.amount_due, payload.payment_method, payload.referred_by, payload.notes, payload.num_tests || (payload.items || []).length, lab?.logo_path || existingReceipt.logo_path, receiptId);
+            db.prepare(`UPDATE receipts SET customer_id = ?, total_mrp = ?, amount_final = ?, amount_received = ?, amount_due = ?, payment_method = ?, referred_by = ?, notes = ?, num_tests = ?, logo_path = ?, acting_as_client_id = ? WHERE id = ?`)
+                .run(customerId, payload.total_mrp, payload.amount_final, payload.amount_received, payload.amount_due, payload.payment_method, payload.referred_by, payload.notes, payload.num_tests || (payload.items || []).length, lab?.logo_path || existingReceipt.logo_path, newTargetClientId !== -1 ? newTargetClientId : null, receiptId);
 
             return db.prepare('SELECT * FROM receipts WHERE id = ?').get(receiptId) as Receipt;
         })();

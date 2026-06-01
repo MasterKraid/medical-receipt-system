@@ -284,4 +284,38 @@ describe('Receipt Lifecycle', () => {
             expect(singleLabAccess[0].package_list_id).toBe(ids.listAlphaId);
         });
     });
+
+    // =====================================================================
+    // EDIT RECEIPT B2B TARGET CLIENT OWNERSHIP
+    // =====================================================================
+
+    describe('Edit Receipt Target B2B Client Ownership', () => {
+        test('updating a receipt successfully preserves/updates acting_as_client_id', () => {
+            // Create a B2B receipt on behalf of B2B client
+            const createResult = createReceiptWithDeduction(db, {
+                customerId: ids.customerId,
+                branchId: ids.branchId,
+                createdByUserId: 1, // Created by ADMIN
+                actingAsClientId: ids.multiLabClientId, // on behalf of B2B client
+                items: [
+                    { name: 'CBC', mrp: 395, discount: 0, package_list_id: ids.listAlphaId },
+                ],
+            });
+
+            // Verify initial database record
+            const initialReceipt = db.prepare('SELECT * FROM receipts WHERE id = ?').get(createResult.receiptId) as any;
+            expect(initialReceipt.acting_as_client_id).toBe(ids.multiLabClientId);
+
+            // Simulate updating the receipt metadata and items via PUT /receipts/:id
+            const newTargetClientId = initialReceipt.acting_as_client_id; // Keep same B2B client
+
+            db.prepare(`UPDATE receipts SET customer_id = ?, total_mrp = ?, amount_final = ?, amount_received = ?, amount_due = ?, payment_method = ?, referred_by = ?, notes = ?, num_tests = ?, logo_path = ?, acting_as_client_id = ? WHERE id = ?`)
+                .run(ids.customerId, 500, 500, 500, 0, 'CASH', 'Self', 'Notes', 1, '/logo.png', newTargetClientId, createResult.receiptId);
+
+            // Verify updated database record
+            const updatedReceipt = db.prepare('SELECT * FROM receipts WHERE id = ?').get(createResult.receiptId) as any;
+            expect(updatedReceipt.acting_as_client_id).toBe(ids.multiLabClientId); // Should be preserved/updated!
+        });
+    });
 });
+

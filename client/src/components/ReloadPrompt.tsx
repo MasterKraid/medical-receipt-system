@@ -1,6 +1,9 @@
+import { useEffect, useRef } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 
 function ReloadPrompt() {
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
+
   const {
     offlineReady: [offlineReady, setOfflineReady],
     needRefresh: [needRefresh, setNeedRefresh],
@@ -8,11 +11,33 @@ function ReloadPrompt() {
   } = useRegisterSW({
     onRegistered(r) {
       console.log('Service Worker registered:', r);
+      if (r) {
+        registrationRef.current = r;
+        // Trigger initial check on load/refresh
+        r.update().catch(console.error);
+      }
     },
     onRegisterError(error) {
       console.log('Service Worker registration error:', error);
     },
   });
+
+  useEffect(() => {
+    const handleReopen = () => {
+      if (document.visibilityState === 'visible' && registrationRef.current) {
+        console.log('App reopened/focused, checking for service worker updates...');
+        registrationRef.current.update().catch(console.error);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleReopen);
+    window.addEventListener('focus', handleReopen);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleReopen);
+      window.removeEventListener('focus', handleReopen);
+    };
+  }, []);
 
   const close = () => {
     setOfflineReady(false);
