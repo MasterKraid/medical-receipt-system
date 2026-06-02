@@ -406,8 +406,21 @@ router.post('/package-lists', isAdmin, (req, res) => {
 });
 
 router.delete('/package-lists/:id', isAdmin, (req, res) => {
+    const listId = req.params.id;
     try {
-        db.prepare('DELETE FROM package_lists WHERE id = ?').run(req.params.id);
+        // Prevent deletion if the rate list is currently assigned to one or more B2B clients
+        const userRef = db.prepare('SELECT COUNT(*) as count FROM user_package_list_access WHERE package_list_id = ?').get(listId) as { count: number };
+        if (userRef && userRef.count > 0) {
+            return res.status(400).json({ message: "Cannot delete rate list because it is currently assigned to one or more B2B clients. Please unassign it first." });
+        }
+
+        // Prevent deletion if the rate list is referenced in existing billing/receipt history
+        const refCount = db.prepare('SELECT COUNT(*) as count FROM receipt_items WHERE package_list_id = ?').get(listId) as { count: number };
+        if (refCount && refCount.count > 0) {
+            return res.status(400).json({ message: "Cannot delete rate list because it is referenced in existing patient receipts/billing history." });
+        }
+
+        db.prepare('DELETE FROM package_lists WHERE id = ?').run(listId);
         res.status(204).send();
     } catch (e: any) { res.status(500).json({ message: e.message }); }
 });

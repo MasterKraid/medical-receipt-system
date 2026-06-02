@@ -23,6 +23,18 @@ function ReloadPrompt() {
   });
 
   useEffect(() => {
+    if (needRefresh) {
+      const timer = setTimeout(() => {
+        console.log('Auto-reloading for PWA update after 5 seconds...');
+        updateServiceWorker(true);
+        window.location.reload();
+      }, 5000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [needRefresh, updateServiceWorker]);
+
+  useEffect(() => {
     const handleReopen = () => {
       if (document.visibilityState === 'visible' && registrationRef.current) {
         console.log('App reopened/focused, checking for service worker updates...');
@@ -59,7 +71,10 @@ function ReloadPrompt() {
             {needRefresh && (
               <button
                 className="px-3 py-1 bg-blue-600 text-white rounded text-sm font-semibold hover:bg-blue-700 transition-colors"
-                onClick={() => updateServiceWorker(true)}
+                onClick={() => {
+                  updateServiceWorker(true);
+                  window.location.reload();
+                }}
               >
                 Reload
               </button>

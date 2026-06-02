@@ -179,7 +179,7 @@ const ReceiptForm: React.FC = () => {
 
     // Validate and update item prices when package list changes (e.g. lab/category switch)
     useEffect(() => {
-        if (packages.length > 0 && items.length > 0) {
+        if (items.length > 0) {
             setItems(prevItems => {
                 let changed = false;
                 const updated = prevItems.map(item => {
@@ -758,7 +758,10 @@ const ReceiptForm: React.FC = () => {
                     {showLabSelector ? (
                         <div>
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1 px-1">Laboratory</label>
-                            <CleanSelect options={labs.map(lab => ({ value: lab.id.toString(), label: lab.name }))} value={selectedLabId} onChange={val => setSelectedLabId(val)} placeholder="Select Lab" />
+                            <CleanSelect options={labs.map(lab => ({ value: lab.id.toString(), label: lab.name }))} value={selectedLabId} onChange={val => {
+                                setSelectedLabId(val);
+                                setItems([{ id: Date.now(), name: '', mrp: 0, b2b_price: 0, discount: 0, isFromDb: false }]);
+                            }} placeholder="Select Lab" />
                         </div>
                     ) : (
                         labs.length === 1 && (
@@ -771,7 +774,10 @@ const ReceiptForm: React.FC = () => {
                     {showListSelector ? (
                         <div>
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1 px-1">Rate Category</label>
-                            <CleanSelect options={packageLists.map(list => ({ value: list.id.toString(), label: list.name }))} value={selectedListId} onChange={val => setSelectedListId(val)} disabled={!selectedLabId} placeholder="Select Rate System" />
+                            <CleanSelect options={packageLists.map(list => ({ value: list.id.toString(), label: list.name }))} value={selectedListId} onChange={val => {
+                                setSelectedListId(val);
+                                setItems([{ id: Date.now(), name: '', mrp: 0, b2b_price: 0, discount: 0, isFromDb: false }]);
+                            }} disabled={!selectedLabId} placeholder="Select Rate System" />
                         </div>
                     ) : null}
                 </div>
